@@ -1,0 +1,4 @@
+django>2.2
+tornado~=6.1
+locust>=1.4
+coverage>=5.3

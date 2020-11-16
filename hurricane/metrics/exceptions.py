@@ -1,0 +1,2 @@
+class MetricIdAlreadyRegistered(Exception):
+    pass

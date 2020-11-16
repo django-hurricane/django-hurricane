@@ -1,0 +1,37 @@
+
+stages:
+  - test
+  - build
+  - publish
+
+
+black:
+  stage: test
+  image: quay.io/blueshoe/python-qa:master
+  tags:
+    - python-black
+  script:
+    - black --line-length=120 --check .
+
+
+build:
+  stage: build
+  tags:
+    - pypi
+  script:
+    - python setup.py bdist_wheel
+  artifacts:
+    when: on_success
+    paths:
+      - dist/*
+
+
+publish:
+  stage: publish
+  tags:
+    - pypi
+  script:
+    - VERSION=$(python setup.py -V)
+    - PKG=$(python setup.py --name)
+    - pypi-private -v publish $PKG $VERSION
+

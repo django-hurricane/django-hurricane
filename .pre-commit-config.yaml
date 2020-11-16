@@ -1,0 +1,52 @@
+repos:
+# black - format python code
+- repo: https://github.com/psf/black
+  rev: 20.8b1
+  hooks:
+    - id: black
+      args: # arguments to configure black
+        - --line-length=120
+
+        # these folders wont be formatted by black
+        - --exclude="""\.git |
+          \.__pycache__|
+          \.hg|
+          \.mypy_cache|
+          \.tox|
+          \.venv|
+          migrations|
+          _build|
+          buck-out|
+          build|
+          dist"""
+
+      language_version: python3.8
+
+# flake8 - style guide enforcement
+- repo: https://gitlab.com/pycqa/flake8
+  rev: 3.8.4
+  hooks:
+    - id: flake8
+      args: # arguments to configure flake8
+        # making line length compatible with black
+        - "--max-line-length=120"
+        - "--max-complexity=18"
+        - "--select=B,C,E,F,W,T4,B9"
+
+        # these are errors that will be ignored by flake8
+        # check out their meaning here
+        # https://flake8.pycqa.org/en/latest/user/error-codes.html
+        - "--ignore=E203,E266,E501,W503,F403,F401,E402"
+
+# isort - organize import correctly
+- repo: https://github.com/PyCQA/isort
+  rev: 5.6.4
+  hooks:
+  - id: isort
+
+# gitlint - correct git commit format
+-   repo: https://github.com/jorisroovers/gitlint
+    rev:  v0.15.0
+    hooks:
+    -   id: gitlint
+
