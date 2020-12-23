@@ -3,8 +3,12 @@ import os
 
 from setuptools import find_packages, setup
 
-with open("VERSION") as v_file:
-    VERSION = v_file.read()
+base_dir = os.path.abspath(os.path.dirname(__file__))
+with open(os.path.join(base_dir, "VERSION")) as f:
+    VERSION = f.read()
+
+with open(os.path.join(base_dir, "README.md"), encoding="utf-8") as f:
+    long_description = f.read()
 
 DESCRIPTION = "Django Hurricane is an initiative to make Django more cloud-native compatible."
 
@@ -12,6 +16,8 @@ DESCRIPTION = "Django Hurricane is an initiative to make Django more cloud-nativ
 setup(
     name="django-hurricane",
     description=DESCRIPTION,
+    long_description=long_description,
+    long_description_content_type="text/markdown",
     version=VERSION,
     install_requires=[
         "tornado~=6.1",
