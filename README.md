@@ -1,4 +1,4 @@
-![Hurricane Logo](https://gitlab.blueshoe.de/Blueshoe/hurricane/raw/master/docs/_static/img/logo.png)
+![Hurricane Logo](https://raw.githubusercontent.com/Blueshoe/django-hurricane/master/docs/_static/img/logo.png)
 
 --------------------------------------------------------------------------------
 
