@@ -1,8 +1,10 @@
 ![Hurricane Logo](https://raw.githubusercontent.com/Blueshoe/django-hurricane/master/docs/_static/img/logo.png)
 
 --------------------------------------------------------------------------------
+[![PyPI version](https://badge.fury.io/py/django-hurricane.svg)](https://badge.fury.io/py/django-hurricane)
 [![Build Status](https://travis-ci.org/Blueshoe/django-hurricane.svg?branch=master)](https://travis-ci.org/Blueshoe/django-hurricane)
 [![Coverage Status](https://coveralls.io/repos/github/Blueshoe/django-hurricane/badge.svg)](https://coveralls.io/github/Blueshoe/django-hurricane)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
 Hurricane is an initiative to fit Django perfectly with Kubernetes. It is supposed to cover
