@@ -22,6 +22,7 @@ setup(
     install_requires=[
         "tornado~=6.1",
         "Django>=2.2",
+        "pika~=1.1.0",
     ],
     python_requires="~=3.8",
     packages=[

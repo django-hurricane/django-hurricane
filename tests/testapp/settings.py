@@ -16,7 +16,6 @@ STATIC_URL = "/static/"
 
 ROOT_URLCONF = "tests.testapp.urls"
 
-
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
@@ -37,6 +36,11 @@ LOGGING = {
             "handlers": ["console"],
             "level": os.getenv("HURRICANE_LOG_LEVEL", "INFO"),
             "propagate": False,
-        }
+        },
+        "pika": {
+            "handlers": ["console"],
+            "level": "ERROR",
+            "propagate": False,
+        },
     },
 }

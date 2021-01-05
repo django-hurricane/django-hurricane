@@ -69,11 +69,11 @@ In the future, Hurricane provides a sophisticated Django-celery integration with
 
 
 ### AMQP Worker/Consumer
-In the future, Hurricane provides a generic *amqp* worker with health checks and Kubernetes-scaling.
+Hurricane provides a generic yet simple *amqp* worker with health checks and Kubernetes-scaling.
 
 **Todo**
 
-- [ ] Concept draft
+- [x] Concept draft
 - [ ] Kubernetes health probes for amqp workers
 - [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
 - [ ] Implement the Kubernetes Metrics API
@@ -146,10 +146,80 @@ added to the application's port.
 Be sure to add the *hurricane* logger to your Django logging configuration otherwise you won't see any output
 the moment you started the application server. Feel free to adjust the log level according to your needs.
 
+### AMQP Worker
+
+#### Run the AMQP (0-9-1) Consumer
+
+In order to start the Django-powered AMQP consumer run the management command *consume*:  
+
+```bash
+python manage.py consume HANLDER 
+```
+This command starts a [Pika-based](https://pika.readthedocs.io/en/stable/) amqp consumer which is observed by
+Kubernetes. The required *Handler* argument is the dotted path to an *_AMQPConsumer* implementation. Please use
+the *TopicHandler* as base class for your handler implementation as it is the only supported exchange type at the moment.
+It's primarily required to implement the *on_message(...)* method to handle incoming amqp messages.
+
+In order to establish a connection to the broker you case use one of the folloging options:  
+Load from *Django Settings* or *environment variables*:  
+
+| Variable  | Help |  
+| :----     | :---  |  
+| AMQP_HOST | amqp broker host |
+| AMQP_PORT | amqp broker port |  
+|AMQP_VHOST | virtual host (defaults to "/") |  
+|AMQP_USER | username for broker connection |  
+|AMQP_PASSWORD | password for broker connection |   
+
+The precedence is: 1. command line option (if available), 2. django settings, 3. environment variable
+
+There are a couple of command options:  
+
+| Option         | Help  |   
+| :----          | :---  |
+| --queue        | The queue name this consumer declares and binds to |  
+| --exchange     | The exchange name this consumer declares |  
+| --amqp-host    | The broker host name in the cluster |  
+| --amqp-port    | The broker service port |  
+| --amqp-vhost   | The consumer's virtual host to use  |  
+| --reconnect    | Reconnect the consumer if the broker connection is lost (not recommended) |  
+| --autoreload   | Reload code on change |  
+| --debug        | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |
+| --probe        | The exposed path (default is /alive) for probes to check liveness and readyness |
+| --probe-port   | The port for Tornado probe routes to listen on (default is the next port of --port) |  
+| --no-probe     | Disable probe endpoint |  
+
+
+#### Example AMQP Consumer
+
+Please see this example implementation of a useless AMQP handler:
+```python
+# file: myamqp/consumer.py
+from hurricane.amqp.basehandler import TopicHandler
+
+
+class MyTestHandler(TopicHandler):
+    def on_message(self, _unused_channel, basic_deliver, properties, body):
+        print(body.decode("utf-8"))
+        self.acknowledge_message(basic_deliver.delivery_tag)
+```
+
+This handler is started using the following command:
+```bash
+python manage.py consume myamqp.consumer.MyTestHandler --queue my.test.topic --exchange test \ 
+--amqp-host 127.0.0.1 --amqp-port 5672
+```
+
+
 ## Test Hurricane
+
+In order to run the entire test suite do:
 ```shell
 pip install -r requirements.txt
 coverage run manage.py test
 coverage combine
 coverage report
 ```
+**Important:** the AMQP testcase requires *Docker* to be accessible from your current user as it 
+spins up a container with *RabbitMQ*. The AMQP consumer under test will connect to
+it and exchange messages using the *TestPublisher* class.
