@@ -21,7 +21,7 @@ class Command(BaseCommand):
     help = "Start a Tornado-powered Django AMQP 0-9-1 consumer"
 
     def add_arguments(self, parser):
-        parser.add_argument("--queue", type=str, help="The AMQP 0-9-1 queue to consume from")
+        parser.add_argument("--queue", type=str, default="", help="The AMQP 0-9-1 queue to consume from")
         parser.add_argument("--exchange", type=str, default="", help="The AMQP 0-9-1 exchange to declare")
         parser.add_argument(
             "--amqp-port",
