@@ -6,19 +6,19 @@ from hurricane.testing import HurricanServerTest
 class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cylce_server
     def test_default_startup(self):
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertIn("Starting a Tornado-powered Django web server on port 8000", out)
         self.assertIn("Probe application running on port 8001 with route /alive", out)
 
     @HurricanServerTest.cylce_server(args=["--port", "8085"])
     def test_port_startup(self):
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertIn("Starting a Tornado-powered Django web server on port 8085", out)
         self.assertIn("Probe application running on port 8086 with route /alive", out)
 
     @HurricanServerTest.cylce_server(args=["--probe", "probe", "--probe-port", "8090"])
     def test_probe_startup(self):
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertIn("Starting a Tornado-powered Django web server on port 8000", out)
         self.assertIn("Probe application running on port 8090 with route /probe", out)
         res = self.probe_client.get("/probe")
@@ -28,7 +28,7 @@ class HurricanStartServerTests(HurricanServerTest):
 
     @HurricanServerTest.cylce_server(args=["--probe", "probe", "--probe-port", "8000", "--port", "8000"])
     def test_probe_integrated_startup(self):
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertIn("Starting a Tornado-powered Django web server on port 8000", out)
         self.assertIn("Probe application with route /probe running integrated on port 8000", out)
         res = self.probe_client.get("/probe")
@@ -43,14 +43,14 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cylce_server
     def test_request(self):
         res = self.app_client.get("/")
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 200)
         self.assertIn("200 GET / ", out)
         self.assertIn("Hello world", res.text)
 
     @HurricanServerTest.cylce_server(args=["--static", "--media"])
     def test_serve_statics_and_media(self):
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertIn("Starting a Tornado-powered Django web server on port 8000", out)
         self.assertIn("Probe application running on port 8001 with route /alive", out)
 
@@ -72,7 +72,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.app_client.get("/")
         self.app_client.get("/")
         self.app_client.get("/")
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         result = 0
         for line in out.split("\n"):
             timing = self._get_timing_from_string(line)
@@ -83,14 +83,14 @@ class HurricanStartServerTests(HurricanServerTest):
 
         timing = float(self._get_timing_from_string(res.text))
         self.assertEqual(res.status, 200)
-        self.assertAlmostEqual(result, timing, 2)
+        self.assertAlmostEqual(result, timing, 1)
 
     @HurricanServerTest.cylce_server
     def test_log_outputs(self):
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         res = self.app_client.get("/doesnotexist")
         self.assertEqual(res.status, 404)
-        out, err = self.server.get_server_output(read_all=True)
+        out, err = self.driver.get_output(read_all=True)
         self.assertIn(" 404 GET /doesnotexist", out)
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
