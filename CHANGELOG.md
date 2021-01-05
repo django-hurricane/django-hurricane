@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 (2021-01-05)
+
+#### Bugfix
+
+* resolves bug when using consume without --queue option
+
 ## 0.4.0 (2021-01-05)
 
 #### New Features
