@@ -10,7 +10,7 @@ with open(os.path.join(base_dir, "VERSION")) as f:
 with open(os.path.join(base_dir, "README.md"), encoding="utf-8") as f:
     long_description = f.read()
 
-DESCRIPTION = "Django Hurricane is an initiative to make Django more cloud-native compatible."
+DESCRIPTION = "Hurricane is an initiative to fit Django perfectly with Kubernetes."
 
 
 setup(
