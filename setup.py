@@ -27,6 +27,10 @@ setup(
     python_requires="~=3.8",
     packages=[
         "hurricane",
+        "hurricane.amqp",
+        "hurricane.metrics",
+        "hurricane.server",
+        "hurricane.testing",
         "hurricane.management",
         "hurricane.management.commands",
     ],
