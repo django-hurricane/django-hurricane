@@ -59,10 +59,10 @@ class HurricaneBaseDriver(object):
             out.close()
 
         if coverage:
-            self.base_command = self.coverage_base_command
+            base_command = self.coverage_base_command
 
         if params:
-            self.base_command = self.base_command + params
+            base_command = self.base_command + params
         if params and "--port" in params:
             self.port = int(params[params.index("--port") + 1])
         else:
@@ -73,7 +73,7 @@ class HurricaneBaseDriver(object):
         else:
             self.probe_port = 8001
 
-        self.proc = subprocess.Popen(self.base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.proc = subprocess.Popen(base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         self.q = Queue()
         self.t_stderr = Thread(target=enqueue_stderr, args=(self.proc, self.q))
         self.t_stdout = Thread(target=enqueue_stdout, args=(self.proc, self.q))

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 (2021-01-05)
+
+#### Bugfix
+
+* resolves bug when using test driver without coverage multiple times
+
 ## 0.4.1 (2021-01-05)
 
 #### Bugfix
