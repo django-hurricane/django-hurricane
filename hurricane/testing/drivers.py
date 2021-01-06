@@ -2,7 +2,7 @@ import subprocess
 from queue import Empty, Queue
 from threading import Thread
 from time import sleep
-from typing import Tuple
+from typing import List, Tuple
 
 import docker
 
@@ -144,7 +144,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         host, port = self.get_amqp_host_port()
         return TestPublisher(host, port, vhost)
 
-    def start_consumer(self, params: dict = None, coverage: bool = True) -> None:
+    def start_consumer(self, params: List[str] = None, coverage: bool = True) -> None:
         self._start(params, coverage)
 
     def stop_amqp(self) -> None:
