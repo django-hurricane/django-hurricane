@@ -32,7 +32,7 @@ class HurricanServerTest(HurricanBaseTest):
         super().tearDownClass()
 
     @staticmethod
-    def cylce_server(*args, **kwargs):
+    def cycle_server(*args, **kwargs):
         def _cycle_server(function):
             def wrapper(self):
                 if "args" in kwargs:
@@ -62,7 +62,7 @@ class HurricanServerTest(HurricanBaseTest):
             return _cycle_server
 
 
-class HurricanAMQPTest(HurricanBaseTest):
+class HurricaneAMQPTest(HurricanBaseTest):
     driver = HurricaneAMQPDriver
 
     @classmethod
@@ -72,8 +72,8 @@ class HurricanAMQPTest(HurricanBaseTest):
         super().tearDownClass()
 
     @staticmethod
-    def cylce_consumer(*args, **kwargs):
-        def _cylce_consumer(function):
+    def cycle_consumer(*args, **kwargs):
+        def _cycle_consumer(function):
             def wrapper(self):
                 if "args" in kwargs:
                     _args = kwargs["args"]
@@ -102,6 +102,6 @@ class HurricanAMQPTest(HurricanBaseTest):
             return wrapper
 
         if len(args) == 1 and callable(args[0]):
-            return _cylce_consumer(args[0])
+            return _cycle_consumer(args[0])
         else:
-            return _cylce_consumer
+            return _cycle_consumer
