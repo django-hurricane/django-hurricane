@@ -1,5 +1,6 @@
 import asyncio
 import functools
+from typing import List
 
 import pika
 from pika.adapters.tornado_connection import TornadoConnection
@@ -183,6 +184,13 @@ class _AMQPConsumer:
         cb = functools.partial(self.on_queue_declareok, userdata=queue_name)
         self._channel.queue_declare(queue=queue_name, callback=cb)
 
+    def get_routing_keys(self, queue_name: str) -> List[str]:
+        """Generate a list of binding keys for this queue. This method will
+        be called from on_queue_declareok in order to bind the declared queue
+        on to one or multiple routing keys.
+        """
+        return []
+
     def on_queue_declareok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
         """Method invoked by pika when the Queue.Declare RPC call made in
         setup_queue has completed. In this method we will bind the queue
@@ -192,14 +200,24 @@ class _AMQPConsumer:
         """
         queue_name = userdata
         logger.info(f"Binding to {queue_name}")
-        cb = functools.partial(self.on_bindok, userdata=queue_name)
-        self._channel.queue_bind(queue_name, exchange=self._exchange_name, callback=cb)
+        routing_keys = self.get_routing_keys(queue_name)
+        if len(routing_keys) == 0:
+            # no routing key applicable
+            cb = functools.partial(self.on_bindok, queue_name=queue_name)
+            self._channel.queue_bind(queue_name, exchange=self._exchange_name, callback=cb)
+        else:
+            for routing_key in routing_keys:
+                cb = functools.partial(self.on_bindok, queue_name=queue_name, routing_key=routing_key)
+                self._channel.queue_bind(queue_name, routing_key=routing_key, exchange=self._exchange_name, callback=cb)
 
-    def on_bindok(self, _unused_frame: pika.frame.Method, userdata: str):
+    def on_bindok(self, _unused_frame: pika.frame.Method, queue_name: str, routing_key: str = None):
         """Invoked by pika when the Queue.Bind method has completed. At this
         point we will set the prefetch count for the channel.
         """
-        logger.info(f"Queue bound: {userdata}")
+        if routing_key:
+            logger.info(f"Queue bound: {queue_name} with routing key {routing_key}")
+        else:
+            logger.info(f"Queue bound: {queue_name}")
         self.set_qos()
 
     def set_qos(self) -> None:
