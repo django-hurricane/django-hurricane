@@ -12,6 +12,9 @@ from hurricane.testing.actors import TestPublisher
 class HurricaneBaseDriver(object):
     proc = None
     log_lines = []
+    base_command = []
+    coverage_base_command = []
+    test_string = ""
 
     def get_server_host_port(self, probe_port=False) -> Tuple[str, int]:
         if probe_port:
@@ -43,8 +46,12 @@ class HurricaneBaseDriver(object):
                 return "", ""
         return "", ""
 
-    def _start(self, params: dict = None, coverage: bool = True) -> None:
+    def _start(self, params: List[str] = None, coverage: bool = True) -> None:
         self.log_lines = []
+        if coverage:
+            base_command = self.coverage_base_command
+        else:
+            base_command = self.base_command
 
         def enqueue_stdout(proc, queue):
             out = proc.stdout
@@ -58,11 +65,8 @@ class HurricaneBaseDriver(object):
                 queue.put(line.decode("utf-8"))
             out.close()
 
-        if coverage:
-            base_command = self.coverage_base_command
-
         if params:
-            base_command = self.base_command + params
+            base_command = base_command + params
         if params and "--port" in params:
             self.port = int(params[params.index("--port") + 1])
         else:
