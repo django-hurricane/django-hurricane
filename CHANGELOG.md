@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.5.0 (2021-01-06)
+
+#### New Features
+
+* computed routing key functionality
+
+#### Bugfix
+
+* correct type annotation
+
 ## 0.4.2 (2021-01-05)
 
 #### Bugfix
