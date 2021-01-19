@@ -1,3 +1,4 @@
+import socket
 import subprocess
 from queue import Empty, Queue
 from threading import Thread
@@ -15,6 +16,15 @@ class HurricaneBaseDriver(object):
     base_command = []
     coverage_base_command = []
     test_string = ""
+    ports = [8000, 8001]
+
+    def __init__(self):
+        for port in self.ports:
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                try:
+                    sock.bind(("127.0.0.1", port))
+                except OSError:
+                    raise Exception(f"Port {port} already in use.")
 
     def get_server_host_port(self, probe_port=False) -> Tuple[str, int]:
         if probe_port:
@@ -125,6 +135,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", "manage.py", "consume"]
     test_string = "Starting a Tornado-powered Django AMQP consumer"
+    ports = [5672, 8000, 8001]
 
     def start_amqp(self) -> None:
         client = docker.from_env()
