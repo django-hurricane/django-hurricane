@@ -3,7 +3,7 @@ from time import sleep
 from hurricane.testing import HurricaneAMQPTest
 
 
-class HurricaneStartAMQPTests(HurricanAMQPTest):
+class HurricaneStartAMQPTests(HurricaneAMQPTest):
     def _wait_for_queue(self, queue_name="test"):
         # wait 10 seconds to bind to queue
         for i in range(0, 20):
@@ -103,7 +103,7 @@ class HurricaneStartAMQPTests(HurricanAMQPTest):
         self._wait_for_queue()
         self.driver.stop_consumer()
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cylce_consumer(
         args=["tests.testapp.consumer.BindTestHandler", "--queue", "topic.read.consumer1", "--exchange", "test"]
     )
     def test_topic_publish_receive(self):
