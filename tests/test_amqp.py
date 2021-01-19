@@ -103,7 +103,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         self._wait_for_queue()
         self.driver.stop_consumer()
 
-    @HurricaneAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.BindTestHandler", "--queue", "topic.read.consumer1", "--exchange", "test"]
     )
     def test_topic_publish_receive(self):
