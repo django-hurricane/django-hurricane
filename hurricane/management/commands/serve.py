@@ -1,11 +1,13 @@
 import asyncio
 import functools
 import signal
-
+from concurrent.futures.thread import ThreadPoolExecutor
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
 from django.core.management.base import BaseCommand
+from django.core.management import call_command
+
 from tornado.platform.asyncio import AsyncIOMainLoop
 
 from hurricane.server import logger, make_http_server, make_probe_server
@@ -33,6 +35,7 @@ class Command(BaseCommand):
         )
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
+        parser.add_argument("--command", type=str, action="append", nargs="+")
 
     def handle(self, *args, **options):
         logger.info(f"Starting a Tornado-powered Django web server on port {options['port']}.")
@@ -65,12 +68,35 @@ class Command(BaseCommand):
         else:
             logger.info("No probe application running")
 
-        django_application = make_http_server(options, self.check, include_probe)
-        django_application.listen(options["port"])
-
-        # prepate the io loop
         loop = asyncio.get_event_loop()
 
+        def make_http_server_and_listen():
+            logger.info("Started HTTP Server")
+            django_application = make_http_server(options, self.check, include_probe)
+            django_application.listen(options["port"])
+
+        if options["command"]:
+
+            def command_task(callback, main_loop):
+                command_loop = asyncio.new_event_loop()
+                preliminary_commands = options["command"]
+                logger.info("Started execution of management commands")
+                for command in preliminary_commands:
+                    # split a command string to also get command options
+                    command_split = command[0].split()
+                    # call management command
+                    call_command(*command_split)
+                command_loop.close()
+                # start http server and listen to it
+                main_loop.call_soon_threadsafe(callback)
+
+            executor = ThreadPoolExecutor(max_workers=1)
+            # parameters of command_task are make_http_and_listen as callback and loop
+            fut = loop.run_in_executor(executor, command_task, make_http_server_and_listen, loop)
+        else:
+            make_http_server_and_listen()
+
+        # prepare the io loops
         def ask_exit(signame):
             logger.info(f"Received signal {signame}. Shutting down now.")
             loop.stop()
