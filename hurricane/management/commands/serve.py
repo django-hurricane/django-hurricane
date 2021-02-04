@@ -91,8 +91,18 @@ class Command(BaseCommand):
                 main_loop.call_soon_threadsafe(callback)
 
             executor = ThreadPoolExecutor(max_workers=1)
-            # parameters of command_task are make_http_and_listen as callback and loop
-            fut = loop.run_in_executor(executor, command_task, make_http_server_and_listen, loop)
+            # parameters of command_task are make_http_and_listen as callback and loop as main_loop
+            future = loop.run_in_executor(executor, command_task, make_http_server_and_listen, loop)
+
+            def exception_check_callback(future):
+                # checks if there were any exceptions in the executor and if any stops the loop
+                if future.exception():
+                    logger.error(future.exception())
+                    current_loop = asyncio.get_event_loop()
+                    current_loop.stop()
+
+            # callback runs after run_in_executor is done
+            future.add_done_callback(exception_check_callback)
         else:
             make_http_server_and_listen()
 
