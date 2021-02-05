@@ -2,7 +2,7 @@ import tornado
 from django.conf import settings
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric
-from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
+from hurricane.server.django import DjangoCheckHandler, DjangoHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
 
 
@@ -36,8 +36,8 @@ class HurricaneApplication(tornado.web.Application):
 def make_probe_server(options, check_func):
     """ create probe route application """
     handlers = [
-        (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-        (options["readiness_probe"], DjangoReadinessHandler, {"req_queue_len": options["req_queue_len"]}),
+        (options["liveness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
+        (options["readiness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
         (options["startup_probe"], DjangoStartupHandler),
     ]
     return HurricaneApplication(handlers, debug=options["debug"], metrics=False)
@@ -47,8 +47,8 @@ def make_http_server(options, check_func, include_probe=False):
     """ create all routes for this application """
     if include_probe:
         handlers = [
-            (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-            (options["readiness_probe"], DjangoReadinessHandler, {"check_handler": check_func}),
+            (options["liveness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
+            (options["readiness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
             (options["startup_probe"], DjangoStartupHandler),
         ]
     else:
