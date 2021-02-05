@@ -4,8 +4,9 @@ from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
 
-from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric, StartupTimeMetric
+from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric
 from hurricane.server.wsgi import HurricaneWSGIContainer
+from hurricane.metrics import StartupTimeMetric
 
 
 class DjangoHandler(tornado.web.RequestHandler):
@@ -30,17 +31,8 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
     def set_extra_headers(self, path):
         self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 
-    def _check(self):
-        pass
 
-    def get(self):
-        self._check()
-
-    def post(self):
-        self._check()
-
-
-class DjangoLivenessHandler(DjangoProbeHandler):
+class DjangoCheckHandler(DjangoProbeHandler):
     """
     This handler runs with every call to the probe endpoint which is supposed to be used
     with Kubernetes 'Liveness Probes'. The DjangoCheckHandler calls Django's Check Framework which
@@ -81,25 +73,11 @@ class DjangoLivenessHandler(DjangoProbeHandler):
         else:
             self.set_status(400)
 
+    def get(self):
+        self._check()
 
-class DjangoReadinessHandler(DjangoProbeHandler):
-    """
-    This handler runs with every call to the probe endpoint which is supposed to be used
-    with Kubernetes 'Readiness Probes'. The DjangoCheckHandler calls Django's Check Framework which
-    can be used to determine the application's health state during its operation.
-    """
-
-    def initialize(self, req_queue_len):
-        self.request_queue_length = req_queue_len
-
-    def _check(self):
-        if StartupTimeMetric.get():
-            if RequestQueueLengthMetric.get() > self.request_queue_length:
-                self.set_status(400)
-            else:
-                self.set_status(200)
-        else:
-            self.set_status(400)
+    def post(self):
+        self._check()
 
 
 class DjangoStartupHandler(DjangoProbeHandler):
@@ -113,7 +91,13 @@ class DjangoStartupHandler(DjangoProbeHandler):
 
     def _check(self):
         if StartupTimeMetric.get():
-            self.write(f"Startup was finished {StartupTimeMetric.get()}")
+            self.write("Startup was finished")
             self.set_status(200)
         else:
             self.set_status(400)
+
+    def get(self):
+        self._check()
+
+    def post(self):
+        self._check()
