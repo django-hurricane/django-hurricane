@@ -31,8 +31,17 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
     def set_extra_headers(self, path):
         self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 
+    def _check(self):
+        pass
 
-class DjangoCheckHandler(DjangoProbeHandler):
+    def get(self):
+        self._check()
+
+    def post(self):
+        self._check()
+
+
+class DjangoLivenessHandler(DjangoProbeHandler):
     """
     This handler runs with every call to the probe endpoint which is supposed to be used
     with Kubernetes 'Liveness Probes'. The DjangoCheckHandler calls Django's Check Framework which
@@ -73,11 +82,25 @@ class DjangoCheckHandler(DjangoProbeHandler):
         else:
             self.set_status(400)
 
-    def get(self):
-        self._check()
 
-    def post(self):
-        self._check()
+class DjangoReadinessHandler(DjangoProbeHandler):
+    """
+    This handler runs with every call to the probe endpoint which is supposed to be used
+    with Kubernetes 'Readiness Probes'. The DjangoCheckHandler calls Django's Check Framework which
+    can be used to determine the application's health state during its operation.
+    """
+
+    def initialize(self, req_queue_len):
+        self.request_queue_length = req_queue_len
+
+    def _check(self):
+        if StartupTimeMetric.get():
+            if RequestQueueLengthMetric.get() > self.request_queue_length:
+                self.set_status(400)
+            else:
+                self.set_status(200)
+        else:
+            self.set_status(400)
 
 
 class DjangoStartupHandler(DjangoProbeHandler):
@@ -91,13 +114,7 @@ class DjangoStartupHandler(DjangoProbeHandler):
 
     def _check(self):
         if StartupTimeMetric.get():
-            self.write("Startup was finished")
+            self.write(f"Startup was finished {StartupTimeMetric.get()}")
             self.set_status(200)
         else:
             self.set_status(400)
-
-    def get(self):
-        self._check()
-
-    def post(self):
-        self._check()
