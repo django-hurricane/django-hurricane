@@ -2,7 +2,7 @@ import tornado
 from django.conf import settings
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric
-from hurricane.server.django import DjangoCheckHandler, DjangoHandler
+from hurricane.server.django import DjangoCheckHandler, DjangoHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
 
 
@@ -35,14 +35,22 @@ class HurricaneApplication(tornado.web.Application):
 
 def make_probe_server(options, check_func):
     """ create probe route application """
-    handlers = [(options["probe"], DjangoCheckHandler, {"check_handler": check_func})]
+    handlers = [
+        (options["liveness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
+        (options["readiness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
+        (options["startup_probe"], DjangoStartupHandler),
+    ]
     return HurricaneApplication(handlers, debug=options["debug"], metrics=False)
 
 
 def make_http_server(options, check_func, include_probe=False):
     """ create all routes for this application """
     if include_probe:
-        handlers = [(options["probe"], DjangoCheckHandler, {"check_handler": check_func})]
+        handlers = [
+            (options["liveness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
+            (options["readiness_probe"], DjangoCheckHandler, {"check_handler": check_func}),
+            (options["startup_probe"], DjangoStartupHandler),
+        ]
     else:
         handlers = []
     # if static file serving is enabled
