@@ -1,5 +1,5 @@
-``hurricane.amqp``
-==================
+``AMQP Module``
+===============
 
 :mod:`hurricane.amqp.basehandler`
 ----------------------------------
