@@ -10,10 +10,22 @@ from hurricane.metrics import StartupTimeMetric
 
 
 class DjangoHandler(tornado.web.RequestHandler):
+
+    """
+    This handler transmits all standard requests to django application. Currently it uses WSGI Container based on
+    tornado WSGI Container.
+    """
+
     def initialize(self):
+        """
+        Initialization of Hurricane WSGI Container.
+        """
         self.django = HurricaneWSGIContainer(self, get_wsgi_application())
 
     def prepare(self) -> None:
+        """
+        Transmitting incoming request to django application via WSGI Container.
+        """
         self.django(self.request)
         self._finished = True
         self._log()
@@ -21,6 +33,7 @@ class DjangoHandler(tornado.web.RequestHandler):
 
 
 class DjangoProbeHandler(tornado.web.RequestHandler):
+
     """
     Parent class for all specific probe handlers.
     """
@@ -29,25 +42,36 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
         return None
 
     def set_extra_headers(self, path):
+        """
+        Setting of extra headers for cache-control, namely: no-store, no-cache, must-revalidate and max-age=0. It
+        means that information on requests and responses will not be stored.
+        """
         self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 
     def _check(self):
+        """
+        Checking application on several errors. Catches SystemCheckErrors of django system check framework and
+        checks the connection to the database.
+        """
         pass
 
     def get(self):
+        """
+        Get method, which runs the check.
+        """
         self._check()
 
     def post(self):
+        """
+        Post method, which runs the check.
+        """
         self._check()
 
 
 class DjangoLivenessHandler(DjangoProbeHandler):
     """
     This handler runs with every call to the probe endpoint which is supposed to be used
-    with Kubernetes 'Liveness Probes'. The DjangoCheckHandler calls Django's Check Framework which
-    can be used to determine the application's health state during its operation.
     """
-
     def initialize(self, check_handler):
         self.check = check_handler
 

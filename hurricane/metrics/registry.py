@@ -2,6 +2,11 @@ from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
 
 
 class MetricsRegistry:
+
+    """
+    Registering metrics and storing them in a metrics dictionary.
+    """
+
     def __init__(self):
         self.metrics = {}
 

@@ -17,9 +17,29 @@ from hurricane.server import logger, make_http_server, make_probe_server
 
 
 class Command(BaseCommand):
+
+    """
+    Start a Tornado-powered Django web server.
+    Implements serve command as a management command for django application.
+    The new command can be called using ``python manage.py server <arguments>``.
+    Arguments:
+        - ``--static`` - serve collected static files
+        - ``--media`` - serve media files
+        - ``--autoreload`` - reload code on change
+        - ``--debug`` - set Tornado's Debug flag
+        - ``--port`` - the port for Tornado to listen on
+        - ``--probe`` - the exposed path (default is /alive) for probes to check liveness and readyness
+        - ``--probe-port`` - the port for Tornado probe route to listen on
+        - ``--no-probe`` - disable probe endpoint
+        - ``--no-metrics`` - disable metrics collection
+    """
+
     help = "Start a Tornado-powered Django web server"
 
     def add_arguments(self, parser):
+        """
+        Defines arguments, that can be accepted with ``serve`` command.
+        """
         parser.add_argument("--static", action="store_true", help="Serve collected static files")
         parser.add_argument("--media", action="store_true", help="Serve media files")
         parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
@@ -54,6 +74,10 @@ class Command(BaseCommand):
         parser.add_argument("--command", type=str, action="append", nargs="+")
 
     def handle(self, *args, **options):
+        """
+        Defines functionalities for different arguments. After all arguments were processed, it starts the async event
+        loop.
+        """
         start_time = time.time()
         logger.info(f"Tornado-powered Django web server")
 
