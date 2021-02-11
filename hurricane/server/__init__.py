@@ -2,7 +2,7 @@ import tornado
 from django.conf import settings
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric
-from hurricane.server.django import DjangoHandler, DjangoStartupHandler, DjangoLivenessHandler, DjangoReadinessHandler
+from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
 
 
