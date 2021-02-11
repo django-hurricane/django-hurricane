@@ -10,8 +10,9 @@ from hurricane.amqp.basehandler import _AMQPConsumer
 
 
 class AMQPClient(object):
-    """This is the AMQP Client that will reconnect if the nested
-    handler instance indicates that a reconnect is necessary.
+
+    """
+    This is the AMQP Client that will reconnect, if the nested handler instance indicates that a reconnect is necessary.
     """
 
     def __init__(
@@ -45,6 +46,16 @@ class AMQPClient(object):
         self._consumer = self._consumer_klass(*self._consumer_args)
 
     def run(self, reconnect: bool = False) -> None:
+
+        """
+        If reconnect is True, AMQP consumer is running in auto-connect mode.
+        In this case consumer will be executed. If any exception occurs, consumer will be disconnected and after some
+        delay will be reconnected. Then consumer will be restarted. KeyboardInterrupt exception is handled
+        differently and stops consumer. In this case IOLoop will be terminated.
+
+        If reconnect is false, consumer will be started, but no exceptions and interruptions will be tolerated.
+        """
+
         if reconnect:
             logger.info("AMQP consumer running in auto-reconnect mode")
             while True:

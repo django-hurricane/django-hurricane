@@ -6,6 +6,12 @@ from tornado import escape, httputil
 
 
 class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
+    """
+    Wrapper for the tornado WSGI Container, which creates a WSGI-compatible function runnable on Tornado's
+    HTTP server. Additionally to tornado WSGI Container should be initialized with the specific handler.
+
+    """
+
     def __init__(self, handler, wsgi_application) -> None:
         self.handler = handler
         super(HurricaneWSGIContainer, self).__init__(wsgi_application)
