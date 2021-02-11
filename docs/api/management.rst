@@ -1,5 +1,5 @@
-``Management commands``
-=======================
+``hurricane.management``
+========================
 
 :mod:`hurricane.management.commands.serve`
 ------------------------------------------
