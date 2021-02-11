@@ -1,18 +1,19 @@
 import asyncio
 import functools
 import signal
+import time
+import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Callable
+
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
-from django.core.management.base import BaseCommand
 from django.core.management import call_command
-from hurricane.metrics import StartupTimeMetric
-import time
-from typing import Callable
+from django.core.management.base import BaseCommand
 from tornado.platform.asyncio import AsyncIOMainLoop
-import traceback
 
+from hurricane.metrics import StartupTimeMetric
 from hurricane.server import logger, make_http_server, make_probe_server
 
 
@@ -55,7 +56,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         start_time = time.time()
-        logger.info(f"Tornado-powered Django web server")
+        logger.info("Tornado-powered Django web server")
 
         if options["autoreload"]:
             tornado.autoreload.start()
@@ -136,7 +137,7 @@ class Command(BaseCommand):
             def exception_check_callback(future: asyncio.Future) -> None:
                 # checks if there were any exceptions in the executor and if any stops the loop
                 if future.exception():
-                    logger.error(f"Execution of command failed")
+                    logger.error("Execution of command failed")
                     # prints the whole tracestack
                     try:
                         future.result()

@@ -4,9 +4,8 @@ from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
 
-from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric
+from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.wsgi import HurricaneWSGIContainer
-from hurricane.metrics import StartupTimeMetric
 
 
 class DjangoHandler(tornado.web.RequestHandler):
