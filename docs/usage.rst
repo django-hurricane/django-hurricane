@@ -4,10 +4,9 @@ User's guide
 
 Introduction
 ------------
-Hurricane is an initiative to fit `Django <https://www.djangoproject.com/>`_ perfectly with
-`Kubernetes <https://kubernetes.io/>`_. It is supposed to cover many capabilities in order to run Django in a
-cloud-native environment, including a `Tornado <https://www.tornadoweb.org/>`_-powered Django application server. It
-was initially created by `Blueshoe GmbH <https://www.blueshoe.de/>`_.
+Hurricane is an initiative to fit Django perfectly with Kubernetes, initially it was developed by.
+It is supposed to cover many capabilities in order to run Django in a cloud-native environment, including a
+Tornado-powered Django application server.
 
 Django was developed with the batteries included-approach and already handles most of the challenges around web
 development with grace. It was initially developed at a time when web applications got deployed and run on a server
@@ -24,10 +23,6 @@ Django as tightly as possible with Kubernetes in order to harness the full power
 robust, scalable and secure applications with Django by leveraging the existing expertise of our favorite framework is
 the main goal of this initiative.
 
-Using Tornado-powered application server gives several advantages compared to the standard Django application server.
-It is single-threaded and at the same time non-blocking and includes a builtin IO Loop from
-`asyncio <https://docs.python.org/3/library/asyncio.html>`_ library, which is a huge advantage over a blocking
-behaviour of a standard Django application server.
 
 Application Server
 ------------------
@@ -99,27 +94,26 @@ yet or/and management commands are not finished yet. After finishing management 
 endpoint will return a response of status 200 and from that point, Kubernetes will know, that the application was
 started, so readiness and liveness probes can be polled.
 **2a** and **2b** are readiness and liveness probes respectively. Kubernetes will poll these probes, only after the
-startup probe returns 200 for the first time. The readiness probe checks the length of the request queue, if it
-is larger than the threshold, it returns 400, which means, that application is not ready for further requests.
+startup probe returns 200 for the first time. The readiness probe should check the length of the request queue, if it
+is larger than the threshold, it should return 400, which means, that application is not ready for further requests.
 The liveness probe uses Django system check framework to identify problems with the Django application.
-**3** are api requests, sent by the application service, which are then handled in Django application.
 
-Probe server, which defines handlers for every probe endpoint, runs in the main loop. Execution of management
-commands does not block the main event loop and thus runs in a separate executor. Upon successful execution
-of management commands, the HTTP server is started.
+Probe server, which defines handlers for every probe endpoint, should run in the main loop. Execution of management
+commands should not block the main event loop and thus should be run in a separate executor. Upon successful execution
+of management commands, the HTTP server should be started.
 
 
 **Logging**
 
-It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
-not be displayed when application server will be started.
+Be sure to add the *hurricane* logger to your Django logging configuration otherwise you won't see any output
+the moment you started the application server. Feel free to adjust the log level according to your needs.
 
 AMQP Worker
 -----------
 
 **Run the AMQP (0-9-1) Consumer**
 
-To start the Django-powered AMQP consumer run the management command *consume*:
+In order to start the Django-powered AMQP consumer run the management command *consume*:
 ::
     python manage.py consume HANLDER
 
@@ -128,7 +122,7 @@ Kubernetes. The required *Handler* argument is the dotted path to an *_AMQPConsu
 the *TopicHandler* as base class for your handler implementation as it is the only supported exchange type at the moment.
 It's primarily required to implement the *on_message(...)* method to handle incoming amqp messages.
 
-In order to establish a connection to the broker you case use one of the following options:
+In order to establish a connection to the broker you case use one of the folloging options:
 Load from *Django Settings* or *environment variables*:
 
 +----------------+-------------------------------------------------------------------------------------+
@@ -146,7 +140,7 @@ Load from *Django Settings* or *environment variables*:
 +----------------+-------------------------------------------------------------------------------------+
 
 
-The precedence is: 1. command line option (if available), 2. Django settings, 3. environment variable
+The precedence is: 1. command line option (if available), 2. django settings, 3. environment variable
 
 There are a couple of command options:
 
@@ -206,6 +200,6 @@ In order to run the entire test suite do:
    coverage combine
    coverage report
 
-**Important:** the AMQP testcase requires *Docker* to be accessible from the current user as it
-spins up a container with *RabbitMQ*. The AMQP consumer in a test mode will connect to
+**Important:** the AMQP testcase requires *Docker* to be accessible from your current user as it
+spins up a container with *RabbitMQ*. The AMQP consumer under test will connect to
 it and exchange messages using the *TestPublisher* class.

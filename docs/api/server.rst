@@ -1,5 +1,5 @@
-``hurricane.server``
-====================
+``Server``
+==========
 
 :mod:`hurricane.server.django`
 ------------------------------

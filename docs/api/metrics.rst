@@ -1,5 +1,5 @@
-``hurricane.metrics``
-=====================
+``Metrics``
+===========
 
 :mod:`hurricane.metrics.base`
 -----------------------------
