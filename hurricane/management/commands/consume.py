@@ -18,9 +18,35 @@ from hurricane.server import make_probe_server
 
 
 class Command(BaseCommand):
+
+    """
+    Starting a Tornado-powered Django AMQP 0-9-1 consumer.
+    Implements consume command as a management command for django application.
+    The new command can be called using ``python manage.py consume <arguments>``.
+    Arguments:
+        - ``--queue`` - the AMQP 0-9-1 queue to consume from
+        - ``--exchange`` - the AMQP 0-9-1 exchange to declare
+        - ``--amqp-port`` - the message broker connection port
+        - ``--amqp-host`` - the host address of the message broker
+        - ``--amqp-vhost`` - the virtual host of the message broker to use with this consumer
+        - ``--handler`` - the Hurricane AMQP handler class (dotted path)
+        - ``--probe`` - the exposed path (default is /alive) for probes to check liveness and readyness
+        - ``--probe-port`` - the port for Tornado probe route to listen on
+        - ``--no-probe`` - disable probe endpoint
+        - ``--no-metrics`` - disable metrics collection
+        - ``--autoreload`` - reload code on change
+        - ``--debug`` - set Tornado's Debug flag
+        - ``--reconnect`` - try to reconnect this client automatically as the broker is available again
+    """
+
     help = "Start a Tornado-powered Django AMQP 0-9-1 consumer"
 
     def add_arguments(self, parser):
+
+        """
+        Defines arguments, that can be accepted with ``consume`` command.
+        """
+
         parser.add_argument("--queue", type=str, default="", help="The AMQP 0-9-1 queue to consume from")
         parser.add_argument("--exchange", type=str, default="", help="The AMQP 0-9-1 exchange to declare")
         parser.add_argument(
@@ -62,6 +88,12 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+
+        """
+        Defines functionalities for different arguments. After all arguments were processed, it starts the async event
+        loop.
+        """
+
         logger.info("Starting a Tornado-powered Django AMQP consumer")
 
         if options["autoreload"]:
