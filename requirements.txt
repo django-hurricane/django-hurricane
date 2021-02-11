@@ -5,3 +5,5 @@ coverage>=5.3
 pika~=1.1.0
 docker~=4.1.0
 coveralls==2.2.0
+Sphinx==3.2.1
+sphinx-rtd-theme==0.5.0
