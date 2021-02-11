@@ -4,15 +4,35 @@ from hurricane.metrics.base import AverageMetric, CalculatedMetric, CounterMetri
 
 
 class RequestCounterMetric(CounterMetric):
+
+    """
+    Defines request counter metric with corresponding metric code.
+    """
+
     code = "request_counter"
 
 
 class ResponseTimeAverageMetric(AverageMetric):
+
+    """
+    Defines response time average metric with corresponding metric code.
+    """
+
     code = "response_time_average"
 
 
 class RequestQueueLengthMetric(CalculatedMetric):
+
+    """
+    Defines request queue length metric with corresponding metric code.
+    """
+
     code = "request_queue_length"
 
     def get_value(cls):
+
+        """
+        Getting length of the asyncio queue of all tasks.
+        """
+
         return len(asyncio.all_tasks())
