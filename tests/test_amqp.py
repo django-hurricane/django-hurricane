@@ -23,7 +23,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         self.assertIn("Starting a Tornado-powered Django AMQP consumer", out)
         self.assertIn(f"Connecting to {host}:{port}/", out)
         self._wait_for_queue()
-        res = self.probe_client.get("/alive")
+        res = self.probe_client.get("/startup")
         self.assertEqual(res.status, 200)
 
     @HurricaneAMQPTest.cycle_consumer(
@@ -35,15 +35,15 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
             "test",
             "--probe-port",
             "8080",
-            "--probe",
-            "probe",
+            "--startup-probe",
+            "/startup",
         ]
     )
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Starting a Tornado-powered Django AMQP consumer", out)
-        self.assertIn("hurricane.amqp.general Probe application running on port 8080 with route /probe", out)
-        res = self.probe_client.get("/probe")
+        self.assertIn("Probe application running on port 8080", out)
+        res = self.probe_client.get("/startup")
         self.assertEqual(res.status, 200)
 
     @HurricaneAMQPTest.cycle_consumer(
