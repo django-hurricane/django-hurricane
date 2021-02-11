@@ -1,9 +1,9 @@
 from time import sleep
 
-from hurricane.testing import HurricanAMQPTest
+from hurricane.testing import HurricaneAMQPTest
 
 
-class HurricanStartAMQPTests(HurricanAMQPTest):
+class HurricaneStartAMQPTests(HurricaneAMQPTest):
     def _wait_for_queue(self, queue_name="test"):
         # wait 10 seconds to bind to queue
         for i in range(0, 20):
@@ -14,7 +14,7 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         else:
             self.fail("AMQP consumer did not bind to test queue")
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
     )
     def test_default_startup(self):
@@ -26,7 +26,7 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         res = self.probe_client.get("/alive")
         self.assertEqual(res.status, 200)
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=[
             "tests.testapp.consumer.MyTestHandler",
             "--queue",
@@ -46,7 +46,7 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         res = self.probe_client.get("/probe")
         self.assertEqual(res.status, 200)
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test", "--no-probe"]
     )
     def test_no_probe_startup(self):
@@ -54,7 +54,7 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         self.assertIn("Starting a Tornado-powered Django AMQP consumer", out)
         self.assertIn("No probe application running", out)
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
     )
     def test_receive_message(self):
@@ -64,7 +64,7 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(testmessage, out)
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
     )
     def test_connection_lost(self):
@@ -80,7 +80,7 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         self.driver.proc.wait(5)
         self.assertIsNotNone(self.driver.proc.returncode)
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test", "--reconnect"]
     )
     def test_reconnect_on_lost(self):
@@ -96,14 +96,14 @@ class HurricanStartAMQPTests(HurricanAMQPTest):
         self.driver.start_amqp()
         self._wait_for_queue()
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
     )
     def test_disconnect(self):
         self._wait_for_queue()
         self.driver.stop_consumer()
 
-    @HurricanAMQPTest.cylce_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=["tests.testapp.consumer.BindTestHandler", "--queue", "topic.read.consumer1", "--exchange", "test"]
     )
     def test_topic_publish_receive(self):

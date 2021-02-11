@@ -4,7 +4,7 @@ from hurricane.testing import HurricanServerTest
 
 
 class HurricanStartServerTests(HurricanServerTest):
-    @HurricanServerTest.cylce_server
+    @HurricanServerTest.cycle_server
     def test_default_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
@@ -13,7 +13,7 @@ class HurricanStartServerTests(HurricanServerTest):
             out,
         )
 
-    @HurricanServerTest.cylce_server(args=["--port", "8085"])
+    @HurricanServerTest.cycle_server(args=["--port", "8085"])
     def test_port_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
@@ -40,13 +40,13 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get("/probe")
         self.assertEqual(res.status, 200)
 
-    @HurricanServerTest.cylce_server(args=["--no-metrics", "--probe-port", "8090"])
+    @HurricanServerTest.cycle_server(args=["--no-metrics", "--probe-port", "8090"])
     def test_nometrics_startup(self):
         res = self.probe_client.get("/alive")
         self.assertEqual(res.status, 200)
         self.assertIn("alive", res.text)
 
-    @HurricanServerTest.cylce_server
+    @HurricanServerTest.cycle_server
     def test_request(self):
         res = self.app_client.get("/")
         out, err = self.driver.get_output(read_all=True)
@@ -54,7 +54,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("200 GET / ", out)
         self.assertIn("Hello world", res.text)
 
-    @HurricanServerTest.cylce_server(args=["--static", "--media"])
+    @HurricanServerTest.cycle_server(args=["--static", "--media"])
     def test_serve_statics_and_media(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
@@ -63,7 +63,7 @@ class HurricanStartServerTests(HurricanServerTest):
             out,
         )
 
-    @HurricanServerTest.cylce_server
+    @HurricanServerTest.cycle_server
     def test_metrics_request(self):
         self.app_client.get("/")
         res = self.probe_client.get("/alive")
@@ -76,7 +76,7 @@ class HurricanStartServerTests(HurricanServerTest):
         if match:
             return match.group("value")
 
-    @HurricanServerTest.cylce_server
+    @HurricanServerTest.cycle_server
     def test_metrics_average_response_time(self):
         self.app_client.get("/")
         self.app_client.get("/")
@@ -94,7 +94,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertAlmostEqual(result, timing, 1)
 
-    @HurricanServerTest.cylce_server
+    @HurricanServerTest.cycle_server
     def test_log_outputs(self):
         out, err = self.driver.get_output(read_all=True)
         res = self.app_client.get("/doesnotexist")
@@ -104,7 +104,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
 
-    @HurricanServerTest.cylce_server
+    @HurricanServerTest.cycle_server
     def test_head_request(self):
         res = self.app_client.head("/")
         self.assertEqual(res.status, 200)
