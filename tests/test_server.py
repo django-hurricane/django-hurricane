@@ -9,7 +9,7 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
         self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readyness-probe: /ready, startup-probe: /startup",
+            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
 
@@ -18,7 +18,7 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
         self.assertIn(
-            "Starting probe application running on port 8086 with route liveness-probe: /alive, readyness-probe: /ready, startup-probe: /startup",
+            "Starting probe application running on port 8086 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
 
@@ -65,7 +65,7 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
         self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readyness-probe: /ready, startup-probe: /startup",
+            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
 
@@ -162,7 +162,7 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
         self.assertIn(
-            "Starting probe application running on port 8090 with route liveness-probe: /alive, readyness-probe: /ready, startup-probe: /startup",
+            "Starting probe application running on port 8090 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
         self.assertIn("Starting execution of management commands", out)

@@ -35,7 +35,7 @@ class Command(BaseCommand):
             "--readiness-probe",
             type=str,
             default="/ready",
-            help="The exposed path (default is /ready) for probes to check readyness",
+            help="The exposed path (default is /ready) for probes to check readiness",
         )
         parser.add_argument(
             "--startup-probe",
@@ -48,7 +48,7 @@ class Command(BaseCommand):
             type=int,
             help="The port for Tornado probe route to listen on",
         )
-        parser.add_argument("--req-queue-len", type=int, default=10, help="Lenght of the request queue")
+        parser.add_argument("--req-queue-len", type=int, default=10, help="Length of the request queue")
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
@@ -79,7 +79,7 @@ class Command(BaseCommand):
             if probe_port != options["port"]:
                 logger.info(
                     f"Starting probe application running on port {probe_port} with route liveness-probe: "
-                    f"{options['liveness_probe']}, readyness-probe: {options['readiness_probe']}, "
+                    f"{options['liveness_probe']}, readiness-probe: {options['readiness_probe']}, "
                     f"startup-probe: {options['startup_probe']}"
                 )
                 probe_application = make_probe_server(options, self.check)
@@ -88,7 +88,7 @@ class Command(BaseCommand):
                 include_probe = True
                 logger.info(
                     f"Starting probe application with routes liveness-probe: {options['liveness_probe']}, "
-                    f"readyness-probe: {options['readiness_probe']}, startup-probe: {options['startup_probe']} "
+                    f"readiness-probe: {options['readiness_probe']}, startup-probe: {options['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
 

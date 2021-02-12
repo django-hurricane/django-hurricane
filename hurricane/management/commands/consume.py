@@ -51,7 +51,7 @@ class Command(BaseCommand):
             "--readiness-probe",
             type=str,
             default="/ready",
-            help="The exposed path (default is /ready) for probes to check readyness",
+            help="The exposed path (default is /ready) for probes to check readiness",
         )
         parser.add_argument(
             "--startup-probe",

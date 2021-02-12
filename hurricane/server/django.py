@@ -108,8 +108,8 @@ class DjangoStartupHandler(DjangoProbeHandler):
     This handler runs with every call to the probe endpoint which is supposed to be used with Kubernetes
     'Startup Probes'. It returns 400 response for post and get requests, if StartupTimeMetric is not set, what means
     that the application is still in the startup phase. As soon as StartupTimeMetric is set, this handler returns 200
-    response upon request, it indicated, that startup phase is finished and Kubernetes can now poll
-    liveness/readyness probes.
+    response upon request, which indicates, that startup phase is finished and Kubernetes can now poll
+    liveness/readiness probes.
     """
 
     def _check(self):
