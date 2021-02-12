@@ -141,11 +141,17 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         client = docker.from_env()
         if hasattr(self, "container") and self.container:
             c = client.containers.run(
-                "rabbitmq:alpine", auto_remove=True, detach=True, ports={"5672": ("127.0.0.1", self._temp_port)}
+                "quay.io/blueshoe/rabbitmq3.8-alpine",
+                auto_remove=True,
+                detach=True,
+                ports={"5672": ("127.0.0.1", self._temp_port)},
             )
         else:
             c = client.containers.run(
-                "rabbitmq:alpine", auto_remove=True, detach=True, ports={"5672": ("127.0.0.1", None)}
+                "quay.io/blueshoe/rabbitmq3.8-alpine",
+                auto_remove=True,
+                detach=True,
+                ports={"5672": ("127.0.0.1", None)},
             )
         self.container = client.containers.get(c.id)
         # busy wait for rabbitmq to come up (timeout 10 seconds)
