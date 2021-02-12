@@ -136,7 +136,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
 
     @HurricanServerTest.cycle_server(
-        args=["--command", "makemigrations", "--command", "compilemessages", "--probe-port", "8090"]
+        args=["--command", "makemigrations", "--command", "makemigrations", "--probe-port", "8090"]
     )
     def test_startup_with_multiple_management_commands(self):
         out, err = self.driver.get_output(read_all=True)
@@ -144,7 +144,6 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Starting probe application running on port 8090 with route", out)
         self.assertIn("Starting execution of management commands", out)
         self.assertIn("No changes detected", out)
-        self.assertIn("processing file", out)
         self.assertIn("Starting HTTP Server on port 8000", out)
 
         res = self.probe_client.get("/startup")
