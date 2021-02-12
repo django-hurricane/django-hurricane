@@ -25,7 +25,7 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--no-probe"])
     def test_no_probe(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Starting a Tornado-powered Django web server on port 8000", out)
+        self.assertIn("Tornado-powered Django web server", out)
         self.assertIn("No probe application running", out)
 
     @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8090"])
