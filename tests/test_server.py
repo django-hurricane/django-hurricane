@@ -110,7 +110,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertEqual(res.text, "")
 
-    @HurricanServerTest.cylce_server(args=["--command", "makemigrations", "--probe-port", "8090"])
+    @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
     def test_startup_with_single_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
@@ -129,7 +129,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
 
-    @HurricanServerTest.cylce_server(
+    @HurricanServerTest.cycle_server(
         args=["--command", "makemigrations", "--command", "compilemessages", "--probe-port", "8090"]
     )
     def test_startup_with_multiple_management_commands(self):
@@ -152,7 +152,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
 
-    @HurricanServerTest.cylce_server(args=["--command", "migrate", "--probe-port", "8090"])
+    @HurricanServerTest.cycle_server(args=["--command", "migrate", "--probe-port", "8090"])
     def test_startup_failing_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
