@@ -8,9 +8,10 @@
   :width: 400
   :alt: Alternative text
 |
-Hurricane is an initiative to fit Django perfectly with Kubernetes. It is supposed to cover many capabilities in order
-to run Django in a cloud-native environment, including a Tornado-powered Django application server. It was initially
-created by `Blueshoe GmbH <https://www.blueshoe.de/>`_.
+Hurricane is an initiative to fit `Django <https://www.djangoproject.com/>`_ perfectly with
+`Kubernetes <https://kubernetes.io/>`_. It is supposed to cover many capabilities in order to run Django in a
+cloud-native environment, including a `Tornado <https://www.tornadoweb.org/>`_-powered Django application server. It
+was initially created by `Blueshoe GmbH <https://www.blueshoe.de/>`_.
 
 .. toctree::
    :maxdepth: 2
