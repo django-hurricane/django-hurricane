@@ -223,3 +223,10 @@ coverage report
 **Important:** the AMQP testcase requires *Docker* to be accessible from your current user as it 
 spins up a container with *RabbitMQ*. The AMQP consumer under test will connect to
 it and exchange messages using the *TestPublisher* class.
+
+## Docs
+To build the docs run this command in a docs directory:
+```bash
+make html
+```
+
