@@ -16,6 +16,12 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Starting a Tornado-powered Django web server on port 8085", out)
         self.assertIn("Probe application running on port 8086 with route /alive", out)
 
+    @HurricanServerTest.cycle_server(args=["--no-probe"])
+    def test_no_probe(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn("Starting a Tornado-powered Django web server on port 8000", out)
+        self.assertIn("No probe application running", out)
+
     @HurricanServerTest.cycle_server(args=["--probe", "probe", "--probe-port", "8090"])
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
