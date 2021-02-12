@@ -65,7 +65,7 @@ class Command(BaseCommand):
             default=8001,
             help="The port for Tornado probe route to listen on",
         )
-        parser.add_argument("--req-queue-len", type=int, default=10, help="Lenght of the request queue")
+        parser.add_argument("--req-queue-len", type=int, default=10, help="Length of the request queue")
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
