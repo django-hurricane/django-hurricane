@@ -4,9 +4,8 @@ from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
 
-from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric
+from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.wsgi import HurricaneWSGIContainer
-from hurricane.metrics import StartupTimeMetric
 
 
 class DjangoHandler(tornado.web.RequestHandler):
@@ -72,6 +71,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     """
     This handler runs with every call to the probe endpoint which is supposed to be used
     """
+
     def initialize(self, check_handler):
         self.check = check_handler
 
