@@ -56,17 +56,21 @@ There are a couple of command options:
 +------------------+-------------------------------------------------------------------------------------+
 | --port           | The port for Tornado to listen on (default is port 8000)                            |
 +------------------+-------------------------------------------------------------------------------------+
-| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
+| --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
 +------------------+-------------------------------------------------------------------------------------+
-| --no-probe       | Disable probe endpoint                                                              |
+| --readiness-probe| The exposed path (default is /ready) for probes to check readiness                  |
++------------------+-------------------------------------------------------------------------------------+
+| --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
++------------------+-------------------------------------------------------------------------------------+
+| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
 +------------------+-------------------------------------------------------------------------------------+
 | --req-queue-len  | Threshold of length of queue of request, which is considered for readiness probe    |
 +------------------+-------------------------------------------------------------------------------------+
-| --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
+| --no-probe       | Disable probe endpoint                                                              |
 +------------------+-------------------------------------------------------------------------------------+
-| --readiness-probe| The exposed path (default is /ready) for probes to check readyness                  |
+| --no-metrics     | Disable metrics collection                                                          |
 +------------------+-------------------------------------------------------------------------------------+
-| --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
+| --command        | Repetitive command for adding execution of management commands before serving       |
 +------------------+-------------------------------------------------------------------------------------+
 
 
@@ -150,31 +154,39 @@ The precedence is: 1. command line option (if available), 2. Django settings, 3.
 
 There are a couple of command options:
 
-+--------------+-------------------------------------------------------------------------------------+
-| **Option**   | **Description**                                                                     |
-+--------------+-------------------------------------------------------------------------------------+
-| --queue      | The queue name this consumer declares and binds to                                  |
-+--------------+-------------------------------------------------------------------------------------+
-| -exchange    | The exchange name this consumer declares                                            |
-+--------------+-------------------------------------------------------------------------------------+
-| --amqp-host  | The broker host name in the cluster                                                 |
-+--------------+-------------------------------------------------------------------------------------+
-| --amqp-port  | The broker service port                                                             |
-+--------------+-------------------------------------------------------------------------------------+
-| --amqp-vhost | The consumer's virtual host to use                                                  |
-+--------------+-------------------------------------------------------------------------------------+
-| --reconnect  | Reconnect the consumer if the broker connection is lost (not recommended)           |
-+--------------+-------------------------------------------------------------------------------------+
-| --autoreload | Reload code on change                                                               |
-+--------------+-------------------------------------------------------------------------------------+
-| --debug      | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
-+--------------+-------------------------------------------------------------------------------------+
-| --probe      |The exposed path (default is /alive) for probes to check liveness and readyness      |
-+--------------+-------------------------------------------------------------------------------------+
-| --probe-port | The port for Tornado probe routes to listen on (default is the next port of --port) |
-+--------------+-------------------------------------------------------------------------------------+
-| --no-probe   | Disable probe endpoint                                                              |
-+--------------+-------------------------------------------------------------------------------------+
++------------------+-------------------------------------------------------------------------------------+
+| **Option**       | **Description**                                                                     |
++------------------+-------------------------------------------------------------------------------------+
+| --queue          | The queue name this consumer declares and binds to                                  |
++------------------+-------------------------------------------------------------------------------------+
+| --exchange       | The exchange name this consumer declares                                            |
++------------------+-------------------------------------------------------------------------------------+
+| --amqp-host      | The broker host name in the cluster                                                 |
++------------------+-------------------------------------------------------------------------------------+
+| --amqp-port      | The broker service port                                                             |
++------------------+-------------------------------------------------------------------------------------+
+| --amqp-vhost     | The consumer's virtual host to use                                                  |
++------------------+-------------------------------------------------------------------------------------+
+| --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
++------------------+-------------------------------------------------------------------------------------+
+| --readiness-probe| The exposed path (default is /ready) for probes to check readiness                  |
++------------------+-------------------------------------------------------------------------------------+
+| --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
++------------------+-------------------------------------------------------------------------------------+
+| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
++------------------+-------------------------------------------------------------------------------------+
+| --no-probe       | Disable probe endpoint                                                              |
++------------------+-------------------------------------------------------------------------------------+
+| --no-metrics     | Disable metrics collection                                                          |
++------------------+-------------------------------------------------------------------------------------+
+| --req-queue-len  | Threshold of length of queue of request, which is considered for readiness probe    |
++------------------+-------------------------------------------------------------------------------------+
+| --autoreload     | Reload code on change                                                               |
++------------------+-------------------------------------------------------------------------------------+
+| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
++------------------+-------------------------------------------------------------------------------------+
+| --reconnect      | Reconnect the consumer if the broker connection is lost (not recommended)           |
++------------------+-------------------------------------------------------------------------------------+
 
 
 **Example AMQP Consumer**

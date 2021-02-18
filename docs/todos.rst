@@ -4,12 +4,14 @@ Todos
 **Application server**
 
 - [x] Basic setup, POC, logging
+- [x] Different endpoints for all Kubernetes probes
+- [x] Extensive documentation
+- [x] Django management command execution before serving
 - [ ] actual Tornado integration (currently uses the `tornado.wsgi.WSGIContainer`)
 - [ ] web sockets with Django 3
 - [ ] Testing, testing in production
 - [ ] Load-testing, automated performance regression testing
 - [ ] Implement the Kubernetes Metrics API
-- [ ] Different endpoints for all Kubernetes probes
 - [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes)
 - [ ] Add another metrics collector endpoint (e.g Prometheus)
 

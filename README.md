@@ -46,12 +46,14 @@ in a workload description manifest. This is no longer something we configure wit
 **Todo**
 
 - [x] Basic setup, POC, logging
+- [x] Different endpoints for all Kubernetes probes
+- [x] Extensive documentation
+- [x] Django management command execution before serving
 - [ ] actual Tornado integration (currently uses the `tornado.wsgi.WSGIContainer`)
 - [ ] web sockets with Django 3
 - [ ] Testing, testing in production
 - [ ] Load-testing, automated performance regression testing  
 - [ ] Implement the Kubernetes Metrics API
-- [ ] Different endpoints for all Kubernetes probes
 - [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
 - [ ] Add another metrics collector endpoint (e.g Prometheus)  
 
@@ -93,7 +95,7 @@ cases the superb ORM (object relation mapper) and a simple HTTP-interface is all
 
 ## Installation
 
-Hurricane is currently available only on Blueshoe's Python Package Index.
+Hurricane is currently available Python Package Index.
 ```bash
 pip3 install hurricane
 ```
@@ -121,16 +123,20 @@ app server.
 
 There are a couple of command options:  
 
-| Option         | Help  |   
-| :----          | :---  |   
-| --static       | Serve collected static files |  
-| --media        | Serve media files |  
-| --autoreload   | Reload code on change |  
-| --debug        | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
-| --port         | The port for Tornado to listen on (default is port 8000) |  
-| --probe        | The exposed path (default is /alive) for probes to check liveness and readyness |
-| --probe-port   | The port for Tornado probe routes to listen on (default is the next port of --port) |  
-| --no-probe     | Disable probe endpoint |  
+| Option           | Help  |   
+| :----            | :---  |   
+| --static         | Serve collected static files |  
+| --media          | Serve media files |  
+| --autoreload     | Reload code on change |  
+| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
+| --port           | The port for Tornado to listen on (default is port 8000) |  
+| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |  
+| --no-probe       | Disable probe endpoint |  
+| --no-metrics     | Disable metrics collection | 
+|--req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe | 
+|--startup-probe   | The exposed path (default is /startup) for probes to check startup |  
+|--readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
+|--liveness-probe  | The exposed path (default is /alive) for probes to check liveness |  
 
 #### Probes and the System Check Framework
 

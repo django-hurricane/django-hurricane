@@ -32,8 +32,11 @@ class Command(BaseCommand):
         - ``--amqp-host`` - the host address of the message broker
         - ``--amqp-vhost`` - the virtual host of the message broker to use with this consumer
         - ``--handler`` - the Hurricane AMQP handler class (dotted path)
-        - ``--probe`` - the exposed path (default is /alive) for probes to check liveness and readyness
+        - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
+        - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
+        - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
         - ``--probe-port`` - the port for Tornado probe route to listen on
+        - ``--req-queue-len`` - threshold of length of queue of request, which is considered for readiness probe
         - ``--no-probe`` - disable probe endpoint
         - ``--no-metrics`` - disable metrics collection
         - ``--autoreload`` - reload code on change
