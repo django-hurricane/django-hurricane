@@ -3,6 +3,7 @@ import functools
 import os
 import signal
 import sys
+import time
 
 import tornado.autoreload
 import tornado.ioloop
@@ -14,6 +15,7 @@ from django.utils.module_loading import import_string
 from hurricane.amqp import logger
 from hurricane.amqp.basehandler import _AMQPConsumer
 from hurricane.amqp.worker import AMQPClient
+from hurricane.metrics import StartupTimeMetric
 from hurricane.server import make_probe_server
 
 
@@ -40,10 +42,22 @@ class Command(BaseCommand):
         )
         parser.add_argument("handler", type=str, help="The Hurricane AMQP handler class (dotted path)")
         parser.add_argument(
-            "--probe",
+            "--liveness-probe",
             type=str,
             default="/alive",
-            help="The exposed path (default is /alive) for probes to check liveness and readyness",
+            help="The exposed path (default is /alive) for probes to check liveness",
+        )
+        parser.add_argument(
+            "--readiness-probe",
+            type=str,
+            default="/ready",
+            help="The exposed path (default is /ready) for probes to check readiness",
+        )
+        parser.add_argument(
+            "--startup-probe",
+            type=str,
+            default="/startup",
+            help="The exposed path (default is /startup) for probes to check startup",
         )
         parser.add_argument(
             "--probe-port",
@@ -51,6 +65,7 @@ class Command(BaseCommand):
             default=8001,
             help="The port for Tornado probe route to listen on",
         )
+        parser.add_argument("--req-queue-len", type=int, default=10, help="Length of the request queue")
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
@@ -62,18 +77,20 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
+        start_time = time.time()
         logger.info("Starting a Tornado-powered Django AMQP consumer")
 
         if options["autoreload"]:
             tornado.autoreload.start()
 
-        # sanitize probe path
-        if options["probe"][0] != "/":
-            options["probe"] = "/" + options["probe"]
+        # sanitize probe paths
+        options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}"
+        options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}"
+        options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}"
 
         # set the probe routes
         if not options["no_probe"]:
-            logger.info(f"Probe application running on port {options['probe_port']} with route {options['probe']}")
+            logger.info(f"Probe application running on port {options['probe_port']}")
             probe_application = make_probe_server(options, self.check)
             probe_application.listen(options["probe_port"])
         else:
@@ -136,5 +153,7 @@ class Command(BaseCommand):
 
         for signame in ("SIGINT", "SIGTERM"):
             loop.add_signal_handler(getattr(signal, signame), functools.partial(ask_exit, signame))
-
+        end_time = time.time()
+        time_elapsed = end_time - start_time
+        StartupTimeMetric.set(time_elapsed)
         worker.run(options["reconnect"])
