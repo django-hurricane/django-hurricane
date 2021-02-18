@@ -1,25 +1,53 @@
 import asyncio
 import functools
 import signal
+import time
+import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Callable
+
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
-from django.core.management.base import BaseCommand
 from django.core.management import call_command
-from hurricane.metrics import StartupTimeMetric
-import time
-from typing import Callable
+from django.core.management.base import BaseCommand
 from tornado.platform.asyncio import AsyncIOMainLoop
-import traceback
 
+from hurricane.metrics import StartupTimeMetric
 from hurricane.server import logger, make_http_server, make_probe_server
 
 
 class Command(BaseCommand):
+
+    """
+    Start a Tornado-powered Django web server.
+    Implements serve command as a management command for django application.
+    The new command can be called using ``python manage.py server <arguments>``.
+    It also can take command arguments, which are python django management commands and will be executed asynchronously.
+    Upon successful execution of management commands, application server will be started. During execution of management
+    commands probe server can be polled, in particular startup probe, which will respond with a status 400.
+    Arguments:
+        - ``--static`` - serve collected static files
+        - ``--media`` - serve media files
+        - ``--autoreload`` - reload code on change
+        - ``--debug`` - set Tornado's Debug flag
+        - ``--port`` - the port for Tornado to listen on
+        - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
+        - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
+        - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
+        - ``--probe-port`` - the port for Tornado probe route to listen on
+        - ``--req-queue-len`` - threshold of length of queue of request, which is considered for readiness probe
+        - ``--no-probe`` - disable probe endpoint
+        - ``--no-metrics`` - disable metrics collection
+        - ``--command`` - repetitive command for adding execution of management commands before serving
+    """
+
     help = "Start a Tornado-powered Django web server"
 
     def add_arguments(self, parser):
+        """
+        Defines arguments, that can be accepted with ``serve`` command.
+        """
         parser.add_argument("--static", action="store_true", help="Serve collected static files")
         parser.add_argument("--media", action="store_true", help="Serve media files")
         parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
@@ -54,8 +82,12 @@ class Command(BaseCommand):
         parser.add_argument("--command", type=str, action="append", nargs="+")
 
     def handle(self, *args, **options):
+        """
+        Defines functionalities for different arguments. After all arguments were processed, it starts the async event
+        loop.
+        """
         start_time = time.time()
-        logger.info(f"Tornado-powered Django web server")
+        logger.info("Tornado-powered Django web server")
 
         if options["autoreload"]:
             tornado.autoreload.start()
@@ -136,7 +168,7 @@ class Command(BaseCommand):
             def exception_check_callback(future: asyncio.Future) -> None:
                 # checks if there were any exceptions in the executor and if any stops the loop
                 if future.exception():
-                    logger.error(f"Execution of command failed")
+                    logger.error("Execution of command failed")
                     # prints the whole tracestack
                     try:
                         future.result()
