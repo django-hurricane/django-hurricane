@@ -26,8 +26,10 @@ the main goal of this initiative.
 
 Using Tornado-powered application server gives several advantages compared to the standard Django application server.
 It is single-threaded and at the same time non-blocking and includes a builtin IO Loop from
-`asyncio <https://docs.python.org/3/library/asyncio.html>`_ library, which is a huge advantage over a blocking
-behaviour of a standard Django application server.
+`asyncio <https://docs.python.org/3/library/asyncio.html>`_ library. Django application server is blocked while waiting
+for the client. On the other hand Tornado application server can handle processes asynchronously and thus is not blocked
+while waiting for the client or database. This also gives the possibility to run webhooks and other asynchronous tasks
+directly in the application server, avoiding the usage of external asynchronous task queues such as Celery.
 
 Application Server
 ------------------
@@ -41,7 +43,7 @@ In order to start the Django app run the management command *serve*:
 It simply starts a Tornado-based application server ready to serve your Django application. No need for any other
 app server.
 
-There are a couple of command options:
+Command options for *serve*-command:
 
 +------------------+-------------------------------------------------------------------------------------+
 | **Option**       | **Description**                                                                     |
@@ -123,7 +125,7 @@ AMQP Worker
 
 **Run the AMQP (0-9-1) Consumer**
 
-To start the Django-powered AMQP consumer run the management command *consume*:
+In order to start the Django-powered AMQP consumer following *consume*-command can be used:
 ::
     python manage.py consume HANLDER
 
@@ -152,7 +154,7 @@ Load from *Django Settings* or *environment variables*:
 
 The precedence is: 1. command line option (if available), 2. Django settings, 3. environment variable
 
-There are a couple of command options:
+Command options for *consume*-command:
 
 +------------------+-------------------------------------------------------------------------------------+
 | **Option**       | **Description**                                                                     |
@@ -161,11 +163,13 @@ There are a couple of command options:
 +------------------+-------------------------------------------------------------------------------------+
 | --exchange       | The exchange name this consumer declares                                            |
 +------------------+-------------------------------------------------------------------------------------+
-| --amqp-host      | The broker host name in the cluster                                                 |
-+------------------+-------------------------------------------------------------------------------------+
 | --amqp-port      | The broker service port                                                             |
 +------------------+-------------------------------------------------------------------------------------+
+| --amqp-host      | The broker host name in the cluster                                                 |
++------------------+-------------------------------------------------------------------------------------+
 | --amqp-vhost     | The consumer's virtual host to use                                                  |
++------------------+-------------------------------------------------------------------------------------+
+| --handler        | the Hurricane AMQP handler class (dotted path)                                      |
 +------------------+-------------------------------------------------------------------------------------+
 | --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
 +------------------+-------------------------------------------------------------------------------------+
@@ -175,11 +179,11 @@ There are a couple of command options:
 +------------------+-------------------------------------------------------------------------------------+
 | --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
 +------------------+-------------------------------------------------------------------------------------+
+| --req-queue-len  | Threshold of length of queue of request, which is considered for readiness probe    |
++------------------+-------------------------------------------------------------------------------------+
 | --no-probe       | Disable probe endpoint                                                              |
 +------------------+-------------------------------------------------------------------------------------+
 | --no-metrics     | Disable metrics collection                                                          |
-+------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len  | Threshold of length of queue of request, which is considered for readiness probe    |
 +------------------+-------------------------------------------------------------------------------------+
 | --autoreload     | Reload code on change                                                               |
 +------------------+-------------------------------------------------------------------------------------+
@@ -191,7 +195,7 @@ There are a couple of command options:
 
 **Example AMQP Consumer**
 
-Please see this example implementation of a useless AMQP handler:
+Implementation of a basic AMQP handler with no functionality:
 
 .. code-block:: python
    :emphasize-lines: 3,5
@@ -204,13 +208,13 @@ Please see this example implementation of a useless AMQP handler:
              print(body.decode("utf-8"))
              self.acknowledge_message(basic_deliver.delivery_tag)
 
-This handler is started using the following command:
+This handler can be started using the following command:
 ::
     python manage.py consume myamqp.consumer.MyTestHandler --queue my.test.topic --exchange test --amqp-host 127.0.0.1 --amqp-port 5672
 
 **Test Hurricane**
 
-In order to run the entire test suite do:
+In order to run the entire test suite following commands should be executed:
 ::
    shell
    pip install -r requirements.txt
