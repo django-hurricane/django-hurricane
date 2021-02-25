@@ -59,7 +59,7 @@ in a workload description manifest. This is no longer something we configure wit
 
 
 ### Celery
-In the future, Hurricane should provides a sophisticated Django-celery integration with health checks and Kubernetes-scaling.
+In the future, Hurricane should provide a sophisticated Django-celery integration with health checks and Kubernetes-scaling.
 
 **Todo**
 
