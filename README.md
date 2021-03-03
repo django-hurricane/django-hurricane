@@ -123,21 +123,21 @@ app server.
 
 Command options for *serve*-command:  
 
-| Option            | Help  |   
-| :----             | :---  |   
-| --static          | Serve collected static files |  
-| --media           | Serve media files |  
-| --autoreload      | Reload code on change |  
-| --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
-| --port            | The port for Tornado to listen on (default is port 8000) |  
-| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |  
-| --startup-probe   | The exposed path (default is /startup) for probes to check startup |  
-| --readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
-| --liveness-probe  | The exposed path (default is /alive) for probes to check liveness | 
-| --no-probe        | Disable probe endpoint |  
-| --no-metrics      | Disable metrics collection | 
-| --req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe |  
-| --command         | Repetitive command for adding execution of management commands before serving   | 
+| Option           | Help  |   
+| :----            | :---  |   
+| --static         | Serve collected static files |  
+| --media          | Serve media files |  
+| --autoreload     | Reload code on change |  
+| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
+| --port           | The port for Tornado to listen on (default is port 8000) |  
+| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |  
+| --no-probe       | Disable probe endpoint |  
+| --no-metrics     | Disable metrics collection | 
+|--req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe | 
+|--startup-probe   | The exposed path (default is /startup) for probes to check startup |  
+|--readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
+|--liveness-probe  | The exposed path (default is /alive) for probes to check liveness |
+|--webhook-url     | Url, which should receive a webhook request |
 
 #### Probes and the System Check Framework
 
