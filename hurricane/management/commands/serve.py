@@ -2,19 +2,23 @@ import asyncio
 import functools
 import signal
 import time
-import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Callable
 
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
-from django.core.management import call_command
 from django.core.management.base import BaseCommand
-from tornado.platform.asyncio import AsyncIOMainLoop
 
-from hurricane.metrics import StartupTimeMetric
-from hurricane.server import logger, make_http_server, make_probe_server
+from hurricane.server import (
+    command_task,
+    exception_check_callback_webhook,
+    exception_check_callback_with_webhook,
+    exception_check_callback_without_webhook,
+    logger,
+    make_http_server_and_listen,
+    make_probe_server,
+    send_webhook,
+)
 
 
 class Command(BaseCommand):
@@ -40,6 +44,7 @@ class Command(BaseCommand):
         - ``--no-probe`` - disable probe endpoint
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
+        - ``--webhook-url``- url, which is used for sending webhook request
     """
 
     help = "Start a Tornado-powered Django web server"
@@ -80,6 +85,16 @@ class Command(BaseCommand):
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
+        parser.add_argument(
+            "--startup-webhook",
+            type=str,
+            help="Url for startup webhook",
+        )
+        parser.add_argument(
+            "--readiness-webhook",
+            type=str,
+            help="Url for readiness webhook",
+        )
 
     def handle(self, *args, **options):
         """
@@ -116,6 +131,7 @@ class Command(BaseCommand):
                 )
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
+
             else:
                 include_probe = True
                 logger.info(
@@ -129,58 +145,36 @@ class Command(BaseCommand):
 
         loop = asyncio.get_event_loop()
 
-        def make_http_server_and_listen(start_time: float) -> None:
-
-            logger.info(f"Starting HTTP Server on port {options['port']}")
-            django_application = make_http_server(options, self.check, include_probe)
-            django_application.listen(options["port"])
-            end_time = time.time()
-            time_elapsed = end_time - start_time
-            # if startup time metric value is set - startup process is finished
-            StartupTimeMetric.set(time_elapsed)
-            logger.info(f"Startup time is {time_elapsed} seconds")
-
         if options["command"]:
-
-            def command_task(
-                callback: Callable, main_loop: asyncio.unix_events._UnixSelectorEventLoop, start_time: float
-            ) -> None:
-                preliminary_commands = options["command"]
-                logger.info("Starting execution of management commands")
-                for command in preliminary_commands:
-                    # split a command string to also get command options
-                    command_split = command[0].split()
-                    logger.info(f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}")
-                    # call management command
-                    start_time_command = time.time()
-                    call_command(*command_split)
-                    end_time_command = time.time()
-                    logger.info(
-                        f"Command {command_split[0]} was executed in {end_time_command-start_time_command} seconds"
-                    )
-                # start http server and listen to it
-                main_loop.call_soon_threadsafe(callback, start_time)
-
             executor = ThreadPoolExecutor(max_workers=1)
             # parameters of command_task are make_http_and_listen as callback and loop as main_loop
-            future = loop.run_in_executor(executor, command_task, make_http_server_and_listen, loop, start_time)
-
-            def exception_check_callback(future: asyncio.Future) -> None:
-                # checks if there were any exceptions in the executor and if any stops the loop
-                if future.exception():
-                    logger.error("Execution of command failed")
-                    # prints the whole tracestack
-                    try:
-                        future.result()
-                    except Exception:
-                        traceback.print_exc()
-                    current_loop = asyncio.get_event_loop()
-                    current_loop.stop()
-
+            future = loop.run_in_executor(
+                executor,
+                command_task,
+                make_http_server_and_listen,
+                loop,
+                start_time,
+                options,
+                self.check,
+                include_probe,
+            )
             # callback runs after run_in_executor is done
-            future.add_done_callback(exception_check_callback)
+            if options["startup_webhook"]:
+                cb = functools.partial(exception_check_callback_with_webhook, url=options["startup_webhook"])
+                future.add_done_callback(cb)
+            else:
+                cb = functools.partial(exception_check_callback_without_webhook, url=options["startup_webhook"])
+                future.add_done_callback(cb)
         else:
-            make_http_server_and_listen(start_time=start_time)
+            make_http_server_and_listen(start_time, options, self.check, include_probe)
+            if options["startup_webhook"]:
+                current_loop = asyncio.get_event_loop()
+                executor = ThreadPoolExecutor(max_workers=1)
+                data = {"startup": "succeeded"}
+                fut = current_loop.run_in_executor(executor, send_webhook, data, options["startup_webhook"])
+                # callback runs after run_in_executor is done
+                cb = functools.partial(exception_check_callback_webhook, url=options["startup_webhook"])
+                fut.add_done_callback(cb)
 
         # prepare the io loops
         def ask_exit(signame):
