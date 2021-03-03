@@ -51,7 +51,7 @@ class WebhookTestHandler(tornado.web.RequestHandler):
     logger = logging.getLogger()
 
     def post(self):
-        status = self.get_argument("status", "No startup status received")
+        status = self.get_argument("startup", "No startup status received")
         traceback = self.get_argument("traceback", "No traceback received")
         self.logger.info(status)
         self.logger.info(traceback)
