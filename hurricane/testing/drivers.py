@@ -145,6 +145,24 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         self._stop()
 
 
+class HurricaneWebhookServerDriver(HurricaneBaseDriver):
+    coverage_base_command = [
+        "coverage",
+        "run",
+        "--source=hurricane/",
+        "start_receiver.py",
+    ]
+    # base_command = ["python", "manage.py", "webhook_test_command"]
+    base_command = ["python", "start_receiver.py"]
+    test_string = "Started webhook server"
+
+    def start_server(self, params: dict = None, coverage: bool = True) -> None:
+        self._start(params, coverage)
+
+    def stop_server(self) -> None:
+        self._stop()
+
+
 class HurricaneAMQPDriver(HurricaneBaseDriver):
     coverage_base_command = [
         "coverage",
