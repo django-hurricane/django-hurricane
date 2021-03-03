@@ -140,9 +140,10 @@ def exception_check_callback_with_webhook(future: asyncio.Future, url: str) -> N
         # prints the whole tracestack
         try:
             future.result()
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
             trace = traceback.format_exc()
+            logger.error(e)
+            logger.error(traceback.print_exc())
         current_loop = asyncio.get_event_loop()
         data = {"startup": "failed", "traceback": trace}
         logger.info("Webhook with a failure status has been initiated")
@@ -167,8 +168,9 @@ def exception_check_callback_without_webhook(future: asyncio.Future) -> None:
         # prints the whole tracestack
         try:
             future.result()
-        except Exception:
-            traceback.print_exc()
+        except Exception as e:
+            logger.error(e)
+            logger.error(traceback.print_exc())
             # trace = traceback.format_exc()
         current_loop = asyncio.get_event_loop()
         current_loop.stop()
