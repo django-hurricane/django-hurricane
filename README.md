@@ -59,7 +59,7 @@ in a workload description manifest. This is no longer something we configure wit
 
 
 ### Celery
-In the future, Hurricane provides a sophisticated Django-celery integration with health checks and Kubernetes-scaling.
+In the future, Hurricane should provide a sophisticated Django-celery integration with health checks and Kubernetes-scaling.
 
 **Todo**
 
@@ -95,7 +95,7 @@ cases the superb ORM (object relation mapper) and a simple HTTP-interface is all
 
 ## Installation
 
-Hurricane is currently available Python Package Index.
+Hurricane can be installed from Python Package Index:
 ```bash
 pip3 install hurricane
 ```
@@ -118,25 +118,26 @@ In order to start the Django app run the management command *serve*:
 ```bash
 python manage.py serve
 ```
-It simply starts a Tornado-based application server ready to serve your Django application. No need for any other 
+It simply starts a Tornado-based application server ready to serve the Django application. No need for any other 
 app server.
 
-There are a couple of command options:  
+Command options for *serve*-command:  
 
-| Option           | Help  |   
-| :----            | :---  |   
-| --static         | Serve collected static files |  
-| --media          | Serve media files |  
-| --autoreload     | Reload code on change |  
-| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
-| --port           | The port for Tornado to listen on (default is port 8000) |  
-| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |  
-| --no-probe       | Disable probe endpoint |  
-| --no-metrics     | Disable metrics collection | 
-|--req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe | 
-|--startup-probe   | The exposed path (default is /startup) for probes to check startup |  
-|--readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
-|--liveness-probe  | The exposed path (default is /alive) for probes to check liveness |  
+| Option            | Help  |   
+| :----             | :---  |   
+| --static          | Serve collected static files |  
+| --media           | Serve media files |  
+| --autoreload      | Reload code on change |  
+| --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
+| --port            | The port for Tornado to listen on (default is port 8000) |  
+| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |  
+| --startup-probe   | The exposed path (default is /startup) for probes to check startup |  
+| --readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
+| --liveness-probe  | The exposed path (default is /alive) for probes to check liveness | 
+| --no-probe        | Disable probe endpoint |  
+| --no-metrics      | Disable metrics collection | 
+| --req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe |  
+| --command         | Repetitive command for adding execution of management commands before serving   | 
 
 #### Probes and the System Check Framework
 
@@ -149,14 +150,14 @@ The port for the probe route is separated from the application's port. If not sp
 added to the application's port.
 
 #### Logging
-Be sure to add the *hurricane* logger to your Django logging configuration otherwise you won't see any output
-the moment you started the application server. Feel free to adjust the log level according to your needs.
+It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
+not be displayed when application server will be started. Log level can be easily adjusted to own needs.
 
 ### AMQP Worker
 
 #### Run the AMQP (0-9-1) Consumer
 
-In order to start the Django-powered AMQP consumer run the management command *consume*:  
+In order to start the Django-powered AMQP consumer following *consume*-command can be used:
 
 ```bash
 python manage.py consume HANLDER 
@@ -166,39 +167,41 @@ Kubernetes. The required *Handler* argument is the dotted path to an *_AMQPConsu
 the *TopicHandler* as base class for your handler implementation as it is the only supported exchange type at the moment.
 It's primarily required to implement the *on_message(...)* method to handle incoming amqp messages.
 
-In order to establish a connection to the broker you case use one of the folloging options:  
+In order to establish a connection to the broker one of the following options can be used:  
 Load from *Django Settings* or *environment variables*:  
 
-| Variable  | Help |  
-| :----     | :---  |  
-| AMQP_HOST | amqp broker host |
-| AMQP_PORT | amqp broker port |  
-|AMQP_VHOST | virtual host (defaults to "/") |  
-|AMQP_USER | username for broker connection |  
-|AMQP_PASSWORD | password for broker connection |   
+| Variable     | Help |  
+| :----        | :---  |  
+| AMQP_HOST    | amqp broker host |
+| AMQP_PORT    | amqp broker port |  
+| AMQP_VHOST   | virtual host (defaults to "/") |  
+| AMQP_USER    | username for broker connection |  
+| AMQP_PASSWORD| password for broker connection |   
 
 The precedence is: 1. command line option (if available), 2. django settings, 3. environment variable
 
-There are a couple of command options:  
+Command options for *consume*-command:  
 
-| Option         | Help  |   
-| :----          | :---  |
-| --queue        | The queue name this consumer declares and binds to |  
-| --exchange     | The exchange name this consumer declares |  
-| --amqp-host    | The broker host name in the cluster |  
-| --amqp-port    | The broker service port |  
-| --amqp-vhost   | The consumer's virtual host to use  |  
-| --reconnect    | Reconnect the consumer if the broker connection is lost (not recommended) |  
-| --autoreload   | Reload code on change |  
-| --debug        | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |
-| --probe        | The exposed path (default is /alive) for probes to check liveness and readyness |
-| --probe-port   | The port for Tornado probe routes to listen on (default is the next port of --port) |  
-| --no-probe     | Disable probe endpoint |  
+| Option            | Help  |   
+| :----             | :---  |
+| --queue           | The queue name this consumer declares and binds to |  
+| --exchange        | The exchange name this consumer declares |  
+| --amqp-host       | The broker host name in the cluster |  
+| --amqp-port       | The broker service port |  
+| --amqp-vhost      | The consumer's virtual host to use  |  
+| --startup-probe   | The exposed path (default is /startup) for probes to check startup |  
+| --readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
+| --liveness-probe  | The exposed path (default is /alive) for probes to check liveness | 
+| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |  
+| --no-probe        | Disable probe endpoint |  
+| --autoreload      | Reload code on change |  
+| --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |
+| --reconnect       | Reconnect the consumer if the broker connection is lost (not recommended) |  
 
 
 #### Example AMQP Consumer
 
-Please see this example implementation of a useless AMQP handler:
+Implementation of a basic AMQP handler with no functionality:
 ```python
 # file: myamqp/consumer.py
 from hurricane.amqp.basehandler import TopicHandler
@@ -210,7 +213,7 @@ class MyTestHandler(TopicHandler):
         self.acknowledge_message(basic_deliver.delivery_tag)
 ```
 
-This handler is started using the following command:
+This handler can be started using the following command:
 ```bash
 python manage.py consume myamqp.consumer.MyTestHandler --queue my.test.topic --exchange test \ 
 --amqp-host 127.0.0.1 --amqp-port 5672
@@ -219,7 +222,7 @@ python manage.py consume myamqp.consumer.MyTestHandler --queue my.test.topic --e
 
 ## Test Hurricane
 
-In order to run the entire test suite do:
+In order to run the entire test suite following commands should be executed:
 ```shell
 pip install -r requirements.txt
 coverage run manage.py test
@@ -231,7 +234,7 @@ spins up a container with *RabbitMQ*. The AMQP consumer under test will connect 
 it and exchange messages using the *TestPublisher* class.
 
 ## Docs
-To build the docs run this command in a docs directory:
+To build the docs following command should be started in a docs directory:
 ```bash
 make html
 ```
