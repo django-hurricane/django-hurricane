@@ -1,11 +1,8 @@
 import asyncio
-import functools
 import time
 import traceback
-from concurrent.futures.thread import ThreadPoolExecutor
 from typing import Callable
 
-import requests
 import tornado
 from django.conf import settings
 from django.core.management import call_command
@@ -13,6 +10,8 @@ from django.core.management import call_command
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
+from hurricane.webhooks import LivenessWebhook, StartupWebhook
+from hurricane.webhooks.base import WebhookStatus
 
 
 class HurricaneApplication(tornado.web.Application):
@@ -88,7 +87,7 @@ def make_http_server(options, check_func, include_probe=False):
     return HurricaneApplication(handlers, debug=options["debug"], metrics=not options["no_metrics"])
 
 
-def make_http_server_and_listen(start_time: float, options: dict, check, include_probe) -> None:
+def make_http_server_and_listen(start_time: float, options: dict, check: Callable, include_probe: bool) -> None:
     logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
     django_application.listen(options["port"])
@@ -98,93 +97,52 @@ def make_http_server_and_listen(start_time: float, options: dict, check, include
     StartupTimeMetric.set(time_elapsed)
     logger.info(f"Startup time is {time_elapsed} seconds")
 
+    if options["liveness_webhook"]:
+        LivenessWebhook().run(url=options["liveness_webhook"], status=WebhookStatus.SUCCEEDED)
 
-def command_task(
-    callback: Callable,
-    main_loop: asyncio.unix_events._UnixSelectorEventLoop,
-    start_time: float,
-    options,
-    check,
-    include_probe,
-) -> None:
-    preliminary_commands = options["command"]
+
+def command_task(main_loop: asyncio.unix_events.SelectorEventLoop, callback: Callable, commands: list) -> None:
     logger.info("Starting execution of management commands")
-    for command in preliminary_commands:
-        # split a command string to also get command options
+
+    for command in commands:
+
+        # split a command string to get command options
         command_split = command[0].split()
         logger.info(f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}")
-        # call management command
         start_time_command = time.time()
+        # call management command
         call_command(*command_split)
         end_time_command = time.time()
+
         logger.info(f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds")
-    # start http server and listen to it
-    main_loop.call_soon_threadsafe(callback, start_time, options, check, include_probe)
+    # start http server in the main loop
+    main_loop.call_soon_threadsafe(callback)
 
 
-def send_webhook(data, webhook_url):
-    # sending webhook request to the specified url
-    logger.info("Start sending webhook")
-    response = requests.post(webhook_url, timeout=5, data=data)
-    if response.status_code != 200:
-        raise ValueError(f"Request to the application returned an error:\n {response.status_code} {response.text}")
-    logger.info("Webhook has been sent")
-
-
-def exception_check_callback_with_webhook(future: asyncio.Future, url: str) -> None:
+def callback_command_exception_check(future: asyncio.Future, webhook_url: str = None) -> None:
     # checks if there were any exceptions in the executor and if any stops the loop
     # if exceptions occured, it means, that some or one of the commands have failed
-    executor = ThreadPoolExecutor(max_workers=1)
-    if future.exception():
-        logger.error("Execution of management command has failed")
-        # prints the whole tracestack
+    if webhook_url:
         try:
             future.result()
         except Exception as e:
-            trace = traceback.format_exc()
+            logger.error("Execution of management command has failed")
+            # printing full tracestack
+            error_trace = traceback.format_exc()
             logger.error(e)
             logger.error(traceback.print_exc())
-        current_loop = asyncio.get_event_loop()
-        data = {"startup": "failed", "traceback": trace}
-        logger.info("Webhook with a failure status has been initiated")
-        fut = current_loop.run_in_executor(executor, send_webhook, data, url)
-        fut.add_done_callback(exception_check_callback_webhook)
-        current_loop.stop()
+            logger.info("Webhook with a failure status has been initiated")
+            StartupWebhook().run(url=webhook_url, error_trace=error_trace, close_loop=True, status=WebhookStatus.FAILED)
+        else:
+            logger.info("Execution of management commands was successful")
+            logger.info("Webhook with a success status has been initiated")
+            StartupWebhook().run(url=webhook_url, status=WebhookStatus.SUCCEEDED)
     else:
-        logger.error("Execution of management commands was successful")
-        current_loop = asyncio.get_event_loop()
-        data = {"startup": "succeeded"}
-        logger.info("Webhook with a success status has been initiated")
-        fut = current_loop.run_in_executor(executor, send_webhook, data, url)
-        # cb = functools.partial(exception_check_callback_webhook, url=url)
-        fut.add_done_callback(exception_check_callback_webhook)
-
-
-def exception_check_callback_without_webhook(future: asyncio.Future) -> None:
-    # checks if there were any exceptions in the executor and if any stops the loop
-    # if exceptions occured, it means, that some or one of the commands have failed
-    if future.exception():
-        logger.error("Execution of management command has failed")
-        # prints the whole tracestack
         try:
             future.result()
         except Exception as e:
+            logger.error("Execution of management command has failed")
             logger.error(e)
             logger.error(traceback.print_exc())
-            # trace = traceback.format_exc()
-        current_loop = asyncio.get_event_loop()
-        current_loop.stop()
-
-
-def exception_check_callback_webhook(future: asyncio.Future, url: str):
-    # checks if sending webhook had any failures, it indicates, that command was successfully executed
-    # but sending webhook has failed
-    if future.exception():
-        logger.error(f"Execution of webhook has failed {url}")
-
-        # prints the whole tracestack
-        try:
-            future.result()
-        except Exception as e:
-            logger.error(e)
-            logger.error(traceback.print_exc())
+            current_loop = asyncio.get_event_loop()
+            current_loop.stop()
