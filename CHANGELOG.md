@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.0 (2021-03-08)
+
+#### New Features
+
+* run management commands before serving
+
 ## 0.5.0 (2021-01-06)
 
 #### New Features
