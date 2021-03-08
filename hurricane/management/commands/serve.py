@@ -10,15 +10,14 @@ import tornado.wsgi
 from django.core.management.base import BaseCommand
 
 from hurricane.server import (
+    callback_command_exception_check,
     command_task,
-    exception_check_callback_webhook,
-    exception_check_callback_with_webhook,
-    exception_check_callback_without_webhook,
     logger,
     make_http_server_and_listen,
     make_probe_server,
-    send_webhook,
 )
+from hurricane.webhooks import StartupWebhook
+from hurricane.webhooks.base import WebhookStatus
 
 
 class Command(BaseCommand):
@@ -44,7 +43,8 @@ class Command(BaseCommand):
         - ``--no-probe`` - disable probe endpoint
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
-        - ``--webhook-url``- url, which is used for sending webhook request
+        - ``--startup-webhook``- startup webhook url, if specified, after startup webhook will be sent to the url
+        - ``--liveness-webhook``- startup webhook url, if specified, after startup webhook will be sent to the url
     """
 
     help = "Start a Tornado-powered Django web server"
@@ -91,9 +91,9 @@ class Command(BaseCommand):
             help="Url for startup webhook",
         )
         parser.add_argument(
-            "--readiness-webhook",
+            "--liveness-webhook",
             type=str,
-            help="Url for readiness webhook",
+            help="Url for liveness webhook",
         )
 
     def handle(self, *args, **options):
@@ -117,7 +117,7 @@ class Command(BaseCommand):
         options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}"
 
         # set the probe routes
-        # if the probe port is set to the application's port, include it to the application's routes
+        # if probe port is set to the application's port, add it to the application's routes
         include_probe = False
         if not options["no_probe"]:
             if probe_port != options["port"]:
@@ -143,37 +143,31 @@ class Command(BaseCommand):
         loop = asyncio.get_event_loop()
 
         if options["command"]:
+            # command_task is a function that executes management commands
+            # make_http_server_and_listen is a callback, further parameters are parameters of the callback function
             executor = ThreadPoolExecutor(max_workers=1)
-            # parameters of command_task are make_http_and_listen as callback and loop as main_loop
-            future = loop.run_in_executor(
-                executor,
-                command_task,
+            make_http_server_wrapper = functools.partial(
                 make_http_server_and_listen,
-                loop,
-                start_time,
-                options,
-                self.check,
-                include_probe,
+                start_time=start_time,
+                options=options,
+                check=self.check,
+                include_probe=include_probe,
             )
-            # callback runs after run_in_executor is done
+            future = loop.run_in_executor(executor, command_task, loop, make_http_server_wrapper, options["command"])
             if options["startup_webhook"]:
-                cb = functools.partial(exception_check_callback_with_webhook, url=options["startup_webhook"])
-                future.add_done_callback(cb)
+                # wrap callback function to use additional variables
+                callback_wrapper_command_exception_check = functools.partial(
+                    callback_command_exception_check, webhook_url=options["startup_webhook"]
+                )
+                # callback runs after run_in_executor is done
+                future.add_done_callback(callback_wrapper_command_exception_check)
             else:
-                cb = functools.partial(exception_check_callback_without_webhook, url=options["startup_webhook"])
-                future.add_done_callback(cb)
+                future.add_done_callback(callback_command_exception_check)
         else:
             make_http_server_and_listen(start_time, options, self.check, include_probe)
             if options["startup_webhook"]:
-                current_loop = asyncio.get_event_loop()
-                executor = ThreadPoolExecutor(max_workers=1)
-                data = {"startup": "succeeded"}
-                fut = current_loop.run_in_executor(executor, send_webhook, data, options["startup_webhook"])
-                # callback runs after run_in_executor is done
-                cb = functools.partial(exception_check_callback_webhook, url=options["startup_webhook"])
-                fut.add_done_callback(cb)
+                StartupWebhook().run(url=options["startup_webhook"], status=WebhookStatus.SUCCEEDED)
 
-        # prepare the io loops
         def ask_exit(signame):
             logger.info(f"Received signal {signame}. Shutting down now.")
             loop.stop()
