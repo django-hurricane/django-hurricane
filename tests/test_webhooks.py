@@ -2,7 +2,7 @@ from hurricane.testing.drivers import HurricaneServerDriver
 from hurricane.testing.testcases import HurricaneWebhookServerTest
 
 
-class HurricaneWebhookServerT(HurricaneWebhookServerTest):
+class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
     @HurricaneWebhookServerTest.cycle_server
     def test_webhook_on_success(self):
         hurricane_server = HurricaneServerDriver()
@@ -11,7 +11,7 @@ class HurricaneWebhookServerT(HurricaneWebhookServerTest):
         )
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
-        self.assertIn("Started webhook server", out)
+        self.assertIn("Started webhook receiver server", out)
         self.assertIn("succeeded", out)
 
     @HurricaneWebhookServerTest.cycle_server
@@ -22,7 +22,7 @@ class HurricaneWebhookServerT(HurricaneWebhookServerTest):
         )
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
-        self.assertIn("Started webhook server", out)
+        self.assertIn("Started webhook receiver server", out)
         self.assertIn("failed", out)
 
     @HurricaneWebhookServerTest.cycle_server
@@ -31,5 +31,5 @@ class HurricaneWebhookServerT(HurricaneWebhookServerTest):
         hurricane_server.start_server(params=["--startup-webhook", "http://localhost:8074/webhook"])
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
-        self.assertIn("Started webhook server", out)
+        self.assertIn("Started webhook receiver server", out)
         self.assertIn("succeeded", out)

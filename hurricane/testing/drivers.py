@@ -116,7 +116,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         "serve",
     ]
     base_command = ["python", "manage.py", "serve"]
-    test_string = "Starting a Tornado-powered Django web server"
+    test_string = "Tornado-powered Django web server"
 
     def start_server(self, params: dict = None, coverage: bool = True) -> None:
         self._start(params, coverage)
@@ -129,12 +129,13 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
     coverage_base_command = [
         "coverage",
         "run",
-        "--source=hurricane/",
-        "start_receiver.py",
+        "-m",
+        "--source=hurricane",
+        "hurricane.testing.start_webhook_receiver",
     ]
     # base_command = ["python", "manage.py", "webhook_test_command"]
-    base_command = ["python", "start_receiver.py"]
-    test_string = "Started webhook server"
+    base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
+    test_string = "Started webhook receiver server"
 
     def start_server(self, params: dict = None, coverage: bool = True) -> None:
         self._start(params, coverage)
@@ -152,7 +153,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         "consume",
     ]
     base_command = ["python", "manage.py", "consume"]
-    test_string = "Starting a Tornado-powered Django AMQP consumer"
+    test_string = "Tornado-powered Django AMQP consumer"
     ports = [5672, 8000, 8001]
 
     def start_amqp(self) -> None:
