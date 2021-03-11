@@ -11,7 +11,7 @@ from hurricane.server.loggers import logger
 
 class WebhookStatus(Enum):
     FAILED = "failed"
-    SUCCEEDED = "succeded"
+    SUCCEEDED = "succeeded"
 
 
 class Webhook:
@@ -37,13 +37,7 @@ class Webhook:
 
         return registry.get(cls.code)
 
-    def run(
-        self,
-        url: str,
-        error_trace: str = None,
-        close_loop: bool = False,
-        status: WebhookStatus = WebhookStatus.SUCCEEDED,
-    ):
+    def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False):
         if error_trace:
             self.set_traceback(error_trace)
         self.set_status(status)
@@ -66,11 +60,11 @@ class Webhook:
             )
         logger.info(f"{self.code} has been sent")
 
-    def set_traceback(self):
+    def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback
 
     def set_status(self, status: WebhookStatus):
-        self.data["status"] = status
+        self.data["status"] = status.value
 
     def get_message(self):
         return self.data
