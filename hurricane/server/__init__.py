@@ -126,23 +126,25 @@ def callback_command_exception_check(future: asyncio.Future, webhook_url: str = 
         try:
             future.result()
         except Exception as e:
-            logger.error("Execution of management command has failed")
+            logger.error("Execution of management commands has failed. Webhook should be sent")
             # printing full tracestack
             error_trace = traceback.format_exc()
             logger.error(e)
             logger.error(traceback.print_exc())
-            logger.info("Webhook with a failure status has been initiated")
+            logger.info("Webhook with a status failed has been initiated")
             StartupWebhook().run(url=webhook_url, error_trace=error_trace, close_loop=True, status=WebhookStatus.FAILED)
         else:
-            logger.info("Execution of management commands was successful")
-            logger.info("Webhook with a success status has been initiated")
+            logger.info("Execution of management commands was successful. Webhook should be sent")
+            logger.info("Webhook with a status succeeded has been initiated")
             StartupWebhook().run(url=webhook_url, status=WebhookStatus.SUCCEEDED)
     else:
         try:
             future.result()
         except Exception as e:
-            logger.error("Execution of management command has failed")
+            logger.error("Execution of management command has failed. Webhook is not set")
             logger.error(e)
             logger.error(traceback.print_exc())
             current_loop = asyncio.get_event_loop()
             current_loop.stop()
+        else:
+            logger.info("Execution of management commands was successful. Webhook is not set")
