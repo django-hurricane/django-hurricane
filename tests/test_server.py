@@ -4,6 +4,12 @@ from hurricane.testing import HurricanServerTest
 
 
 class HurricanStartServerTests(HurricanServerTest):
+
+    probe_route = "/probe"
+    alive_route = "/alive"
+    startup_route = "/startup"
+    ready_route = "/ready"
+
     @HurricanServerTest.cycle_server
     def test_default_startup(self):
         out, err = self.driver.get_output(read_all=True)
@@ -33,9 +39,9 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
         self.assertIn("Starting probe application running on port 8090 with route", out)
-        res = self.probe_client.get("/probe")
+        res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.post("/probe", data=None)
+        res = self.probe_client.post(self.probe_route, data=None)
         self.assertEqual(res.status, 200)
 
     @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8000", "--port", "8000"])
@@ -43,12 +49,12 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn("Tornado-powered Django web server", out)
         self.assertIn("running integrated on port 8000", out)
-        res = self.probe_client.get("/probe")
+        res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
 
     @HurricanServerTest.cycle_server(args=["--no-metrics", "--probe-port", "8090"])
     def test_nometrics_startup(self):
-        res = self.probe_client.get("/alive")
+        res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         self.assertIn("alive", res.text)
 
@@ -72,7 +78,7 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server
     def test_metrics_request(self):
         self.app_client.get("/")
-        res = self.probe_client.get("/alive")
+        res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         self.assertIn("Average response time:", res.text)
 
@@ -94,7 +100,7 @@ class HurricanStartServerTests(HurricanServerTest):
             if timing:
                 result += float(timing)
         result /= 3
-        res = self.probe_client.get("/alive")
+        res = self.probe_client.get(self.alive_route)
 
         timing = float(self._get_timing_from_string(res.text))
         self.assertEqual(res.status, 200)
@@ -124,13 +130,13 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Starting execution of management commands", out)
         self.assertIn("Starting HTTP Server on port 8000", out)
 
-        res = self.probe_client.get("/startup")
+        res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.post("/startup", data=None)
+        res = self.probe_client.post(self.startup_route, data=None)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.get("/alive")
+        res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.get("/ready")
+        res = self.probe_client.get(self.ready_route)
         self.assertEqual(res.status, 200)
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
@@ -146,13 +152,13 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("No changes detected", out)
         self.assertIn("Starting HTTP Server on port 8000", out)
 
-        res = self.probe_client.get("/startup")
+        res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.post("/startup", data=None)
+        res = self.probe_client.post(self.startup_route, data=None)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.get("/alive")
+        res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
-        res = self.probe_client.get("/ready")
+        res = self.probe_client.get(self.ready_route)
         self.assertEqual(res.status, 200)
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
