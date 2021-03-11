@@ -29,6 +29,7 @@ class RequestQueueLengthMetric(CalculatedMetric):
 
     code = "request_queue_length"
 
+    @classmethod
     def get_value(cls):
 
         """

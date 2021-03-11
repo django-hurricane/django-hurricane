@@ -13,11 +13,6 @@ MANAGE_FILE = "manage.py"
 
 
 class BusyPortException(Exception):
-
-    """
-    Exception class for the case, that metric was already registered and should not be registered twice.
-    """
-
     def __init__(self, port):
         raise Exception(f"Port {port} already in use.")
 
