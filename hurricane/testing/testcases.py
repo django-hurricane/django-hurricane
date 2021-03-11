@@ -63,43 +63,8 @@ class HurricanServerTest(HurricanBaseTest):
             return _cycle_server
 
 
-class HurricaneWebhookServerTest(HurricanBaseTest):
+class HurricaneWebhookServerTest(HurricanServerTest):
     driver = HurricaneWebhookServerDriver
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.driver.stop_server()
-        super().tearDownClass()
-
-    @staticmethod
-    def cycle_server(*args, **kwargs):
-        def _cycle_server(function):
-            def wrapper(self):
-                if "args" in kwargs:
-                    _args = kwargs["args"]
-                else:
-                    _args = None
-                # run this hurricane server with coverage
-                # default is True
-                if "coverage" in kwargs:
-                    coverage = kwargs["coverage"]
-                else:
-                    coverage = True
-                self.driver.start_server(_args, coverage)
-                try:
-                    function(self)
-                except Exception as e:
-                    self.driver.stop_server()
-                    raise e
-                else:
-                    self.driver.stop_server()
-
-            return wrapper
-
-        if len(args) == 1 and callable(args[0]):
-            return _cycle_server(args[0])
-        else:
-            return _cycle_server
 
 
 class HurricaneAMQPTest(HurricanBaseTest):
