@@ -9,20 +9,24 @@ class HurricanStartServerTests(HurricanServerTest):
     alive_route = "/alive"
     startup_route = "/startup"
     ready_route = "/ready"
+    starting_message = "Tornado-powered Django web server"
+    starting_management_commands_message = "Starting execution of management commands"
+    starting_http_message = "Starting HTTP Server on port 8000"
 
     @HurricanServerTest.cycle_server
     def test_default_startup(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn(
             "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
+        self.assertIn(self.starting_http_message, out)
 
     @HurricanServerTest.cycle_server(args=["--port", "8085"])
     def test_port_startup(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn(
             "Starting probe application running on port 8086 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
@@ -31,13 +35,13 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--no-probe"])
     def test_no_probe(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn("No probe application running", out)
 
     @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8090"])
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn("Starting probe application running on port 8090 with route", out)
         res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
@@ -47,7 +51,7 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8000", "--port", "8000"])
     def test_probe_integrated_startup(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn("running integrated on port 8000", out)
         res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
@@ -69,11 +73,13 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--static", "--media"])
     def test_serve_statics_and_media(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn(
             "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
+        self.assertIn(" Serving static files under /static/", out)
+        self.assertIn("Serving media files under /", out)
 
     @HurricanServerTest.cycle_server
     def test_metrics_request(self):
@@ -125,10 +131,10 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
     def test_startup_with_single_management_command(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn("Starting probe application running on port 8090", out)
-        self.assertIn("Starting execution of management commands", out)
-        self.assertIn("Starting HTTP Server on port 8000", out)
+        self.assertIn(self.starting_management_commands_message, out)
+        self.assertIn(self.starting_http_message, out)
 
         res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
@@ -146,11 +152,11 @@ class HurricanStartServerTests(HurricanServerTest):
     )
     def test_startup_with_multiple_management_commands(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn("Starting probe application running on port 8090 with route", out)
-        self.assertIn("Starting execution of management commands", out)
+        self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("No changes detected", out)
-        self.assertIn("Starting HTTP Server on port 8000", out)
+        self.assertIn(self.starting_http_message, out)
 
         res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
@@ -166,10 +172,10 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--command", "migrate", "--probe-port", "8090"])
     def test_startup_failing_management_command(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Tornado-powered Django web server", out)
+        self.assertIn(self.starting_message, out)
         self.assertIn(
             "Starting probe application running on port 8090 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
             out,
         )
-        self.assertIn("Starting execution of management commands", out)
+        self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("ERROR", out)
