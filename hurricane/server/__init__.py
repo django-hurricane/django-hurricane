@@ -2,7 +2,7 @@ import tornado
 from django.conf import settings
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric
-from hurricane.server.django import DjangoHandler, DjangoStartupHandler, DjangoLivenessHandler, DjangoReadinessHandler
+from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
 
 
@@ -48,7 +48,7 @@ def make_http_server(options, check_func, include_probe=False):
     if include_probe:
         handlers = [
             (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-            (options["readiness_probe"], DjangoReadinessHandler, {"check_handler": check_func}),
+            (options["readiness_probe"], DjangoReadinessHandler, {"req_queue_len": options["req_queue_len"]}),
             (options["startup_probe"], DjangoStartupHandler),
         ]
     else:

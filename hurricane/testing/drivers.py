@@ -117,7 +117,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         "serve",
     ]
     base_command = ["python", MANAGE_FILE, "serve"]
-    test_string = "Starting a Tornado-powered Django web server"
+    test_string = "Tornado-powered Django web server"
 
     def start_server(self, params: dict = None, coverage: bool = True) -> None:
         self._start(params, coverage)
