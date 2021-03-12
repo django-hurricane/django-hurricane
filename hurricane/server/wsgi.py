@@ -6,8 +6,7 @@ from tornado import escape, httputil
 
 
 class HurricaneWSGIException(Exception):
-    def __init__(self):
-        raise Exception("WSGI app did not call start_response")
+    pass
 
 
 class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
@@ -51,7 +50,7 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
             if hasattr(app_response, "close"):
                 app_response.close()  # type: ignore
         if not data:
-            raise HurricaneWSGIException()
+            raise HurricaneWSGIException("WSGI app did not call start_response")
 
         status_code_str, reason = data["status"].split(" ", 1)
         status_code = int(status_code_str)

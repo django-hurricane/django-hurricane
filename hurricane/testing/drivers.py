@@ -13,8 +13,7 @@ MANAGE_FILE = "manage.py"
 
 
 class BusyPortException(Exception):
-    def __init__(self, port):
-        raise Exception(f"Port {port} already in use.")
+    pass
 
 
 class HurricaneBaseDriver(object):
@@ -31,7 +30,7 @@ class HurricaneBaseDriver(object):
                 try:
                     sock.bind(("127.0.0.1", port))
                 except OSError:
-                    raise BusyPortException(port)
+                    raise BusyPortException(f"Port {port} already in use.")
 
     def get_server_host_port(self, probe_port=False) -> Union[Tuple[str, int], Tuple[None, None]]:
         port = self.probe_port if probe_port else self.port
