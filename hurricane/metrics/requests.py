@@ -29,7 +29,7 @@ class RequestQueueLengthMetric(CalculatedMetric):
 
     code = "request_queue_length"
 
-    def get_value(cls):
+    def get_value(self):
 
         """
         Getting length of the asyncio queue of all tasks.
