@@ -126,6 +126,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
 
 
 class HurricaneWebhookServerDriver(HurricaneBaseDriver):
+    ports = [8040, 8041]
     coverage_base_command = [
         "coverage",
         "run",
@@ -152,7 +153,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         "consume",
     ]
     base_command = ["python", "manage.py", "consume"]
-    test_string = "Tornado-powered Django AMQP consumer"
+    test_string = "Starting a Tornado-powered Django AMQP consumer"
     ports = [5672, 8000, 8001]
 
     def start_amqp(self) -> None:
