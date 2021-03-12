@@ -6,6 +6,8 @@ import pika
 import tornado.ioloop
 import tornado.web
 
+logging.basicConfig(level=logging.INFO)
+
 
 class HTTPClient(object):
     class Response(dict):
@@ -46,7 +48,6 @@ class TestPublisher(object):
 
 
 class WebhookTestHandler(tornado.web.RequestHandler):
-    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger()
 
     def post(self):
