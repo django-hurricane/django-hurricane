@@ -4,9 +4,12 @@ from hurricane.testing import HurricaneAMQPTest
 
 
 class HurricaneStartAMQPTests(HurricaneAMQPTest):
+
+    starting_amqp_message = "Starting a Tornado-powered Django AMQP consumer"
+
     def _wait_for_queue(self, queue_name="test"):
         # wait 10 seconds to bind to queue
-        for i in range(0, 20):
+        for _ in range(20):
             out, err = self.driver.get_output(read_all=True)
             if f"hurricane.amqp.general Binding to {queue_name}" in out:
                 break
@@ -20,7 +23,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
     def test_default_startup(self):
         out, err = self.driver.get_output(read_all=True)
         host, port = self.driver.get_amqp_host_port()
-        self.assertIn("Starting a Tornado-powered Django AMQP consumer", out)
+        self.assertIn(self.starting_amqp_message, out)
         self.assertIn(f"Connecting to {host}:{port}/", out)
         self._wait_for_queue()
         res = self.probe_client.get("/startup")
@@ -41,7 +44,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
     )
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Starting a Tornado-powered Django AMQP consumer", out)
+        self.assertIn(self.starting_amqp_message, out)
         self.assertIn("Probe application running on port 8080", out)
         res = self.probe_client.get("/startup")
         self.assertEqual(res.status, 200)
@@ -51,7 +54,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
     )
     def test_no_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Starting a Tornado-powered Django AMQP consumer", out)
+        self.assertIn(self.starting_amqp_message, out)
         self.assertIn("No probe application running", out)
 
     @HurricaneAMQPTest.cycle_consumer(

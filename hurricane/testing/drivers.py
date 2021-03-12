@@ -3,11 +3,17 @@ import subprocess
 from queue import Empty, Queue
 from threading import Thread
 from time import sleep
-from typing import List, Tuple
+from typing import List, Tuple, Union
 
 import docker
 
 from hurricane.testing.actors import TestPublisher
+
+MANAGE_FILE = "manage.py"
+
+
+class BusyPortException(Exception):
+    pass
 
 
 class HurricaneBaseDriver(object):
@@ -24,44 +30,35 @@ class HurricaneBaseDriver(object):
                 try:
                     sock.bind(("127.0.0.1", port))
                 except OSError:
-                    raise Exception(f"Port {port} already in use.")
+                    raise BusyPortException(f"Port {port} already in use.")
 
-    def get_server_host_port(self, probe_port=False) -> Tuple[str, int]:
-        if probe_port:
-            port = self.probe_port
-        else:
-            port = self.port
+    def get_server_host_port(self, probe_port=False) -> Union[Tuple[str, int], Tuple[None, None]]:
+        port = self.probe_port if probe_port else self.port
         if self.proc:
             return "localhost", port
         else:
             return None, None
 
     def get_output(self, read_all=False) -> Tuple[str, str]:
-        if self.proc:
-            if read_all:
-                while True:
-                    try:
-                        line = self.q.get(timeout=0.5)
-                        self.log_lines.append(line)
-                    except Empty:
-                        break
-                return "".join(self.log_lines), ""
-            else:
+        if read_all:
+            while True:
                 try:
-                    line = self.q.get(timeout=1)
-                    if line:
-                        return line, ""
+                    line = self.q.get(timeout=0.5)
+                    self.log_lines.append(line)
                 except Empty:
-                    pass
-                return "", ""
-        return "", ""
+                    break
+            return "".join(self.log_lines), ""
+        else:
+            try:
+                line = self.q.get(timeout=1)
+                if line:
+                    return line, ""
+            except Empty:
+                pass
 
     def _start(self, params: List[str] = None, coverage: bool = True) -> None:
         self.log_lines = []
-        if coverage:
-            base_command = self.coverage_base_command
-        else:
-            base_command = self.base_command
+        base_command = self.coverage_base_command if coverage else self.base_command
 
         def enqueue_stdout(proc, queue):
             out = proc.stdout
@@ -75,14 +72,15 @@ class HurricaneBaseDriver(object):
                 queue.put(line.decode("utf-8"))
             out.close()
 
-        if params:
-            base_command = base_command + params
-        if params and "--port" in params:
+        params = params if params else []
+
+        base_command = base_command + params
+        if "--port" in params:
             self.port = int(params[params.index("--port") + 1])
         else:
             self.port = 8000
 
-        if params and "--probe-port" in params:
+        if "--probe-port" in params:
             self.probe_port = int(params[params.index("--probe-port") + 1])
         else:
             self.probe_port = 8001
@@ -96,8 +94,11 @@ class HurricaneBaseDriver(object):
         self.t_stdout.daemon = True
         self.t_stdout.start()
         # wait a maximum of 1 second
-        for i in range(0, 10):
-            out, err = self.get_output(read_all=True)
+        for _ in range(10):
+            if self.proc:
+                out, err = self.get_output(read_all=True)
+            else:
+                out = ""
             if self.test_string in out:
                 break
             sleep(0.1)
@@ -112,10 +113,10 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         "coverage",
         "run",
         "--source=hurricane/",
-        "manage.py",
+        MANAGE_FILE,
         "serve",
     ]
-    base_command = ["python", "manage.py", "serve"]
+    base_command = ["python", MANAGE_FILE, "serve"]
     test_string = "Tornado-powered Django web server"
 
     def start_server(self, params: dict = None, coverage: bool = True) -> None:
@@ -149,10 +150,10 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         "coverage",
         "run",
         "--source=hurricane/",
-        "manage.py",
+        MANAGE_FILE,
         "consume",
     ]
-    base_command = ["python", "manage.py", "consume"]
+    base_command = ["python", MANAGE_FILE, "consume"]
     test_string = "Starting a Tornado-powered Django AMQP consumer"
     ports = [5672, 8000, 8001]
 
@@ -174,7 +175,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
             )
         self.container = client.containers.get(c.id)
         # busy wait for rabbitmq to come up (timeout 10 seconds)
-        for i in range(0, 20):
+        for _ in range(20):
             if "Ready to start client connection listeners" in self.container.logs().decode("utf-8"):
                 break
             else:
@@ -214,7 +215,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
             return self._temp_port
         return None
 
-    def get_amqp_host_port(self) -> Tuple[str, int]:
+    def get_amqp_host_port(self) -> Union[Tuple[str, int], Tuple[None, None]]:
         if port := self._get_port():
             return "127.0.0.1", port
         else:

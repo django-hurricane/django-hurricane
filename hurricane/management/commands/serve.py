@@ -108,11 +108,8 @@ class Command(BaseCommand):
             tornado.autoreload.start()
 
         # set the probe port
-        if options["probe_port"] is None:
-            # the probe port by default is supposed to run the next port of the application
-            probe_port = options["port"] + 1
-        else:
-            probe_port = options["probe_port"]
+        # the probe port by default is supposed to run the next port of the application
+        probe_port = options["probe_port"] if options["probe_port"] else options["port"] + 1
 
         # sanitize probe paths
         options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}"

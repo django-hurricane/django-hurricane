@@ -56,7 +56,7 @@ def make_http_server(options, check_func, include_probe=False):
     if include_probe:
         handlers = [
             (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-            (options["readiness_probe"], DjangoReadinessHandler, {"check_handler": check_func}),
+            (options["readiness_probe"], DjangoReadinessHandler, {"req_queue_len": options["req_queue_len"]}),
             (options["startup_probe"], DjangoStartupHandler),
         ]
     else:
