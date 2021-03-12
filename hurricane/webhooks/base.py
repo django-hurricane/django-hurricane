@@ -52,13 +52,17 @@ class Webhook:
     def _send_webhook(self, data: dict, webhook_url: str):
         # sending webhook request to the specified url
         logger.info(f"Start sending {self.code} to {webhook_url}")
-        # TODO: catch exceptions
-        response = requests.post(webhook_url, timeout=5, data=data)
-        if response.status_code != 200:
-            logger.warning(
-                f"Request to the webhook endpoint " f"returned an error:\n {response.status_code} {response.text}"
-            )
-        logger.info(f"{self.code} has been sent")
+        try:
+            response = requests.post(webhook_url, timeout=5, data=data)
+        except Exception as e:
+            logger.warning(e)
+            logger.info(f"{self.code} could not be sent")
+        else:
+            if response.status_code != 200:
+                logger.warning(
+                    f"Request to the webhook endpoint returned an error:\n {response.status_code} {response.text}"
+                )
+            logger.info(f"{self.code} has been sent")
 
     def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback
