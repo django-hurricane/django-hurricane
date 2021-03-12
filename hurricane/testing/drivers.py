@@ -133,7 +133,6 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         "--source=hurricane",
         "hurricane.testing.start_webhook_receiver",
     ]
-    # base_command = ["python", "manage.py", "webhook_test_command"]
     base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
     test_string = "Started webhook receiver server"
 
