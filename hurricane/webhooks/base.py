@@ -94,6 +94,8 @@ class Webhook:
             logger.error(f"Sending webhook to {url} has failed")
             logger.error(e)
             logger.error(traceback.print_exc())
+
             if close_loop:
+                logger.info("Loop will be closed")
                 current_loop = asyncio.get_event_loop()
                 current_loop.stop()
