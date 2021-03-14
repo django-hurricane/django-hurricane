@@ -33,3 +33,13 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         hurricane_server.stop_server()
         self.assertIn("Started webhook receiver server", out)
         self.assertIn("succeeded", out)
+
+    @HurricaneWebhookServerTest.cycle_server
+    def test_webhook_wrong_url(self):
+        hurricane_server = HurricaneServerDriver()
+        hurricane_server.start_server(params=["--startup-webhook", "http://localhost:8074/web"])
+        out, err = self.driver.get_output(read_all=True)
+        hurricane_server.stop_server()
+        self.assertIn("Started webhook receiver server", out)
+        self.assertIn("WARNING", out)
+        self.assertIn("404", out)

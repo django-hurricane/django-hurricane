@@ -124,21 +124,22 @@ app server.
 
 Command options for *serve*-command:  
 
-| Option           | Help  |   
-| :----            | :---  |   
-| --static         | Serve collected static files |  
-| --media          | Serve media files |  
-| --autoreload     | Reload code on change |  
-| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
-| --port           | The port for Tornado to listen on (default is port 8000) |  
-| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |  
-| --no-probe       | Disable probe endpoint |  
-| --no-metrics     | Disable metrics collection | 
-|--req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe | 
-|--startup-probe   | The exposed path (default is /startup) for probes to check startup |  
-|--readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
-|--liveness-probe  | The exposed path (default is /alive) for probes to check liveness |
-|--webhook-url     | Url, which should receive a webhook request |
+| Option             | Help  |   
+| :----              | :---  |   
+| --static           | Serve collected static files |  
+| --media            | Serve media files |  
+| --autoreload       | Reload code on change |  
+| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
+| --port             | The port for Tornado to listen on (default is port 8000) |  
+| --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |  
+| --no-probe         | Disable probe endpoint |  
+| --no-metrics       | Disable metrics collection | 
+| --req-queue-len    | Threshold of length of queue of request, which is considered for readiness probe | 
+| --startup-probe    | The exposed path (default is /startup) for probes to check startup |  
+| --readiness-probe  | The exposed path (default is /ready) for probes to check readiness |  
+| --liveness-probe   | The exposed path (default is /alive) for probes to check liveness |
+| --startup-webhook  | Startup webhook url, if specified, after startup webhook will be sent to the url |
+| --liveness-webhook | Startup webhook url, if specified, after startup webhook will be sent to the url |
 
 #### Probes and the System Check Framework
 
@@ -149,6 +150,11 @@ health and sanity checks for free. Upon unhealthy declared applications (error-l
 application and remove unhealthy PODs once a new instance is in healthy state.  
 The port for the probe route is separated from the application's port. If not specified, the probe port is one port
 added to the application's port.
+
+#### Webhooks
+Webhooks can be specified as command options of *serve*-command. Right now, there are available two webhooks: startup-
+webhook and liveness-webhook. Startup-webhook and liveness-webhook are string options of the *serve*-command, which
+specify the url, to which webhook should be sent. 
 
 #### Logging
 It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
@@ -197,7 +203,7 @@ Command options for *consume*-command:
 | --no-probe        | Disable probe endpoint |  
 | --autoreload      | Reload code on change |  
 | --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |
-| --reconnect       | Reconnect the consumer if the broker connection is lost (not recommended) |  
+| --reconnect       | Reconnect the consumer if the broker connection is lost (not recommended) |
 
 
 #### Example AMQP Consumer

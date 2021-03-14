@@ -33,6 +33,7 @@ Here you find detailed descriptions of specific functions and classes.
    api/server
    api/metrics
    api/amqp
+   api/webhooks
 
 Indices and tables
 ==================

@@ -45,37 +45,39 @@ app server.
 
 Command options for *serve*-command:
 
-+------------------+-------------------------------------------------------------------------------------+
-| **Option**       | **Description**                                                                     |
-+------------------+-------------------------------------------------------------------------------------+
-| --static         | Serve collected static files                                                        |
-+------------------+-------------------------------------------------------------------------------------+
-| --media          | Serve media files                                                                   |
-+------------------+-------------------------------------------------------------------------------------+
-| --autoreload     | Reload code on change                                                               |
-+------------------+-------------------------------------------------------------------------------------+
-| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
-+------------------+-------------------------------------------------------------------------------------+
-| --port           | The port for Tornado to listen on (default is port 8000)                            |
-+------------------+-------------------------------------------------------------------------------------+
-| --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
-+------------------+-------------------------------------------------------------------------------------+
-| --readiness-probe| The exposed path (default is /ready) for probes to check readiness                  |
-+------------------+-------------------------------------------------------------------------------------+
-| --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
-+------------------+-------------------------------------------------------------------------------------+
-| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
-+------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len  | Threshold of length of queue of request, which is considered for readiness probe    |
-+------------------+-------------------------------------------------------------------------------------+
-| --no-probe       | Disable probe endpoint                                                              |
-+------------------+-------------------------------------------------------------------------------------+
-| --no-metrics     | Disable metrics collection                                                          |
-+------------------+-------------------------------------------------------------------------------------+
-| --command        | Repetitive command for adding execution of management commands before serving       |
-+------------------+-------------------------------------------------------------------------------------+
-|--webhook-url     | Url, which should receive a webhook request                                         |
-+------------------+-------------------------------------------------------------------------------------+
++-------------------+-------------------------------------------------------------------------------------+
+| **Option**        | **Description**                                                                     |
++-------------------+-------------------------------------------------------------------------------------+
+| --static          | Serve collected static files                                                        |
++-------------------+-------------------------------------------------------------------------------------+
+| --media           | Serve media files                                                                   |
++-------------------+-------------------------------------------------------------------------------------+
+| --autoreload      | Reload code on change                                                               |
++-------------------+-------------------------------------------------------------------------------------+
+| --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
++-------------------+-------------------------------------------------------------------------------------+
+| --port            | The port for Tornado to listen on (default is port 8000)                            |
++-------------------+-------------------------------------------------------------------------------------+
+| --startup-probe   | The exposed path (default is /startup) for probes to check startup                  |
++-------------------+-------------------------------------------------------------------------------------+
+| --readiness-probe | The exposed path (default is /ready) for probes to check readiness                  |
++-------------------+-------------------------------------------------------------------------------------+
+| --liveness-probe  | The exposed path (default is /alive) for probes to check liveness                   |
++-------------------+-------------------------------------------------------------------------------------+
+| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |
++-------------------+-------------------------------------------------------------------------------------+
+| --req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe    |
++-------------------+-------------------------------------------------------------------------------------+
+| --no-probe        | Disable probe endpoint                                                              |
++-------------------+-------------------------------------------------------------------------------------+
+| --no-metrics      | Disable metrics collection                                                          |
++-------------------+-------------------------------------------------------------------------------------+
+| --command         | Repetitive command for adding execution of management commands before serving       |
++-------------------+-------------------------------------------------------------------------------------+
+| --startup-webhook | Startup webhook url, if specified, after startup webhook will be sent to the url    |
++-------------------+-------------------------------------------------------------------------------------+
+| --liveness-webhook| Startup webhook url, if specified, after startup webhook will be sent to the url    |
++-------------------+-------------------------------------------------------------------------------------+
 
 
 **Probes and the System Check Framework**
@@ -116,6 +118,21 @@ Probe server, which defines handlers for every probe endpoint, runs in the main 
 commands does not block the main event loop and thus runs in a separate executor. Upon successful execution
 of management commands, the HTTP server is started.
 
+**Webhooks**
+
+Webhooks can be specified as command options of *serve*-command. Right now, there are available two webhooks: startup-
+webhook and liveness-webhook. First is an indicator of the status of startup probe. Startup-webhook sends a status, and
+depending on success or failure of startup process it can send either positive or negative status. Liveness-webhook is
+sent directly after the startup and indicates, that process is alive. Webhooks run as asynchronous processes and thus
+do not block the asyncio-loop. If the specified url is wrong or it cannot handle webhook properly, an error or a warning
+will be logged. Response of the webhook should be 200 to indicate the success of receiving webhook.
+
+*Creating new webhook types*
+The new webhook types can be specified in an easy manner in the hurricane/webhooks/webhook_types.py file. They need to
+specify Webhook class as a parent class. After creating a new webhook class, you can specify a new argument of the
+management command to parametrize the url, to which webhook will be sent. Then, you can just create an object of webhook
+and run it at the place in code, where it should be executed. Run method should have several methods i.e. url (to which
+webhook should be sent) and status (webhook on success or failure).
 
 **Logging**
 

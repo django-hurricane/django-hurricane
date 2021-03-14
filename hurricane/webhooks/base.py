@@ -30,7 +30,7 @@ class Webhook:
     def get_from_registry(cls):
 
         """
-        Getting metric from registry using metric code.
+        Getting webhook from registry using the code.
         """
 
         from hurricane.metrics import registry
@@ -38,6 +38,20 @@ class Webhook:
         return registry.get(cls.code)
 
     def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False):
+
+        """
+        Initiates the sending of webhook in an asynchronous manner. Also specifies the callback of the async process,
+        which handles the feedback and either logs success or failure of a webhook sending process.
+
+        Parameters
+        ----------
+        url : Url, which webhook should be sent to
+        status : can be either WebhookStatus.FAILED or WebhookStatus.SUCCEEDED depending on the success or failure of
+        the process, which should be indicated by the webhook
+        error_trace : specifies the error trace of the preceding failure
+        close_loop : specifies, whether the main loop should be closed or be left running
+        """
+
         if error_trace:
             self.set_traceback(error_trace)
         self.set_status(status)
@@ -51,18 +65,15 @@ class Webhook:
 
     def _send_webhook(self, data: dict, webhook_url: str):
         # sending webhook request to the specified url
-        logger.info(f"Start sending {self.code} to {webhook_url}")
-        try:
-            response = requests.post(webhook_url, timeout=5, data=data)
-        except Exception as e:
-            logger.warning(e)
-            logger.info(f"{self.code} could not be sent")
-        else:
-            if response.status_code != 200:
-                logger.warning(
-                    f"Request to the webhook endpoint returned an error:\n {response.status_code} {response.text}"
-                )
-            logger.info(f"{self.code} has been sent")
+        logger.info(f"Start sending {self.code} webhook to {webhook_url}")
+
+        response = requests.post(webhook_url, timeout=5, data=data)
+
+        if response.status_code != 200:
+            logger.warning(
+                f"Request to the webhook endpoint returned an error:\n {response.status_code} {response.text}"
+            )
+        logger.info(f"{self.code} has been sent")
 
     def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback

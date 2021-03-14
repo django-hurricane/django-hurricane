@@ -179,3 +179,9 @@ class HurricanStartServerTests(HurricanServerTest):
         )
         self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("ERROR", out)
+
+    @HurricanServerTest.cycle_server(args=["--startup-webhook", "http://localhost:8074/webhook"])
+    def test_startup_webhook_no_endpoint(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
