@@ -1,9 +1,25 @@
+import asyncio
+import time
+import traceback
+from typing import Callable
+
+import asyncio
+import functools
+import time
+import traceback
+from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Callable
+
+import requests
 import tornado
 from django.conf import settings
+from django.core.management import call_command
 
-from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric
+from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
+from hurricane.webhooks import LivenessWebhook, StartupWebhook
+from hurricane.webhooks.base import WebhookStatus
 
 
 class HurricaneApplication(tornado.web.Application):
@@ -77,3 +93,67 @@ def make_http_server(options, check_func, include_probe=False):
     # append the django routing system
     handlers.append((".*", DjangoHandler))
     return HurricaneApplication(handlers, debug=options["debug"], metrics=not options["no_metrics"])
+
+
+def make_http_server_and_listen(start_time: float, options: dict, check: Callable, include_probe: bool) -> None:
+    logger.info(f"Starting HTTP Server on port {options['port']}")
+    django_application = make_http_server(options, check, include_probe)
+    django_application.listen(options["port"])
+    end_time = time.time()
+    time_elapsed = end_time - start_time
+    # if startup time metric value is set - startup process is finished
+    StartupTimeMetric.set(time_elapsed)
+    logger.info(f"Startup time is {time_elapsed} seconds")
+
+    if options["liveness_webhook"]:
+        LivenessWebhook().run(url=options["liveness_webhook"], status=WebhookStatus.SUCCEEDED)
+
+
+def command_task(main_loop: asyncio.unix_events.SelectorEventLoop, callback: Callable, commands: list) -> None:
+    logger.info("Starting execution of management commands")
+
+    for command in commands:
+
+        # split a command string to get command options
+        command_split = command[0].split()
+        logger.info(f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}")
+        start_time_command = time.time()
+        # call management command
+        call_command(*command_split)
+        end_time_command = time.time()
+
+        logger.info(f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds")
+    # start http server in the main loop
+    main_loop.call_soon_threadsafe(callback)
+
+
+def callback_command_exception_check(future: asyncio.Future, webhook_url: str = None) -> None:
+    # checks if there were any exceptions in the executor and if any stops the loop
+    # if exceptions occured, it means, that some or one of the commands have failed
+    if webhook_url:
+        try:
+            future.result()
+        except Exception as e:
+            logger.error("Execution of management commands has failed. Webhook should be sent")
+            # printing full tracestack
+            error_trace = traceback.format_exc()
+            logger.error(e)
+            logger.error(traceback.print_exc())
+            logger.info("Webhook with a status failed has been initiated")
+            StartupWebhook().run(url=webhook_url, error_trace=error_trace, close_loop=True, status=WebhookStatus.FAILED)
+        else:
+            logger.info("Execution of management commands was successful. Webhook should be sent")
+            logger.info("Webhook with a status succeeded has been initiated")
+            StartupWebhook().run(url=webhook_url, status=WebhookStatus.SUCCEEDED)
+    else:
+        try:
+            future.result()
+        except Exception as e:
+            logger.error("Execution of management command has failed. Webhook is not set")
+            logger.error(e)
+            logger.error(traceback.print_exc())
+            current_loop = asyncio.get_event_loop()
+            current_loop.stop()
+        else:
+            logger.info("Execution of management commands was successful. Webhook is not set")
+

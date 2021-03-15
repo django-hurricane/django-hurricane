@@ -1,7 +1,12 @@
 import http
 import json
+import logging
 
 import pika
+import tornado.ioloop
+import tornado.web
+
+logging.basicConfig(level=logging.INFO)
 
 
 class HTTPClient(object):
@@ -40,3 +45,23 @@ class TestPublisher(object):
 
     def publish(self, exchange: str, queue: str, message: str) -> None:
         self.channel.basic_publish(exchange=exchange, routing_key=queue, body=message)
+
+
+class WebhookTestHandler(tornado.web.RequestHandler):
+    logger = logging.getLogger()
+
+    def post(self):
+        status = self.get_argument("status", "No startup status received")
+        traceback = self.get_argument("traceback", "No traceback received")
+        self.logger.info(status)
+        self.logger.info(traceback)
+        self.write("Received webhook")
+
+
+class WebhookReceiverServer:
+    def make_http_receiver_app(self):
+        return tornado.web.Application(
+            [
+                ("/webhook", WebhookTestHandler),
+            ]
+        )
