@@ -144,23 +144,22 @@ class DjangoReadinessHandler(DjangoProbeHandler):
         self.readiness_webhook = readiness_webhook
 
     def _check(self):
-        if StartupTimeMetric.get():
-            if RequestQueueLengthMetric.get() > self.request_queue_length:
-                self.set_status(400)
-                if ReadinessMetric.get() is None or ReadinessMetric.get() is True:
-                    ReadinessMetric.set(False)
-                    logger.info("Readiness metric changed to False")
-                    if self.readiness_webhook:
-                        logger.info("Readiness webhook with status failed is triggered")
-                        ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.Failed)
-            else:
-                self.set_status(200)
-                if ReadinessMetric.get() is None or ReadinessMetric.get() is False:
-                    ReadinessMetric.set(True)
-                    logger.info("Readiness metric changed to True")
-                    if self.readiness_webhook:
-                        logger.info("Readiness webhook with status succeeded is triggered")
-                        ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.SUCCEEDED)
+        if StartupTimeMetric.get() and RequestQueueLengthMetric.get() > self.request_queue_length:
+            self.set_status(400)
+            if ReadinessMetric.get() is None or ReadinessMetric.get() is True:
+                ReadinessMetric.set(False)
+                logger.info("Readiness metric changed to False")
+                if self.readiness_webhook:
+                    logger.info("Readiness webhook with status failed is triggered")
+                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.Failed)
+        elif StartupTimeMetric.get() and RequestQueueLengthMetric.get() <= self.request_queue_length:
+            self.set_status(200)
+            if ReadinessMetric.get() is None or ReadinessMetric.get() is False:
+                ReadinessMetric.set(True)
+                logger.info("Readiness metric changed to True")
+                if self.readiness_webhook:
+                    logger.info("Readiness webhook with status succeeded is triggered")
+                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.SUCCEEDED)
         else:
             self.set_status(400)
 
