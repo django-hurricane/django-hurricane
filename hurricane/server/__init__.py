@@ -3,14 +3,6 @@ import time
 import traceback
 from typing import Callable
 
-import asyncio
-import functools
-import time
-import traceback
-from concurrent.futures.thread import ThreadPoolExecutor
-from typing import Callable
-
-import requests
 import tornado
 from django.conf import settings
 from django.core.management import call_command
@@ -18,7 +10,7 @@ from django.core.management import call_command
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
 from hurricane.server.loggers import access_log, logger
-from hurricane.webhooks import LivenessWebhook, StartupWebhook
+from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
 
 
@@ -52,8 +44,16 @@ class HurricaneApplication(tornado.web.Application):
 def make_probe_server(options, check_func):
     """ create probe route application """
     handlers = [
-        (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-        (options["readiness_probe"], DjangoReadinessHandler, {"req_queue_len": options["req_queue_len"]}),
+        (
+            options["liveness_probe"],
+            DjangoLivenessHandler,
+            {"check_handler": check_func, "liveness_webhook": options["liveness_webhook"]},
+        ),
+        (
+            options["readiness_probe"],
+            DjangoReadinessHandler,
+            {"req_queue_len": options["req_queue_len"], "readiness_webhook": options["readiness_webhook"]},
+        ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
     return HurricaneApplication(handlers, debug=options["debug"], metrics=False)
@@ -105,9 +105,6 @@ def make_http_server_and_listen(start_time: float, options: dict, check: Callabl
     StartupTimeMetric.set(time_elapsed)
     logger.info(f"Startup time is {time_elapsed} seconds")
 
-    if options["liveness_webhook"]:
-        LivenessWebhook().run(url=options["liveness_webhook"], status=WebhookStatus.SUCCEEDED)
-
 
 def command_task(main_loop: asyncio.unix_events.SelectorEventLoop, callback: Callable, commands: list) -> None:
     logger.info("Starting execution of management commands")
@@ -156,4 +153,3 @@ def callback_command_exception_check(future: asyncio.Future, webhook_url: str = 
             current_loop.stop()
         else:
             logger.info("Execution of management commands was successful. Webhook is not set")
-

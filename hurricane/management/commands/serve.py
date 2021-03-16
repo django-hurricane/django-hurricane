@@ -95,6 +95,11 @@ class Command(BaseCommand):
             type=str,
             help="Url for liveness webhook",
         )
+        parser.add_argument(
+            "--readiness-webhook",
+            type=str,
+            help="Url for readiness webhook",
+        )
 
     def handle(self, *args, **options):
         """

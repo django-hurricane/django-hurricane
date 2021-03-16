@@ -1,3 +1,5 @@
+import requests
+
 from hurricane.testing.drivers import HurricaneServerDriver
 from hurricane.testing.testcases import HurricaneWebhookServerTest
 
@@ -43,3 +45,25 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         self.assertIn("Started webhook receiver server", out)
         self.assertIn("WARNING", out)
         self.assertIn("404", out)
+
+    @HurricaneWebhookServerTest.cycle_server
+    def test_liveness_webhook(self):
+        hurricane_server = HurricaneServerDriver()
+        hurricane_server.start_server(params=["--liveness-webhook", "http://localhost:8074/webhook"])
+        response = requests.get("http://localhost:8001/alive", timeout=5)
+        out, err = self.driver.get_output(read_all=True)
+        hurricane_server.stop_server()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Started webhook receiver server", out)
+        self.assertIn("succeeded", out)
+
+    @HurricaneWebhookServerTest.cycle_server
+    def test_readiness_webhook(self):
+        hurricane_server = HurricaneServerDriver()
+        hurricane_server.start_server(params=["--readiness-webhook", "http://localhost:8074/webhook"])
+        response = requests.get("http://localhost:8001/ready", timeout=5)
+        out, err = self.driver.get_output(read_all=True)
+        hurricane_server.stop_server()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Started webhook receiver server", out)
+        self.assertIn("succeeded", out)

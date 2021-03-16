@@ -123,9 +123,12 @@ of management commands, the HTTP server is started.
 Webhooks can be specified as command options of *serve*-command. Right now, there are available two webhooks: startup-
 webhook and liveness-webhook. First is an indicator of the status of startup probe. Startup-webhook sends a status, and
 depending on success or failure of startup process it can send either positive or negative status. Liveness-webhook is
-sent directly after the startup and indicates, that process is alive. Webhooks run as asynchronous processes and thus
-do not block the asyncio-loop. If the specified url is wrong or it cannot handle webhook properly, an error or a warning
-will be logged. Response of the webhook should be 200 to indicate the success of receiving webhook.
+triggered, when liveness-webhook url is specified and the liveness-probe is requested and the change of the health
+state is detected. For instance, if liveness probe is requested, but there was no change of the health variable, no
+webhook will be sent. Similarly, readiness webhook is sent upon the change of it's state variable.
+Webhooks run as asynchronous processes and thus do not block the asyncio-loop. If the specified url is wrong or it
+cannot handle webhook properly, an error or a warning will be logged. Response of the webhook should
+be 200 to indicate the success of receiving webhook.
 
 *Creating new webhook types*
 The new webhook types can be specified in an easy manner in the hurricane/webhooks/webhook_types.py file. They need to
