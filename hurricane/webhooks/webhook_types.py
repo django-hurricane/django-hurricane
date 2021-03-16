@@ -15,3 +15,11 @@ class LivenessWebhook(Webhook):
     def __init__(self):
         super(Webhook, self).__init__()
         self.data = {"info": "Liveness webhook"}
+
+
+class ReadinessWebhook(Webhook):
+    code = "readiness"
+
+    def __init__(self):
+        super(Webhook, self).__init__()
+        self.data = {"info": "Readiness webhook"}

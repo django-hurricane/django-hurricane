@@ -12,7 +12,7 @@ Todos
 - [ ] Testing, testing in production
 - [ ] Load-testing, automated performance regression testing
 - [ ] Implement the Kubernetes Metrics API
-- [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes)
+- [x] Implement hooks for calling webservices (e.g. for deployment or health state changes)
 - [ ] Add another metrics collector endpoint (e.g Prometheus)
 
 **Celery**

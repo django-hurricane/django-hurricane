@@ -95,6 +95,11 @@ class Command(BaseCommand):
             type=str,
             help="Url for liveness webhook",
         )
+        parser.add_argument(
+            "--readiness-webhook",
+            type=str,
+            help="Url for readiness webhook",
+        )
 
     def handle(self, *args, **options):
         """
@@ -128,7 +133,6 @@ class Command(BaseCommand):
                 )
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
-
             else:
                 include_probe = True
                 logger.info(

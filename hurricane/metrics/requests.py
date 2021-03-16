@@ -40,3 +40,11 @@ class RequestQueueLengthMetric(CalculatedMetric):
 
 class StartupTimeMetric(StoredMetric):
     code = "startup_time"
+
+
+class HealthMetric(StoredMetric):
+    code = "health"
+
+
+class ReadinessMetric(StoredMetric):
+    code = "readiness"

@@ -104,6 +104,21 @@ class Command(BaseCommand):
             action="store_true",
             help="Try to reconnect this client automatically as the broker is available again",
         )
+        parser.add_argument(
+            "--startup-webhook",
+            type=str,
+            help="Url for startup webhook",
+        )
+        parser.add_argument(
+            "--liveness-webhook",
+            type=str,
+            help="Url for liveness webhook",
+        )
+        parser.add_argument(
+            "--readiness-webhook",
+            type=str,
+            help="Url for readiness webhook",
+        )
 
     def handle(self, *args, **options):
 
