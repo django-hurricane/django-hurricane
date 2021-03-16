@@ -45,40 +45,41 @@ app server.
 
 Command options for *serve*-command:
 
-+-------------------+-------------------------------------------------------------------------------------+
-| **Option**        | **Description**                                                                     |
-+-------------------+-------------------------------------------------------------------------------------+
-| --static          | Serve collected static files                                                        |
-+-------------------+-------------------------------------------------------------------------------------+
-| --media           | Serve media files                                                                   |
-+-------------------+-------------------------------------------------------------------------------------+
-| --autoreload      | Reload code on change                                                               |
-+-------------------+-------------------------------------------------------------------------------------+
-| --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
-+-------------------+-------------------------------------------------------------------------------------+
-| --port            | The port for Tornado to listen on (default is port 8000)                            |
-+-------------------+-------------------------------------------------------------------------------------+
-| --startup-probe   | The exposed path (default is /startup) for probes to check startup                  |
-+-------------------+-------------------------------------------------------------------------------------+
-| --readiness-probe | The exposed path (default is /ready) for probes to check readiness                  |
-+-------------------+-------------------------------------------------------------------------------------+
-| --liveness-probe  | The exposed path (default is /alive) for probes to check liveness                   |
-+-------------------+-------------------------------------------------------------------------------------+
-| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |
-+-------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len   | Threshold of length of queue of request, which is considered for readiness probe    |
-+-------------------+-------------------------------------------------------------------------------------+
-| --no-probe        | Disable probe endpoint                                                              |
-+-------------------+-------------------------------------------------------------------------------------+
-| --no-metrics      | Disable metrics collection                                                          |
-+-------------------+-------------------------------------------------------------------------------------+
-| --command         | Repetitive command for adding execution of management commands before serving       |
-+-------------------+-------------------------------------------------------------------------------------+
-| --startup-webhook | Startup webhook url, if specified, after startup webhook will be sent to the url    |
-+-------------------+-------------------------------------------------------------------------------------+
-| --liveness-webhook| Startup webhook url, if specified, after startup webhook will be sent to the url    |
-+-------------------+-------------------------------------------------------------------------------------+
-
++--------------------+-------------------------------------------------------------------------------------+
+| **Option**         | **Description**                                                                     |
++--------------------+-------------------------------------------------------------------------------------+
+| --static           | Serve collected static files                                                        |
++--------------------+-------------------------------------------------------------------------------------+
+| --media            | Serve media files                                                                   |
++--------------------+-------------------------------------------------------------------------------------+
+| --autoreload       | Reload code on change                                                               |
++--------------------+-------------------------------------------------------------------------------------+
+| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
++--------------------+-------------------------------------------------------------------------------------+
+| --port             | The port for Tornado to listen on (default is port 8000)                            |
++--------------------+-------------------------------------------------------------------------------------+
+| --startup-probe    | The exposed path (default is /startup) for probes to check startup                  |
++--------------------+-------------------------------------------------------------------------------------+
+| --readiness-probe  | The exposed path (default is /ready) for probes to check readiness                  |
++--------------------+-------------------------------------------------------------------------------------+
+| --liveness-probe   | The exposed path (default is /alive) for probes to check liveness                   |
++--------------------+-------------------------------------------------------------------------------------+
+| --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |
++--------------------+-------------------------------------------------------------------------------------+
+| --req-queue-len    | Threshold of length of queue of request, which is considered for readiness probe    |
++--------------------+-------------------------------------------------------------------------------------+
+| --no-probe         | Disable probe endpoint                                                              |
++--------------------+-------------------------------------------------------------------------------------+
+| --no-metrics       | Disable metrics collection                                                          |
++--------------------+-------------------------------------------------------------------------------------+
+| --command          | Repetitive command for adding execution of management commands before serving       |
++--------------------+-------------------------------------------------------------------------------------+
+| --startup-webhook  | Startup webhook url, if specified, after startup webhook will be sent to the url    |
++--------------------+-------------------------------------------------------------------------------------+
+| --liveness-webhook | Startup webhook url, if specified, after startup webhook will be sent to the url    |
++--------------------+-------------------------------------------------------------------------------------+
+| --readiness-webhook| Startup webhook url, if specified, after startup webhook will be sent to the url    |
++--------------------+-------------------------------------------------------------------------------------+
 
 **Probes and the System Check Framework**
 

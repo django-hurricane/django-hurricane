@@ -44,7 +44,10 @@ class Command(BaseCommand):
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
         - ``--startup-webhook``- startup webhook url, if specified, after startup webhook will be sent to the url
-        - ``--liveness-webhook``- startup webhook url, if specified, after startup webhook will be sent to the url
+        - ``--liveness-webhook``- liveness webhook url, if specified, will trigger webhook to the url, if there is
+        change in the state variable
+        - ``--readiness-webhook``- readiness webhook url, if specified, will trigger webhook to the url, if there is\
+        change in readiness variable
     """
 
     help = "Start a Tornado-powered Django web server"
