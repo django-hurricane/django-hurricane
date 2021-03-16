@@ -1,5 +1,7 @@
 import asyncio
 import functools
+import socket
+import time
 import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
@@ -55,7 +57,8 @@ class Webhook:
         if error_trace:
             self.set_traceback(error_trace)
         self.set_status(status)
-
+        self.set_timestamp()
+        self.set_hostname()
         current_loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=1)
         fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url)
@@ -77,6 +80,12 @@ class Webhook:
 
     def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback
+
+    def set_timestamp(self):
+        self.data["timestamp"] = int(time.time())
+
+    def set_hostname(self):
+        self.data["hostname"] = socket.gethostname()
 
     def set_status(self, status: WebhookStatus):
         self.data["status"] = status.value
