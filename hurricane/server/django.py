@@ -156,7 +156,7 @@ class DjangoReadinessHandler(DjangoProbeHandler):
                 logger.info("Readiness metric changed to False")
                 if self.readiness_webhook:
                     logger.info("Readiness webhook with status failed is triggered")
-                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.Failed)
+                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.FAILED)
         elif StartupTimeMetric.get() and RequestQueueLengthMetric.get() <= self.request_queue_length:
             self.set_status(200)
             if ReadinessMetric.get() is not True:

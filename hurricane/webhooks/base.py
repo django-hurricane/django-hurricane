@@ -76,7 +76,7 @@ class Webhook:
             logger.warning(
                 f"Request to the webhook endpoint returned an error:\n {response.status_code} {response.text}"
             )
-        logger.info(f"{self.code} has been sent")
+        logger.info(f"Webhook {self.code} has been sent")
 
     def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback
