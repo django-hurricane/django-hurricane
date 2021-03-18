@@ -102,9 +102,8 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
                 if HealthMetric.get() is not False:
                     HealthMetric.set(False)
-                    logger.info("Health metric changed to False")
                     if self.liveness_webhook:
-                        logger.info("Liveness webhook with status failed is triggered")
+                        logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
                         LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.FAILED)
             except OperationalError as e:
                 if settings.DEBUG:
@@ -115,9 +114,8 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
                 if HealthMetric.get() is not False:
                     HealthMetric.set(False)
-                    logger.info("Health metric changed to False")
                     if self.liveness_webhook:
-                        logger.info("Liveness webhook with status failed is triggered")
+                        logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
                         LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.FAILED)
             else:
                 if response_average_time := ResponseTimeAverageMetric.get():
@@ -129,9 +127,8 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     self.write("alive")
                 if HealthMetric.get() is not True:
                     HealthMetric.set(True)
-                    logger.info("Health metric changed to True")
                     if self.liveness_webhook:
-                        logger.info("Liveness webhook with status succeeded is triggered")
+                        logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
                         LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.SUCCEEDED)
         else:
             self.set_status(400)
@@ -153,17 +150,15 @@ class DjangoReadinessHandler(DjangoProbeHandler):
             self.set_status(400)
             if ReadinessMetric.get() is not False:
                 ReadinessMetric.set(False)
-                logger.info("Readiness metric changed to False")
                 if self.readiness_webhook:
-                    logger.info("Readiness webhook with status failed is triggered")
+                    logger.info("Readiness metric changed to False. Webhook with status failed triggered")
                     ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.FAILED)
         elif StartupTimeMetric.get() and RequestQueueLengthMetric.get() <= self.request_queue_length:
             self.set_status(200)
             if ReadinessMetric.get() is not True:
                 ReadinessMetric.set(True)
-                logger.info("Readiness metric changed to True")
                 if self.readiness_webhook:
-                    logger.info("Readiness webhook with status succeeded is triggered")
+                    logger.info("Readiness metric changed to True. Webhook with status succeeded triggered")
                     ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.SUCCEEDED)
         else:
             self.set_status(400)
