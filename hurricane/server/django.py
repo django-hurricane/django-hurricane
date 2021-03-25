@@ -1,3 +1,5 @@
+import traceback
+
 import tornado.web
 from django.conf import settings
 from django.core.management.base import SystemCheckError
@@ -87,7 +89,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
     def _check(self):
         if StartupTimeMetric.get():
-            got_exception = False
+            got_exception = None
             try:
                 self.check()
                 if settings.DATABASES:
@@ -95,13 +97,13 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     # (even if the connection is gone later on)
                     connection.ensure_connection()
             except SystemCheckError as e:
-                got_exception = True
+                got_exception = traceback.format_exc()
                 if settings.DEBUG:
                     self.write("django check error: " + str(e))
                 else:
                     self.write("check error")
             except OperationalError as e:
-                got_exception = True
+                got_exception = traceback.format_exc()
                 if settings.DEBUG:
                     self.write("django database error: " + str(e))
                 else:
@@ -123,12 +125,13 @@ class DjangoLivenessHandler(DjangoProbeHandler):
             finally:
                 if got_exception:
                     self.set_status(500)
-
                     if HealthMetric.get() is not False:
                         HealthMetric.set(False)
                         if self.liveness_webhook:
                             logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
-                            LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.FAILED)
+                            LivenessWebhook().run(
+                                url=self.liveness_webhook, status=WebhookStatus.FAILED, error_trace=got_exception
+                            )
 
         else:
             self.set_status(400)
