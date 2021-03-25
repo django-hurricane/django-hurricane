@@ -87,6 +87,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
     def _check(self):
         if StartupTimeMetric.get():
+            got_exception = False
             try:
                 self.check()
                 if settings.DATABASES:
@@ -94,29 +95,18 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     # (even if the connection is gone later on)
                     connection.ensure_connection()
             except SystemCheckError as e:
+                got_exception = True
                 if settings.DEBUG:
                     self.write("django check error: " + str(e))
                 else:
                     self.write("check error")
-                self.set_status(500)
-
-                if HealthMetric.get() is not False:
-                    HealthMetric.set(False)
-                    if self.liveness_webhook:
-                        logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
-                        LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.FAILED)
             except OperationalError as e:
+                got_exception = True
                 if settings.DEBUG:
                     self.write("django database error: " + str(e))
                 else:
                     self.write("db error")
-                self.set_status(500)
 
-                if HealthMetric.get() is not False:
-                    HealthMetric.set(False)
-                    if self.liveness_webhook:
-                        logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
-                        LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.FAILED)
             else:
                 if response_average_time := ResponseTimeAverageMetric.get():
                     self.write(
@@ -130,6 +120,16 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     if self.liveness_webhook:
                         logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
                         LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.SUCCEEDED)
+            finally:
+                if got_exception:
+                    self.set_status(500)
+
+                    if HealthMetric.get() is not False:
+                        HealthMetric.set(False)
+                        if self.liveness_webhook:
+                            logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
+                            LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.FAILED)
+
         else:
             self.set_status(400)
 
