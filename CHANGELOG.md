@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.0 (2021-03-26)
+
+#### New Features
+
+* trigger webhooks for different application lifecycles
+
+
 ## 0.6.0 (2021-03-08)
 
 #### New Features
