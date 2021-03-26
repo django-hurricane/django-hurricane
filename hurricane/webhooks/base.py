@@ -7,6 +7,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
 import requests
+from django.conf import settings
 
 from hurricane.server.loggers import logger
 
@@ -54,11 +55,11 @@ class Webhook:
         close_loop : specifies, whether the main loop should be closed or be left running
         """
 
-        if error_trace:
-            self.set_traceback(error_trace)
+        self.set_traceback(error_trace)
         self.set_status(status)
         self.set_timestamp()
         self.set_hostname()
+        self.set_version()
         current_loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=1)
         fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url)
@@ -90,6 +91,12 @@ class Webhook:
 
     def set_status(self, status: WebhookStatus):
         self.data["status"] = status.value
+
+    def set_version(self):
+        if hasattr(settings, "HURRICANE_VERSION"):
+            self.data["version"] = settings.HURRICANE_VERSION
+        else:
+            self.data["version"] = None
 
     def get_message(self):
         return self.data

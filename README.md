@@ -155,6 +155,9 @@ Webhooks can be specified as command options of *serve*-command. Right now, ther
 webhook and liveness-webhook. Startup-webhook and liveness-webhook are string options of the *serve*-command, which
 specify the url, to which webhook should be sent. 
 
+#### Settings
+`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
+
 #### Logging
 It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
 not be displayed when application server will be started. Log level can be easily adjusted to own needs.

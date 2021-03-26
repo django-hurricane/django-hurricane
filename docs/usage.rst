@@ -134,6 +134,9 @@ management command to parametrize the url, to which webhook will be sent. Then, 
 and run it at the place in code, where it should be executed. Run method should have several methods i.e. url (to which
 webhook should be sent) and status (webhook on success or failure).
 
+**Settings**
+`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
+
 **Logging**
 
 It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
