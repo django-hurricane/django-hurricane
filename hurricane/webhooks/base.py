@@ -71,7 +71,7 @@ class Webhook:
         # sending webhook request to the specified url
         logger.info(f"Start sending {self.code} webhook to {webhook_url}")
 
-        response = requests.post(webhook_url, timeout=5, data=data)
+        response = requests.post(webhook_url, timeout=5, json=data)
 
         if response.status_code != 200:
             logger.warning(
