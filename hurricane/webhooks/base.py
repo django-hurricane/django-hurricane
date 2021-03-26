@@ -8,6 +8,7 @@ from enum import Enum
 
 import requests
 from django.conf import settings
+from requests import HTTPError, RequestException
 
 from hurricane.server.loggers import logger
 
@@ -71,14 +72,16 @@ class Webhook:
         # sending webhook request to the specified url
         logger.info(f"Start sending {self.code} webhook to {webhook_url}")
 
-        response = requests.post(webhook_url, timeout=5, json=data)
-
-        if response.status_code != 200:
+        try:
+            response = requests.post(webhook_url, timeout=5, json=data)
+            self.raise_for_status()
+            logger.info(f"{self.code} webhook has been sent successfully")
+        except HTTPError:
             logger.warning(
                 f"{self.code} webhook request to endpoint returned an error:\n {response.status_code} {response.text}"
             )
-        else:
-            logger.info(f"{self.code} webhook has been sent successfully")
+        except RequestException as e:
+            logger.warning(f"{self.code} could not send webhook request: {e}")
 
     def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback
