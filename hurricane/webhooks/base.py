@@ -74,7 +74,7 @@ class Webhook:
 
         try:
             response = requests.post(webhook_url, timeout=5, json=data)
-            self.raise_for_status()
+            response.raise_for_status()
             logger.info(f"{self.code} webhook has been sent successfully")
         except HTTPError:
             logger.warning(
