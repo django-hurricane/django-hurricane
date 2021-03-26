@@ -47,12 +47,12 @@ def make_probe_server(options, check_func):
         (
             options["liveness_probe"],
             DjangoLivenessHandler,
-            {"check_handler": check_func, "liveness_webhook": options["liveness_webhook"]},
+            {"check_handler": check_func, "webhook_url": options["webhook_url"]},
         ),
         (
             options["readiness_probe"],
             DjangoReadinessHandler,
-            {"req_queue_len": options["req_queue_len"], "readiness_webhook": options["readiness_webhook"]},
+            {"req_queue_len": options["req_queue_len"], "webhook_url": options["webhook_url"]},
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]

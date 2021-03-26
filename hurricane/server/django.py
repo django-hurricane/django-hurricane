@@ -83,9 +83,9 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     This handler runs with every call to the probe endpoint which is supposed to be used
     """
 
-    def initialize(self, check_handler, liveness_webhook):
+    def initialize(self, check_handler, webhook_url):
         self.check = check_handler
-        self.liveness_webhook = liveness_webhook
+        self.liveness_webhook = webhook_url
 
     def _check(self):
         if StartupTimeMetric.get():
@@ -144,9 +144,9 @@ class DjangoReadinessHandler(DjangoProbeHandler):
     can be used to determine the application's health state during its operation.
     """
 
-    def initialize(self, req_queue_len, readiness_webhook):
+    def initialize(self, req_queue_len, webhook_url):
         self.request_queue_length = req_queue_len
-        self.readiness_webhook = readiness_webhook
+        self.readiness_webhook = webhook_url
 
     def _check(self):
         if StartupTimeMetric.get() and RequestQueueLengthMetric.get() > self.request_queue_length:

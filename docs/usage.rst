@@ -74,11 +74,7 @@ Command options for *serve*-command:
 +--------------------+-------------------------------------------------------------------------------------+
 | --command          | Repetitive command for adding execution of management commands before serving       |
 +--------------------+-------------------------------------------------------------------------------------+
-| --startup-webhook  | Startup webhook url, if specified, after startup webhook will be sent to the url    |
-+--------------------+-------------------------------------------------------------------------------------+
-| --liveness-webhook | Startup webhook url, if specified, after startup webhook will be sent to the url    |
-+--------------------+-------------------------------------------------------------------------------------+
-| --readiness-webhook| Startup webhook url, if specified, after startup webhook will be sent to the url    |
+| --webhook-url      | If specified, webhooks will be sent to this url                                     |
 +--------------------+-------------------------------------------------------------------------------------+
 
 **Probes and the System Check Framework**
