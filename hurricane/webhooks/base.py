@@ -2,7 +2,6 @@ import asyncio
 import functools
 import socket
 import time
-import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
