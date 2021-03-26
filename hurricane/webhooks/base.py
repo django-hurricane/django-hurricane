@@ -1,10 +1,13 @@
 import asyncio
 import functools
+import socket
+import time
 import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
 import requests
+from django.conf import settings
 
 from hurricane.server.loggers import logger
 
@@ -52,10 +55,11 @@ class Webhook:
         close_loop : specifies, whether the main loop should be closed or be left running
         """
 
-        if error_trace:
-            self.set_traceback(error_trace)
+        self.set_traceback(error_trace)
         self.set_status(status)
-
+        self.set_timestamp()
+        self.set_hostname()
+        self.set_version()
         current_loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=1)
         fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url)
@@ -71,15 +75,28 @@ class Webhook:
 
         if response.status_code != 200:
             logger.warning(
-                f"Request to the webhook endpoint returned an error:\n {response.status_code} {response.text}"
+                f"{self.code} webhook request to endpoint returned an error:\n {response.status_code} {response.text}"
             )
-        logger.info(f"{self.code} has been sent")
+        else:
+            logger.info(f"{self.code} webhook has been sent successfully")
 
     def set_traceback(self, traceback: str):
         self.data["traceback"] = traceback
 
+    def set_timestamp(self):
+        self.data["timestamp"] = int(time.time())
+
+    def set_hostname(self):
+        self.data["hostname"] = socket.gethostname()
+
     def set_status(self, status: WebhookStatus):
         self.data["status"] = status.value
+
+    def set_version(self):
+        if hasattr(settings, "HURRICANE_VERSION"):
+            self.data["version"] = settings.HURRICANE_VERSION
+        else:
+            self.data["version"] = None
 
     def get_message(self):
         return self.data

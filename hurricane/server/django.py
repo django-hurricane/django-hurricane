@@ -1,11 +1,22 @@
+import traceback
+
 import tornado.web
 from django.conf import settings
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
 
-from hurricane.metrics import RequestQueueLengthMetric, ResponseTimeAverageMetric, StartupTimeMetric
+from hurricane.metrics import (
+    HealthMetric,
+    ReadinessMetric,
+    RequestQueueLengthMetric,
+    ResponseTimeAverageMetric,
+    StartupTimeMetric,
+)
+from hurricane.server.loggers import logger
 from hurricane.server.wsgi import HurricaneWSGIContainer
+from hurricane.webhooks import LivenessWebhook, ReadinessWebhook
+from hurricane.webhooks.base import WebhookStatus
 
 
 class DjangoHandler(tornado.web.RequestHandler):
@@ -72,11 +83,13 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     This handler runs with every call to the probe endpoint which is supposed to be used
     """
 
-    def initialize(self, check_handler):
+    def initialize(self, check_handler, webhook_url):
         self.check = check_handler
+        self.liveness_webhook = webhook_url
 
     def _check(self):
         if StartupTimeMetric.get():
+            got_exception = None
             try:
                 self.check()
                 if settings.DATABASES:
@@ -84,17 +97,18 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     # (even if the connection is gone later on)
                     connection.ensure_connection()
             except SystemCheckError as e:
+                got_exception = traceback.format_exc()
                 if settings.DEBUG:
                     self.write("django check error: " + str(e))
                 else:
                     self.write("check error")
-                self.set_status(500)
             except OperationalError as e:
+                got_exception = traceback.format_exc()
                 if settings.DEBUG:
                     self.write("django database error: " + str(e))
                 else:
                     self.write("db error")
-                self.set_status(500)
+
             else:
                 if response_average_time := ResponseTimeAverageMetric.get():
                     self.write(
@@ -103,6 +117,22 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     )
                 else:
                     self.write("alive")
+                if HealthMetric.get() is not True:
+                    HealthMetric.set(True)
+                    if self.liveness_webhook:
+                        logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
+                        LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.SUCCEEDED)
+            finally:
+                if got_exception:
+                    self.set_status(500)
+                    if HealthMetric.get() is not False:
+                        HealthMetric.set(False)
+                        if self.liveness_webhook:
+                            logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
+                            LivenessWebhook().run(
+                                url=self.liveness_webhook, status=WebhookStatus.FAILED, error_trace=got_exception
+                            )
+
         else:
             self.set_status(400)
 
@@ -114,15 +144,25 @@ class DjangoReadinessHandler(DjangoProbeHandler):
     can be used to determine the application's health state during its operation.
     """
 
-    def initialize(self, req_queue_len):
+    def initialize(self, req_queue_len, webhook_url):
         self.request_queue_length = req_queue_len
+        self.readiness_webhook = webhook_url
 
     def _check(self):
-        if StartupTimeMetric.get():
-            if RequestQueueLengthMetric.get() > self.request_queue_length:
-                self.set_status(400)
-            else:
-                self.set_status(200)
+        if StartupTimeMetric.get() and RequestQueueLengthMetric.get() > self.request_queue_length:
+            self.set_status(400)
+            if ReadinessMetric.get() is not False:
+                ReadinessMetric.set(False)
+                if self.readiness_webhook:
+                    logger.info("Readiness metric changed to False. Webhook with status failed triggered")
+                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.FAILED)
+        elif StartupTimeMetric.get() and RequestQueueLengthMetric.get() <= self.request_queue_length:
+            self.set_status(200)
+            if ReadinessMetric.get() is not True:
+                ReadinessMetric.set(True)
+                if self.readiness_webhook:
+                    logger.info("Readiness metric changed to True. Webhook with status succeeded triggered")
+                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.SUCCEEDED)
         else:
             self.set_status(400)
 

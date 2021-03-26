@@ -43,8 +43,7 @@ class Command(BaseCommand):
         - ``--no-probe`` - disable probe endpoint
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
-        - ``--startup-webhook``- startup webhook url, if specified, after startup webhook will be sent to the url
-        - ``--liveness-webhook``- startup webhook url, if specified, after startup webhook will be sent to the url
+        - ``--webhook-url``- If specified, webhooks will be sent to this url
     """
 
     help = "Start a Tornado-powered Django web server"
@@ -86,14 +85,9 @@ class Command(BaseCommand):
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
         parser.add_argument(
-            "--startup-webhook",
+            "--webhook-url",
             type=str,
-            help="Url for startup webhook",
-        )
-        parser.add_argument(
-            "--liveness-webhook",
-            type=str,
-            help="Url for liveness webhook",
+            help="Url for webhooks",
         )
 
     def handle(self, *args, **options):
@@ -106,6 +100,7 @@ class Command(BaseCommand):
 
         if options["autoreload"]:
             tornado.autoreload.start()
+            logger.info("Autoreload was performed")
 
         # set the probe port
         # the probe port by default is supposed to run the next port of the application
@@ -128,7 +123,6 @@ class Command(BaseCommand):
                 )
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
-
             else:
                 include_probe = True
                 logger.info(
@@ -154,10 +148,10 @@ class Command(BaseCommand):
                 include_probe=include_probe,
             )
             future = loop.run_in_executor(executor, command_task, loop, make_http_server_wrapper, options["command"])
-            if options["startup_webhook"]:
+            if options["webhook_url"]:
                 # wrap callback function to use additional variables
                 callback_wrapper_command_exception_check = functools.partial(
-                    callback_command_exception_check, webhook_url=options["startup_webhook"]
+                    callback_command_exception_check, webhook_url=options["webhook_url"]
                 )
                 # callback runs after run_in_executor is done
                 future.add_done_callback(callback_wrapper_command_exception_check)
@@ -165,8 +159,8 @@ class Command(BaseCommand):
                 future.add_done_callback(callback_command_exception_check)
         else:
             make_http_server_and_listen(start_time, options, self.check, include_probe)
-            if options["startup_webhook"]:
-                StartupWebhook().run(url=options["startup_webhook"], status=WebhookStatus.SUCCEEDED)
+            if options["webhook_url"]:
+                StartupWebhook().run(url=options["webhook_url"], status=WebhookStatus.SUCCEEDED)
 
         def ask_exit(signame):
             logger.info(f"Received signal {signame}. Shutting down now.")

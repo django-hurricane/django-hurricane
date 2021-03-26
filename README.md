@@ -55,7 +55,7 @@ in a workload description manifest. This is no longer something we configure wit
 - [ ] Testing, testing in production
 - [ ] Load-testing, automated performance regression testing  
 - [ ] Implement the Kubernetes Metrics API
-- [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
+- [x] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
 - [ ] Add another metrics collector endpoint (e.g Prometheus)  
 
 
@@ -138,8 +138,7 @@ Command options for *serve*-command:
 | --startup-probe    | The exposed path (default is /startup) for probes to check startup |  
 | --readiness-probe  | The exposed path (default is /ready) for probes to check readiness |  
 | --liveness-probe   | The exposed path (default is /alive) for probes to check liveness |
-| --startup-webhook  | Startup webhook url, if specified, after startup webhook will be sent to the url |
-| --liveness-webhook | Startup webhook url, if specified, after startup webhook will be sent to the url |
+| --webhook-url      | If specified, webhooks will be sent to this url |
 
 #### Probes and the System Check Framework
 
@@ -155,6 +154,9 @@ added to the application's port.
 Webhooks can be specified as command options of *serve*-command. Right now, there are available two webhooks: startup-
 webhook and liveness-webhook. Startup-webhook and liveness-webhook are string options of the *serve*-command, which
 specify the url, to which webhook should be sent. 
+
+#### Settings
+`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
 
 #### Logging
 It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will

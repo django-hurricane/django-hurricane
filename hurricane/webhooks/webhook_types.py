@@ -6,7 +6,7 @@ class StartupWebhook(Webhook):
 
     def __init__(self):
         super(Webhook, self).__init__()
-        self.data = {"info": "Startup webhook"}
+        self.data = {"info": "Startup webhook", "type": self.code}
 
 
 class LivenessWebhook(Webhook):
@@ -14,4 +14,12 @@ class LivenessWebhook(Webhook):
 
     def __init__(self):
         super(Webhook, self).__init__()
-        self.data = {"info": "Liveness webhook"}
+        self.data = {"info": "Liveness webhook", "type": self.code}
+
+
+class ReadinessWebhook(Webhook):
+    code = "readiness"
+
+    def __init__(self):
+        super(Webhook, self).__init__()
+        self.data = {"info": "Readiness webhook", "type": self.code}

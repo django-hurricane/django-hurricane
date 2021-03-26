@@ -104,6 +104,11 @@ class Command(BaseCommand):
             action="store_true",
             help="Try to reconnect this client automatically as the broker is available again",
         )
+        parser.add_argument(
+            "--webhook-url",
+            type=str,
+            help="Url for webhooks",
+        )
 
     def handle(self, *args, **options):
 
@@ -116,6 +121,7 @@ class Command(BaseCommand):
 
         if options["autoreload"]:
             tornado.autoreload.start()
+            logger.info("Autoreload was performed")
 
         # sanitize probe paths
         options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}"

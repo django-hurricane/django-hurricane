@@ -128,6 +128,13 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertEqual(res.text, "")
 
+    @HurricanServerTest.cycle_server(args=["--autoreload"])
+    def test_autoreload(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Autoreload was performed", out)
+        self.assertIn(self.starting_http_message, out)
+
     @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
     def test_startup_with_single_management_command(self):
         out, err = self.driver.get_output(read_all=True)
@@ -180,17 +187,28 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("ERROR", out)
 
-    @HurricanServerTest.cycle_server(args=["--startup-webhook", "http://localhost:8074/webhook"])
-    def test_startup_webhook_no_endpoint(self):
+    @HurricanServerTest.cycle_server(args=["--webhook-url", "http://localhost:8074/webhook"])
+    def test_webhook_no_endpoint(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
 
-    @HurricanServerTest.cycle_server(
-        args=["--command", "migrate", "--startup-webhook", "http://localhost:8074/webhook"]
-    )
+    @HurricanServerTest.cycle_server(args=["--command", "migrate", "--webhook-url", "http://localhost:8074/webhook"])
     def test_startup_failed_command_webhook_no_endpoint(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
         self.assertIn("Loop will be closed", out)
+
+    @HurricanServerTest.cycle_server
+    def test_duplicate_registration(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.requests import RequestCounterMetric
+
+        try:
+            registry.register(RequestCounterMetric)
+        except Exception as e:
+            exception = e
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Metric ID (request_counter) is already registered.", str(exception))
