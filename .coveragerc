@@ -1,4 +1,5 @@
 [run]
 branch = True
+relative_files = True
 source = hurricane/
 concurrency=multiprocessing
