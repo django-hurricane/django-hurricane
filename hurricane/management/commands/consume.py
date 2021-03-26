@@ -121,6 +121,7 @@ class Command(BaseCommand):
 
         if options["autoreload"]:
             tornado.autoreload.start()
+            logger.info("Autoreload was performed")
 
         # sanitize probe paths
         options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}"

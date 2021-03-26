@@ -128,6 +128,13 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertEqual(res.text, "")
 
+    @HurricanServerTest.cycle_server(args=["--autoreload"])
+    def test_autoreload(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Autoreload was performed", out)
+        self.assertIn(self.starting_http_message, out)
+
     @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
     def test_startup_with_single_management_command(self):
         out, err = self.driver.get_output(read_all=True)

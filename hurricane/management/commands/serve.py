@@ -100,6 +100,7 @@ class Command(BaseCommand):
 
         if options["autoreload"]:
             tornado.autoreload.start()
+            logger.info("Autoreload was performed")
 
         # set the probe port
         # the probe port by default is supposed to run the next port of the application
