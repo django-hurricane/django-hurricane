@@ -1,7 +1,4 @@
-# This workflow will install Python dependencies, run tests and lint with a single version of Python
-# For more information see: https://help.github.com/actions/language-and-framework-guides/using-python-with-github-actions
-
-name: Python application
+name: Test and build
 
 on:
   push:
@@ -29,6 +26,25 @@ jobs:
       run: |
         # stop the build if there are Python syntax errors or undefined names
         flake8 . --count --exit-zero --max-complexity=18 --max-line-length=120 --statistics --ignore=E203,E266,E501,W503,F403,F401,E402 --select=B,C,E,F,W,T4,B9
+    - name: Lint with black
+      run: |
+        pip install black
+        black --check --line-length=120 securepasswords/
     - name: Test with django tests
       run: |
-        python manage.py test
+        coverage run manage.py test
+
+    - name: Coveralls
+      uses: AndreMiras/coveralls-python-action@develop
+      with:
+        parallel: true
+        flag-name: Unit Test
+
+  coveralls_finish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Coveralls Finished
+        uses: AndreMiras/coveralls-python-action@develop
+        with:
+          parallel-finished: true
