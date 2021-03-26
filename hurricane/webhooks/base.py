@@ -2,13 +2,12 @@ import asyncio
 import functools
 import socket
 import time
-import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
 import requests
 from django.conf import settings
-from requests import HTTPError, RequestException
+from requests import RequestException
 
 from hurricane.server.loggers import logger
 
@@ -59,38 +58,30 @@ class Webhook:
         self.set_traceback(error_trace)
         self.set_status(status)
         self.set_timestamp()
-        self.set_hostname()
+        self.set_podname()
         self.set_version()
         current_loop = asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=1)
-        fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url)
+        fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url, close_loop)
         # callback runs after run_in_executor is done
         callback_wrapper = functools.partial(self._callback_webhook_exception_check, url=url, close_loop=close_loop)
         fut.add_done_callback(callback_wrapper)
 
-    def _send_webhook(self, data: dict, webhook_url: str):
+    def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url
         logger.info(f"Start sending {self.code} webhook to {webhook_url}")
 
-        try:
-            response = requests.post(webhook_url, timeout=5, json=data)
-            response.raise_for_status()
-            logger.info(f"{self.code} webhook has been sent successfully")
-        except HTTPError:
-            logger.warning(
-                f"{self.code} webhook request to endpoint returned an error:\n {response.status_code} {response.text}"
-            )
-        except RequestException as e:
-            logger.warning(f"{self.code} could not send webhook request: {e}")
+        response = requests.post(webhook_url, timeout=5, json=data)
+        response.raise_for_status()
 
-    def set_traceback(self, traceback: str):
-        self.data["traceback"] = traceback
+    def set_traceback(self, error_trace: str):
+        self.data["traceback"] = error_trace
 
     def set_timestamp(self):
         self.data["timestamp"] = int(time.time())
 
-    def set_hostname(self):
-        self.data["hostname"] = socket.gethostname()
+    def set_podname(self):
+        self.data["podname"] = socket.gethostname()
 
     def set_status(self, status: WebhookStatus):
         self.data["status"] = status.value
@@ -110,12 +101,10 @@ class Webhook:
         # but sending webhook has failed
         try:
             future.result()
-        except Exception as e:
-            logger.error(f"Sending webhook to {url} has failed")
-            logger.error(e)
-            logger.error(traceback.print_exc())
+        except RequestException as e:
+            logger.warning(f"Sending webhook to {url} has failed due to {e}")
 
-            if close_loop:
-                logger.info("Loop will be closed")
-                current_loop = asyncio.get_event_loop()
-                current_loop.stop()
+        if close_loop:
+            logger.info("Loop will be closed")
+            current_loop = asyncio.get_event_loop()
+            current_loop.stop()
