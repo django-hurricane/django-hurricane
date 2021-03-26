@@ -30,6 +30,7 @@ setup(
         "hurricane.amqp",
         "hurricane.metrics",
         "hurricane.server",
+        "hurricane.webhooks",
         "hurricane.testing",
         "hurricane.management",
         "hurricane.management.commands",
