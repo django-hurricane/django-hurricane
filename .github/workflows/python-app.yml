@@ -39,6 +39,7 @@ jobs:
       with:
         github-token: ${{ secrets.github_token }}
         flag-name: Coverage Run
+        path-to-lcov: ${{ github.workspace }}/coverage/lcov.info
         parallel: true
 
   finish:
