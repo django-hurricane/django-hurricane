@@ -34,20 +34,14 @@ jobs:
       run: |
         coverage run manage.py test
 
-    - name: Coveralls Parallel
-      uses: coverallsapp/github-action@master
+    - name: Coveralls
+      uses: AndreMiras/coveralls-python-action@develop
       with:
-        github-token: ${{ secrets.github_token }}
-        flag-name: Coverage Run
-        path-to-lcov: ${{ github.workspace }}/coverage/lcov.info
-        parallel: true
+        flag-name: Unit Test
 
-  finish:
-    needs: build
+  coveralls_finish:
+    needs: test
     runs-on: ubuntu-latest
     steps:
     - name: Coveralls Finished
-      uses: coverallsapp/github-action@master
-      with:
-        github-token: ${{ secrets.github_token }}
-        parallel-finished: true
+      uses: AndreMiras/coveralls-python-action@develop
