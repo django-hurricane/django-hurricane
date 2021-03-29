@@ -79,7 +79,7 @@ class HurricanStartServerTests(HurricanServerTest):
             out,
         )
         self.assertIn(" Serving static files under /static/", out)
-        self.assertIn("Serving media files under /", out)
+        self.assertIn("Serving media files under /media/", out)
 
     @HurricanServerTest.cycle_server
     def test_metrics_request(self):

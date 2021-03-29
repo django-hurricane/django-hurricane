@@ -11,7 +11,7 @@ MIDDLEWARE = []
 
 SITE_ID = 1
 
-MEDIA_PATH = "/media/"
+MEDIA_URL = "/media/"
 STATIC_URL = "/static/"
 
 ROOT_URLCONF = "tests.testapp.urls"
