@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.5 (2021-03-26)
+
+#### Fixes
+
+* fix several webhooks bugs and tests
+
+
 ## 0.8.0 (2021-03-26)
 
 #### New Features
