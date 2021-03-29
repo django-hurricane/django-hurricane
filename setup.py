@@ -38,6 +38,12 @@ setup(
     author="Michael Schilonka",
     author_email="michael@blueshoe.de",
     include_package_data=True,
+    url="https://github.com/Blueshoe/django-hurricane",
+    project_urls={
+        "Source": "https://github.com/Blueshoe/django-hurricane",
+        "Documentation": "https://django-hurricane.readthedocs.io/en/latest/",
+        "Bug Tracker": "https://github.com/Blueshoe/django-hurricane/issues",
+    },
     classifiers=[
         "Intended Audience :: Developers",
         "Topic :: Software Development",

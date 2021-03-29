@@ -12,6 +12,7 @@
 Hurricane is an initiative to fit Django perfectly with Kubernetes. It is supposed to cover
 many capabilities in order to run Django in a cloud-native environment, including a Tornado-powered Django app server.  
 
+[Documentation](https://django-hurricane.readthedocs.io/en/latest/)
 
 ## Intro
 
