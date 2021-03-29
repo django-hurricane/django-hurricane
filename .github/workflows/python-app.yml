@@ -7,7 +7,7 @@ on:
     branches: [ master ]
 
 jobs:
-  build:
+  test:
 
     runs-on: ubuntu-latest
 
@@ -34,14 +34,21 @@ jobs:
       run: |
         coverage run manage.py test
 
+    - name: Combine coverage
+      run: |
+        coverage combine
+
     - name: Coveralls
       uses: AndreMiras/coveralls-python-action@develop
       with:
         flag-name: Unit Test
+        parallel: true
 
   coveralls_finish:
-    needs: build
+    needs: test
     runs-on: ubuntu-latest
     steps:
     - name: Coveralls Finished
       uses: AndreMiras/coveralls-python-action@develop
+      with:
+        parallel-finished: true
