@@ -24,6 +24,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install locust
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Run hurricane test server & locust load testing
+    - name: Lint with flake8
       run: |
-        nohup python manage.py serve > /dev/null 2>&1 & locust --headless -u 25 -r 5 --host http://localhost:8000 --run-time 2m
+        python manage.py serve & locust --headless -u 1000 -r 100 --host http://localhost:8000 --run-time 10m
