@@ -26,4 +26,4 @@ jobs:
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
     - name: Run hurricane test server & locust load testing
       run: |
-        nohup python manage.py serve > /dev/null 2>&1 & locust --headless -u 100 -r 10 --host http://localhost:8000 --run-time 2m
+        nohup python manage.py serve > /dev/null 2>&1 & locust --headless -u 25 -r 5 --host http://localhost:8000 --run-time 2m
