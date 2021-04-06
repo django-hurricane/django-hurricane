@@ -4,12 +4,24 @@ from locust import HttpUser, between, events, task
 from locust.contrib.fasthttp import FastHttpUser
 
 
-class WebsiteUser(FastHttpUser):
+class HurricaneWebsiteUser(FastHttpUser):
     wait_time = between(5, 15)
+    url = "/"
+    weight = 1
 
     @task
-    def admin(self):
-        self.client.get("/")
+    def request(self):
+        self.client.get(self.url)
+
+
+class MediumHurricaneWebsiteUser(HurricaneWebsiteUser):
+    url = "/medium"
+    weight = 3
+
+
+class HeavyHurricaneWebsiteUser(HurricaneWebsiteUser):
+    url = "/heavy"
+    weight = 1
 
 
 @events.quitting.add_listener
@@ -19,11 +31,11 @@ def _(environment, **kw):
     if environment.stats.total.fail_ratio > 0.01:
         logging.error("Test failed due to failure ratio > 1%")
         environment.process_exit_code = 1
-    elif environment.stats.total.avg_response_time > 4:
-        logging.error("Test failed due to average response time ratio > 4 ms")
+    elif environment.stats.total.avg_response_time > 300:
+        logging.error("Test failed due to average response time ratio > 300 ms")
         environment.process_exit_code = 1
-    elif environment.stats.total.get_response_time_percentile(0.95) > 6:
-        logging.error("Test failed due to 95th percentile response time > 6 ms")
+    elif environment.stats.total.get_response_time_percentile(0.95) > 800:
+        logging.error("Test failed due to 95th percentile response time > 800 ms")
         environment.process_exit_code = 1
     else:
         environment.process_exit_code = 0
