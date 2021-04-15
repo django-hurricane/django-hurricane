@@ -1,4 +1,5 @@
 import re
+import time
 
 from hurricane.testing import HurricanServerTest
 
@@ -143,6 +144,8 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_management_commands_message, out)
         self.assertIn(self.starting_http_message, out)
 
+        time.sleep(10)
+
         res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
         res = self.probe_client.post(self.startup_route, data=None)
@@ -164,6 +167,8 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("No changes detected", out)
         self.assertIn(self.starting_http_message, out)
+
+        time.sleep(10)
 
         res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
