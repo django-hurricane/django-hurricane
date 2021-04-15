@@ -88,14 +88,29 @@ The port for the probe route is separated from the application's port. If not sp
 added to the application's port. For more information on this topic on Kubernetes side, please refer to
 `Configure Liveness, Readiness and Startup Probes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 
+
+**Management commands**
+Management commands can be added as options for hurricane serve command. Kubernetes is be able to poll startup probe
+and if management commands are still running, it knows, that it should not restart the container yet. Management
+commands can be given as repeating arguments to the serve management command e.g.:
+::
+    python manage.py serve --command makemigrations --command migrate
+
+If you want to add some options to the specific management command take both this command and it's options in the
+quotation marks:
+::
+    python manage.py serve --command "compilemessages --no-color"
+
+**Important:** management commands should be given in the order, which is required for django application. Each
+management command is then executed sequentially. Commands, which depend on other commands should be given after
+the commands they depend on. E.g. management_command_2 is depending on management_command_1, thus the serve command
+should look like this:
+::
+    python manage.py serve --command management_command_1 --command management_command_2
+
 **Endpoints**
 
 Probe server creates handlers for three endpoints: startup, readiness and liveness.
-Management commands can be added as options for hurricane serve command. Kubernetes is be able to poll startup probe
-and if management commands are be still running, it knows, that it should not restart the container yet. Management
-commands can be given as repeating arguments to the serve management command e.g.:
-::
-    python manage.py serve --command "makemigration" --command "compilemessages --no-color"
 
 .. image:: _static/img/django-hurrican-flowchart-K8s-Probes.png
   :width: 600
