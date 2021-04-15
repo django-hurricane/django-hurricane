@@ -102,6 +102,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.app_client.get("/")
         self.app_client.get("/")
         out, err = self.driver.get_output(read_all=True)
+        time.sleep(10)
         result = 0
         for line in out.split("\n"):
             timing = self._get_timing_from_string(line)
