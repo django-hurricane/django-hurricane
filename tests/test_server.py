@@ -144,7 +144,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_management_commands_message, out)
         self.assertIn(self.starting_http_message, out)
 
-        time.sleep(10)
+        time.sleep(30)
 
         res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
@@ -168,7 +168,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("No changes detected", out)
         self.assertIn(self.starting_http_message, out)
 
-        time.sleep(10)
+        time.sleep(30)
 
         res = self.probe_client.get(self.startup_route)
         self.assertEqual(res.status, 200)
