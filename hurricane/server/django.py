@@ -1,6 +1,7 @@
 import traceback
 
 import tornado.web
+from channels.db import database_sync_to_async
 from django.conf import settings
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
@@ -87,6 +88,10 @@ class DjangoLivenessHandler(DjangoProbeHandler):
         self.check = check_handler
         self.liveness_webhook = webhook_url
 
+    @database_sync_to_async
+    def ensure_connection(self):
+        connection.ensure_connection()
+
     def _check(self):
         if StartupTimeMetric.get():
             got_exception = None
@@ -95,7 +100,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                 if settings.DATABASES:
                     # once a connection has been established, this will be successful
                     # (even if the connection is gone later on)
-                    connection.ensure_connection()
+                    self.ensure_connection()
             except SystemCheckError as e:
                 got_exception = traceback.format_exc()
                 if settings.DEBUG:
@@ -108,7 +113,6 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     self.write("django database error: " + str(e))
                 else:
                     self.write("db error")
-
             else:
                 if response_average_time := ResponseTimeAverageMetric.get():
                     self.write(

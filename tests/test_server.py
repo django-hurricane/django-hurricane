@@ -95,24 +95,23 @@ class HurricanStartServerTests(HurricanServerTest):
         if match:
             return match.group("value")
 
-    # @HurricanServerTest.cycle_server
-    # def test_metrics_average_response_time(self):
-    #     self.app_client.get("/")
-    #     self.app_client.get("/")
-    #     self.app_client.get("/")
-    #     out, err = self.driver.get_output(read_all=True)
-    #     time.sleep(10)
-    #     result = 0
-    #     for line in out.split("\n"):
-    #         timing = self._get_timing_from_string(line)
-    #         if timing:
-    #             result += float(timing)
-    #     result /= 3
-    #     res = self.probe_client.get(self.alive_route)
-    #
-    #     timing = float(self._get_timing_from_string(res.text))
-    #     self.assertEqual(res.status, 200)
-    #     self.assertAlmostEqual(result, timing, 1)
+    @HurricanServerTest.cycle_server
+    def test_metrics_average_response_time(self):
+        self.app_client.get("/")
+        self.app_client.get("/")
+        self.app_client.get("/")
+        out, err = self.driver.get_output(read_all=True)
+        result = 0
+        for line in out.split("\n"):
+            timing = self._get_timing_from_string(line)
+            if timing:
+                result += float(timing)
+        result /= 3
+        res = self.probe_client.get(self.alive_route)
+
+        timing = float(self._get_timing_from_string(res.text))
+        self.assertEqual(res.status, 200)
+        self.assertAlmostEqual(result, timing, 1)
 
     @HurricanServerTest.cycle_server
     def test_log_outputs(self):
@@ -137,52 +136,48 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Autoreload was performed", out)
         self.assertIn(self.starting_http_message, out)
 
-    # @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
-    # def test_startup_with_single_management_command(self):
-    #     out, err = self.driver.get_output(read_all=True)
-    #     self.assertIn(self.starting_message, out)
-    #     self.assertIn("Starting probe application running on port 8090", out)
-    #     self.assertIn(self.starting_management_commands_message, out)
-    #     self.assertIn(self.starting_http_message, out)
-    #
-    #     time.sleep(30)
-    #
-    #     res = self.probe_client.get(self.startup_route)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.probe_client.post(self.startup_route, data=None)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.probe_client.get(self.alive_route)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.probe_client.get(self.ready_route)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.app_client.get("/")
-    #     self.assertEqual(res.status, 200)
-    #
-    # @HurricanServerTest.cycle_server(
-    #     args=["--command", "makemigrations", "--command", "makemigrations", "--probe-port", "8090"]
-    # )
-    # def test_startup_with_multiple_management_commands(self):
-    #     out, err = self.driver.get_output(read_all=True)
-    #     self.assertIn(self.starting_message, out)
-    #     self.assertIn("Starting probe application running on port 8090 with route", out)
-    #     self.assertIn(self.starting_management_commands_message, out)
-    #     self.assertIn("No changes detected", out)
-    #     self.assertIn(self.starting_http_message, out)
-    #
-    #     time.sleep(30)
-    #
-    #     res = self.probe_client.get(self.startup_route)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.probe_client.post(self.startup_route, data=None)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.probe_client.get(self.alive_route)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.probe_client.get(self.ready_route)
-    #     self.assertEqual(res.status, 200)
-    #     res = self.app_client.get("/")
-    #     self.assertEqual(res.status, 200)
+    @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
+    def test_startup_with_single_management_command(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Starting probe application running on port 8090", out)
+        self.assertIn(self.starting_management_commands_message, out)
+        self.assertIn(self.starting_http_message, out)
 
-    @HurricanServerTest.cycle_server(args=["--command", "migrate", "--probe-port", "8090"])
+        res = self.probe_client.get(self.startup_route)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.post(self.startup_route, data=None)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.get(self.alive_route)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.get(self.ready_route)
+        self.assertEqual(res.status, 200)
+        res = self.app_client.get("/")
+        self.assertEqual(res.status, 200)
+
+    @HurricanServerTest.cycle_server(
+        args=["--command", "makemigrations", "--command", "makemigrations", "--probe-port", "8090"]
+    )
+    def test_startup_with_multiple_management_commands(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Starting probe application running on port 8090 with route", out)
+        self.assertIn(self.starting_management_commands_message, out)
+        self.assertIn("No changes detected", out)
+        self.assertIn(self.starting_http_message, out)
+
+        res = self.probe_client.get(self.startup_route)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.post(self.startup_route, data=None)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.get(self.alive_route)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.get(self.ready_route)
+        self.assertEqual(res.status, 200)
+        res = self.app_client.get("/")
+        self.assertEqual(res.status, 200)
+
+    @HurricanServerTest.cycle_server(args=["--command", "migrates", "--probe-port", "8090"])
     def test_startup_failing_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -199,7 +194,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
 
-    @HurricanServerTest.cycle_server(args=["--command", "migrate", "--webhook-url", "http://localhost:8074/webhook"])
+    @HurricanServerTest.cycle_server(args=["--command", "migrates", "--webhook-url", "http://localhost:8074/webhook"])
     def test_startup_failed_command_webhook_no_endpoint(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
