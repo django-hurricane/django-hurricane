@@ -96,24 +96,24 @@ class HurricanStartServerTests(HurricanServerTest):
         if match:
             return match.group("value")
 
-    @HurricanServerTest.cycle_server
-    def test_metrics_average_response_time(self):
-        self.app_client.get("/")
-        self.app_client.get("/")
-        self.app_client.get("/")
-        out, err = self.driver.get_output(read_all=True)
-        time.sleep(10)
-        result = 0
-        for line in out.split("\n"):
-            timing = self._get_timing_from_string(line)
-            if timing:
-                result += float(timing)
-        result /= 3
-        res = self.probe_client.get(self.alive_route)
-
-        timing = float(self._get_timing_from_string(res.text))
-        self.assertEqual(res.status, 200)
-        self.assertAlmostEqual(result, timing, 1)
+    # @HurricanServerTest.cycle_server
+    # def test_metrics_average_response_time(self):
+    #     self.app_client.get("/")
+    #     self.app_client.get("/")
+    #     self.app_client.get("/")
+    #     out, err = self.driver.get_output(read_all=True)
+    #     time.sleep(10)
+    #     result = 0
+    #     for line in out.split("\n"):
+    #         timing = self._get_timing_from_string(line)
+    #         if timing:
+    #             result += float(timing)
+    #     result /= 3
+    #     res = self.probe_client.get(self.alive_route)
+    #
+    #     timing = float(self._get_timing_from_string(res.text))
+    #     self.assertEqual(res.status, 200)
+    #     self.assertAlmostEqual(result, timing, 1)
 
     @HurricanServerTest.cycle_server
     def test_log_outputs(self):
