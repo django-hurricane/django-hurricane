@@ -213,3 +213,12 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         self.assertIn("Metric ID (request_counter) is already registered.", str(exception))
+
+    @HurricanServerTest.cycle_server
+    def test_unregistering_metrics(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.requests import RequestCounterMetric
+
+        registry.unregister(RequestCounterMetric)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
