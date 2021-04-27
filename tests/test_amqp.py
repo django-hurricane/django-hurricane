@@ -37,7 +37,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
             "--exchange",
             "test",
             "--probe-port",
-            "8080",
+            "8081",
             "--startup-probe",
             "/startup",
         ]
@@ -45,7 +45,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_amqp_message, out)
-        self.assertIn("Probe application running on port 8080", out)
+        self.assertIn("Probe application running on port 8081", out)
         res = self.probe_client.get("/startup")
         self.assertEqual(res.status, 200)
 
