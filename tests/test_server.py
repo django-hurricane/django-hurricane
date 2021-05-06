@@ -222,3 +222,25 @@ class HurricanStartServerTests(HurricanServerTest):
         registry.unregister(RequestCounterMetric)
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_duplicate_registration_webhooks(self):
+        from hurricane.webhooks import webhook_registry
+        from hurricane.webhooks.webhook_types import StartupWebhook
+
+        try:
+            webhook_registry.register(StartupWebhook)
+        except Exception as e:
+            exception = e
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Webhook Code (startup) is already registered.", str(exception))
+
+    @HurricanServerTest.cycle_server
+    def test_unregistering_webhooks(self):
+        from hurricane.webhooks import webhook_registry
+        from hurricane.webhooks.webhook_types import StartupWebhook
+
+        webhook_registry.unregister(StartupWebhook)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
