@@ -27,7 +27,7 @@ jobs:
     - name: Lint with flake8
       run: |
         # stop the build if there are Python syntax errors or undefined names
-        flake8 . --count --exit-zero --max-complexity=18 --max-line-length=120 --statistics --ignore=E203,E266,E501,W503,F403,F401,E402 --select=B,C,E,F,W,T4,B9
+        flake8 hurricane/ --count --exit-zero --max-complexity=18 --max-line-length=120 --statistics --ignore=E203,E266,E501,W503,F403,F401,E402 --select=B,C,E,F,W,T4,B9
     - name: Lint with black
       run: |
         pip install black
