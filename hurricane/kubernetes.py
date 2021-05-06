@@ -3,12 +3,11 @@ import logging
 
 import tornado.web
 
-logging.basicConfig(level=logging.INFO)
-
 
 class K8sServerMetricsHandler(tornado.web.RequestHandler):
     """This handler reports current usage statistics to Kubernetes"""
 
+    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger()
 
     def get(self):
