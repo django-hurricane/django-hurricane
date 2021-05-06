@@ -239,22 +239,3 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
             return "127.0.0.1", port
         else:
             return None, None
-
-
-class HurricaneK8S(HurricaneBaseDriver):
-    ports = [8040, 8041]
-    coverage_base_command = [
-        "coverage",
-        "run",
-        "-m",
-        "--source=hurricane/",
-        "hurricane.testing.start_webhook_receiver",
-    ]
-    base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
-    test_string = "Started webhook receiver server"
-
-    def start_server(self, params: dict = None, coverage: bool = True) -> None:
-        self._start(params, coverage)
-
-    def stop_server(self) -> None:
-        self._stop()
