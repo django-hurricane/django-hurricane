@@ -23,6 +23,7 @@ class HurricaneBaseDriver(object):
     coverage_base_command = []
     test_string = ""
     ports = [8000, 8001]
+    source = "--source=hurricane/"
 
     def __init__(self):
         for port in self.ports:
@@ -112,7 +113,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
     coverage_base_command = [
         "coverage",
         "run",
-        "--source=hurricane/",
+        HurricaneBaseDriver.source,
         MANAGE_FILE,
         "serve",
     ]
@@ -132,7 +133,7 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         "coverage",
         "run",
         "-m",
-        "--source=hurricane/",
+        HurricaneBaseDriver.source,
         "hurricane.testing.start_webhook_receiver",
     ]
     base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
@@ -151,7 +152,7 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
         "coverage",
         "run",
         "-m",
-        "--source=hurricane/",
+        HurricaneBaseDriver.source,
         "hurricane.testing.start_k8s_server",
     ]
     base_command = ["python", "-m", "hurricane.testing.start_k8s_server"]
@@ -168,7 +169,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     coverage_base_command = [
         "coverage",
         "run",
-        "--source=hurricane/",
+        HurricaneBaseDriver.source,
         MANAGE_FILE,
         "consume",
     ]
