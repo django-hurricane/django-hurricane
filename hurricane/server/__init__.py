@@ -22,7 +22,7 @@ class HurricaneApplication(tornado.web.Application):
         super(HurricaneApplication, self).__init__(*args, **kwargs)
 
     def log_request(self, handler: DjangoHandler) -> None:
-        """Writes a completed HTTP request to the logs. """
+        """Writes a completed HTTP request to the logs."""
         if handler.get_status() < 400:
             log_method = access_log.info
         elif handler.get_status() < 500:
@@ -42,7 +42,7 @@ class HurricaneApplication(tornado.web.Application):
 
 
 def make_probe_server(options, check_func):
-    """ create probe route application """
+    """create probe route application"""
     handlers = [
         (
             options["liveness_probe"],
@@ -60,7 +60,7 @@ def make_probe_server(options, check_func):
 
 
 def make_http_server(options, check_func, include_probe=False):
-    """ create all routes for this application """
+    """create all routes for this application"""
     if include_probe:
         handlers = [
             (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),

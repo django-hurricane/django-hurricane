@@ -8,7 +8,7 @@ logger = metrics_log
 
 
 class K8sServerMetricsHandler(tornado.web.RequestHandler):
-    """ This handler reports current usage statistics to Kubernetes """
+    """This handler reports current usage statistics to Kubernetes"""
 
     def get(self):
         # write custom metrics to MetricsAPI in the future
