@@ -20,7 +20,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
     def test_webhook_on_failure(self):
         hurricane_server = HurricaneServerDriver()
         hurricane_server.start_server(
-            params=["--command", "migrates", "--webhook-url", "http://localhost:8074/webhook"]
+            params=["--command", "failingcommand", "--webhook-url", "http://localhost:8074/webhook"]
         )
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
