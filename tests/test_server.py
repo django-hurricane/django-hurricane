@@ -194,6 +194,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
 
+
     @HurricanServerTest.cycle_server(
         args=["--command", "failingcommand", "--webhook-url", "http://localhost:8074/webhook"]
     )
