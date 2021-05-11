@@ -375,3 +375,10 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
+
+    @HurricanServerTest.cycle_server(args=["--check-migrations"])
+    def test_check_migrations(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Database was checked successfully", out)
+        self.assertIn("No pending migrations", out)

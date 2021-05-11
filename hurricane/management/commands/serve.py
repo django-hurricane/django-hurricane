@@ -11,8 +11,9 @@ from django.core.management.base import BaseCommand
 
 from hurricane.server import (
     callback_command_exception_check,
-    check_migrations,
+    check_databases,
     command_task,
+    count_migrations,
     logger,
     make_http_server_and_listen,
     make_probe_server,
@@ -140,7 +141,18 @@ class Command(BaseCommand):
         loop = asyncio.get_event_loop()
 
         if options["check_migrations"]:
-            check_migrations()
+            while True:
+                if check_databases():
+                    number_of_migrations = count_migrations()
+
+                    if number_of_migrations == 0:
+                        logger.info("No pending migrations")
+                        break
+
+                    logger.info(f"There are {number_of_migrations} pending migrations")
+
+                else:
+                    logger.info("Database connections are not ready")
 
         if options["command"]:
             # command_task is a function that executes management commands
