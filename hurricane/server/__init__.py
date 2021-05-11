@@ -176,11 +176,24 @@ def count_migrations():
     number_of_migrations = 0
     for db_name in connections:
         connection = connections[db_name]
-        try:
+        if hasattr(connection, "prepare_database"):
             connection.prepare_database()
-        except AttributeError:
-            pass
         executor = MigrationExecutor(connection)
         targets = executor.loader.graph.leaf_nodes()
         number_of_migrations += len(executor.migration_plan(targets))
     return number_of_migrations
+
+
+def check_migrations():
+    while True:
+        if check_databases():
+            number_of_migrations = count_migrations()
+
+            if number_of_migrations == 0:
+                logger.info("No pending migrations")
+                break
+
+            logger.info(f"There are {number_of_migrations} pending migrations")
+
+        else:
+            logger.info("Database connections are not ready")
