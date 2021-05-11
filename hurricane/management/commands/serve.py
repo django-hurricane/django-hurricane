@@ -11,7 +11,9 @@ from django.core.management.base import BaseCommand
 
 from hurricane.server import (
     callback_command_exception_check,
+    check_databases,
     command_task,
+    count_migrations,
     logger,
     make_http_server_and_listen,
     make_probe_server,
@@ -43,6 +45,7 @@ class Command(BaseCommand):
         - ``--no-probe`` - disable probe endpoint
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
+        - ``--check-migrations`` - check if all migrations were applied before starting application
         - ``--webhook-url``- If specified, webhooks will be sent to this url
     """
 
@@ -84,6 +87,7 @@ class Command(BaseCommand):
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
+        parser.add_argument("--check-migrations", action="store_true", help="Check if migrations were applied")
         parser.add_argument(
             "--webhook-url",
             type=str,
@@ -135,6 +139,20 @@ class Command(BaseCommand):
             logger.info("No probe application running")
 
         loop = asyncio.get_event_loop()
+
+        if options["check_migrations"]:
+            while True:
+                if check_databases():
+                    number_of_migrations = count_migrations()
+
+                    if number_of_migrations == 0:
+                        logger.info("No pending migrations")
+                        break
+
+                    logger.info(f"There are {number_of_migrations} pending migrations")
+
+                else:
+                    logger.info("Database connections are not ready")
 
         if options["command"]:
             # command_task is a function that executes management commands

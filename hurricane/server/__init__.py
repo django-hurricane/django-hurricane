@@ -6,6 +6,8 @@ from typing import Callable
 import tornado
 from django.conf import settings
 from django.core.management import call_command
+from django.db import connections
+from django.db.migrations.executor import MigrationExecutor
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
@@ -153,3 +155,32 @@ def callback_command_exception_check(future: asyncio.Future, webhook_url: str = 
             current_loop.stop()
         else:
             logger.info("Execution of management commands was successful. Webhook is not set")
+
+
+def check_databases():
+    for db_name in connections:
+        connection = connections[db_name]
+        cursor = connection.cursor()
+        try:
+            cursor.execute("SELECT (1)")
+            logger.info("Database was checked successfully")
+            return True
+        except Exception as e:
+            logger.warning(f"Database command execution has failed with {e}")
+            return False
+        finally:
+            cursor.close()
+
+
+def count_migrations():
+    number_of_migrations = 0
+    for db_name in connections:
+        connection = connections[db_name]
+        try:
+            connection.prepare_database()
+        except AttributeError:
+            pass
+        executor = MigrationExecutor(connection)
+        targets = executor.loader.graph.leaf_nodes()
+        number_of_migrations += len(executor.migration_plan(targets))
+    return number_of_migrations
