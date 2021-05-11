@@ -1,6 +1,7 @@
 import tornado.web
 from django.test import SimpleTestCase
 
+from hurricane.kubernetes import K8sServerMetricsHandler
 from hurricane.testing.actors import HTTPClient, WebhookTestHandler
 from hurricane.testing.drivers import (
     HurricaneAMQPDriver,
@@ -73,7 +74,6 @@ class HurricaneWebhookServerTest(HurricanServerTest):
 
     @property
     def probe(self):
-        host, port = self.driver.get_server_host_port(probe_port=True)
         return WebhookTestHandler()
 
 
@@ -82,9 +82,6 @@ class HurricaneK8sServerTest(HurricanServerTest):
 
     @property
     def probe(self):
-        host, port = self.driver.get_server_host_port(probe_port=True)
-        from hurricane.kubernetes import K8sServerMetricsHandler
-
         return K8sServerMetricsHandler()
 
 
@@ -114,6 +111,49 @@ class HurricaneAMQPTest(HurricanBaseTest):
                 self.driver.start_amqp()
                 host, port = self.driver.get_amqp_host_port()
                 _args += ["--amqp-port", str(port), "--amqp-host", host]
+                self.driver.start_consumer(_args, coverage)
+                try:
+                    function(self)
+                except Exception as e:
+                    self.driver.stop_consumer()
+                    self.driver.stop_amqp()
+                    raise e
+                else:
+                    self.driver.stop_consumer()
+                    self.driver.stop_amqp()
+
+            return wrapper
+
+        if len(args) == 1 and callable(args[0]):
+            return _cycle_consumer(args[0])
+        else:
+            return _cycle_consumer
+
+
+class HurricaneAMQPPortHostTest(HurricanBaseTest):
+    driver = HurricaneAMQPDriver
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.driver.stop_consumer()
+        cls.driver.stop_amqp()
+        super().tearDownClass()
+
+    @staticmethod
+    def cycle_consumer(*args, **kwargs):
+        def _cycle_consumer(function):
+            def wrapper(self):
+                if "args" in kwargs:
+                    _args = kwargs["args"]
+                else:
+                    _args = None
+                # run this hurricane consumer with coverage
+                # default is True
+                if "coverage" in kwargs:
+                    coverage = kwargs["coverage"]
+                else:
+                    coverage = True
+                self.driver.start_amqp()
                 self.driver.start_consumer(_args, coverage)
                 try:
                     function(self)
