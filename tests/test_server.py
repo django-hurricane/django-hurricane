@@ -1,7 +1,7 @@
 import re
 
-from hurricane.kubernetes import K8sServerMetricsHandler
 from hurricane.testing import HurricanServerTest
+from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
 
 class HurricanStartServerTests(HurricanServerTest):
@@ -321,4 +321,17 @@ class HurricanStartServerTests(HurricanServerTest):
         webhook_registry.unregister(StartupWebhook)
         webhook_registry.register(StartupWebhook)
         out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_busy_port(self):
+        with self.assertRaises(BusyPortException):
+            hurricane_server = HurricaneServerDriver()
+            hurricane_server.start_server()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_not_readall(self):
+        out, err = self.driver.get_output(read_all=False)
         self.assertIn(self.starting_message, out)
