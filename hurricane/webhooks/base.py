@@ -35,9 +35,9 @@ class Webhook:
         Getting webhook from registry using the code.
         """
 
-        from hurricane.webhooks import registry
+        from hurricane.webhooks import webhook_registry
 
-        return registry.get(cls.code)
+        return webhook_registry.get(cls.code)
 
     def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False):
 

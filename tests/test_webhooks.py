@@ -77,3 +77,13 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         self.assertEqual(response.status_code, 400)
         self.assertIn(self.starting_message, out)
         self.assertIn("failed", out)
+
+    @HurricaneWebhookServerTest.cycle_server
+    def test_get_webhook(self):
+        from hurricane.webhooks.base import Webhook
+        from hurricane.webhooks.webhook_types import StartupWebhook
+
+        Webhook(code="new_webhook")
+        StartupWebhook.get_from_registry()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
