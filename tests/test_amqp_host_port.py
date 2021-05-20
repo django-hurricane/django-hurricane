@@ -1,9 +1,9 @@
 from time import sleep
 
-from hurricane.testing import HurricaneAMQPPortHostTest
+from hurricane.testing import HurricaneAMQPTest
 
 
-class HurricaneStartAMQPPortHostTests(HurricaneAMQPPortHostTest):
+class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
 
     starting_amqp_message = "Starting a Tornado-powered Django AMQP consumer"
 
@@ -17,8 +17,8 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPPortHostTest):
         else:
             self.fail("AMQP consumer did not bind to test queue")
 
-    @HurricaneAMQPPortHostTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
+    @HurricaneAMQPTest.cycle_consumer(
+        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test", "--no_host_port"]
     )
     def test_empty_host(self):
         out, err = self.driver.get_output(read_all=True)
@@ -29,7 +29,7 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPPortHostTest):
             out,
         )
 
-    @HurricaneAMQPPortHostTest.cycle_consumer(
+    @HurricaneAMQPTest.cycle_consumer(
         args=[
             "tests.testapp.consumer.MyTestHandler",
             "--queue",
@@ -38,6 +38,7 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPPortHostTest):
             "test",
             "--amqp-host",
             "127.0.0.1",
+            "--no_host_port",
         ]
     )
     def test_empty_port(self):
