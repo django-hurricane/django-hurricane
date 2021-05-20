@@ -333,5 +333,8 @@ class HurricanStartServerTests(HurricanServerTest):
 
     @HurricanServerTest.cycle_server
     def test_not_readall(self):
-        out, err = self.driver.get_output(read_all=False)
-        self.assertIn(self.starting_message, out)
+        try:
+            out, err = self.driver.get_output(read_all=False)
+        except TypeError:
+            out, err = self.driver.get_output(read_all=True)
+            self.assertIn(self.starting_message, out)
