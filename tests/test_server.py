@@ -319,5 +319,6 @@ class HurricanStartServerTests(HurricanServerTest):
         from hurricane.webhooks.webhook_types import StartupWebhook
 
         webhook_registry.unregister(StartupWebhook)
+        webhook_registry.register(StartupWebhook)
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)

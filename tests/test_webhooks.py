@@ -79,7 +79,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         self.assertIn("failed", out)
 
     @HurricaneWebhookServerTest.cycle_server
-    def test_get_webhook(self):
+    def test_get_webhook_from_registry(self):
         from hurricane.webhooks.base import Webhook
         from hurricane.webhooks.webhook_types import StartupWebhook
 
