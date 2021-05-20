@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import logging
 import socket
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -8,8 +9,6 @@ from enum import Enum
 import requests
 from django.conf import settings
 from requests import RequestException
-
-from hurricane.server.loggers import logger
 
 
 class WebhookStatus(Enum):
@@ -36,7 +35,7 @@ class Webhook:
         Getting webhook from registry using the code.
         """
 
-        from hurricane.metrics import registry
+        from hurricane.webhooks import registry
 
         return registry.get(cls.code)
 
@@ -69,6 +68,7 @@ class Webhook:
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url
+        logger = logging.getLogger()
         logger.info(f"Start sending {self.code} webhook to {webhook_url}")
 
         response = requests.post(webhook_url, timeout=5, json=data)
@@ -99,6 +99,7 @@ class Webhook:
     def _callback_webhook_exception_check(future: asyncio.Future, url: str, close_loop: bool):
         # checks if sending webhook had any failures, it indicates, that command was successfully executed
         # but sending webhook has failed
+        logger = logging.getLogger()
         try:
             future.result()
         except RequestException as e:

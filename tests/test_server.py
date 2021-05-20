@@ -226,6 +226,58 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
 
     @HurricanServerTest.cycle_server
+    def test_stored_metric(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.base import StoredMetric
+        from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
+
+        try:
+            registry.register(StoredMetric)
+        except MetricIdAlreadyRegistered:
+            registry.unregister(StoredMetric)
+            registry.register(StoredMetric)
+
+        StoredMetric(code="new_stored_metric", initial="initial_value")
+        StoredMetric.set("new_value")
+        value = StoredMetric.get()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("new_value", value)
+
+    @HurricanServerTest.cycle_server
+    def test_calculated_metric(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.base import CalculatedMetric
+
+        registry.register(CalculatedMetric)
+        CalculatedMetric(code="new_calculated_metric")
+        CalculatedMetric.get_from_registry()
+        with self.assertRaises(NotImplementedError):
+            CalculatedMetric.get_value()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_counter_metric(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.base import CounterMetric
+        from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
+
+        try:
+            registry.register(CounterMetric)
+        except MetricIdAlreadyRegistered:
+            registry.unregister(CounterMetric)
+            registry.register(CounterMetric)
+
+        CounterMetric.increment()
+        CounterMetric.increment()
+        CounterMetric.decrement()
+        value = CounterMetric.get()
+        self.assertEqual(1, value)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
     def test_unregistering_metrics(self):
         from hurricane.metrics import registry
         from hurricane.metrics.requests import RequestCounterMetric
