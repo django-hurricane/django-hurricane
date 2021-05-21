@@ -130,8 +130,8 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = dict()) -> None:
-        self._env = env
+    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+        self._env = env or dict()
         self._start(params, coverage)
 
     def stop_server(self) -> None:
@@ -156,8 +156,8 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = dict()) -> None:
-        self._env = env
+    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+        self._env = env or dict()
         self._start(params, coverage)
 
     def stop_server(self) -> None:
