@@ -2,3 +2,6 @@
 branch = True
 source = hurricane/
 concurrency=multiprocessing
+omit =
+    hurricane/testing/start_k8s_server.py
+    hurricane/testing/start_webhook_receiver.py
