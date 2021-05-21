@@ -52,7 +52,11 @@ class HurricanServerTest(HurricanBaseTest):
                     coverage = kwargs["coverage"]
                 else:
                     coverage = True
-                self.driver.start_server(_args, coverage)
+                if "env" in kwargs:
+                    env = kwargs["env"]
+                else:
+                    env = {}
+                self.driver.start_server(_args, coverage, env)
                 try:
                     function(self)
                 except Exception as e:

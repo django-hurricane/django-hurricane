@@ -1,4 +1,5 @@
 import re
+from unittest import mock
 
 from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
@@ -339,7 +340,20 @@ class HurricanStartServerTests(HurricanServerTest):
             out, err = self.driver.get_output(read_all=True)
             self.assertIn(self.starting_message, out)
 
-    @HurricanServerTest.cycle_server
-    def test_exception_in_cycle_server(self):
-        with self.assertRaises(ZeroDivisionError):
-            1 / 0
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"})
+    def test_django_operational_error(self):
+
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        print(out)
+        self.assertEqual(res.status, 500)
+        self.assertIn("django database error", res.text)
+
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"})
+    def test_django_systemcheck_error(self):
+
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        print(out)
+        self.assertEqual(res.status, 500)
+        self.assertIn("django check error", res.text)

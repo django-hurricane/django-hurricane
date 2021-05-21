@@ -1,3 +1,4 @@
+import os
 import socket
 import subprocess
 from queue import Empty, Queue
@@ -57,6 +58,9 @@ class HurricaneBaseDriver(object):
             except Empty:
                 pass
 
+    def _get_env(self):
+        return os.environ.copy()
+
     def _start(self, params: List[str] = None, coverage: bool = True) -> None:
         self.log_lines = []
         base_command = self.coverage_base_command if coverage else self.base_command
@@ -86,7 +90,7 @@ class HurricaneBaseDriver(object):
         else:
             self.probe_port = 8001
 
-        self.proc = subprocess.Popen(base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        self.proc = subprocess.Popen(base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self._get_env())
         self.q = Queue()
         self.t_stderr = Thread(target=enqueue_stderr, args=(self.proc, self.q))
         self.t_stdout = Thread(target=enqueue_stdout, args=(self.proc, self.q))
@@ -119,8 +123,15 @@ class HurricaneServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", MANAGE_FILE, "serve"]
     test_string = "Tornado-powered Django web server"
+    _env = {}
 
-    def start_server(self, params: dict = None, coverage: bool = True) -> None:
+    def _get_env(self):
+        env = super(HurricaneServerDriver, self)._get_env()
+        env.update(self._env)
+        return env
+
+    def start_server(self, params: dict = None, coverage: bool = True, env: dict = dict()) -> None:
+        self._env = env
         self._start(params, coverage)
 
     def stop_server(self) -> None:
@@ -138,8 +149,15 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
     test_string = "Started webhook receiver server"
+    _env = {}
 
-    def start_server(self, params: dict = None, coverage: bool = True) -> None:
+    def _get_env(self):
+        env = super(HurricaneWebhookServerDriver, self)._get_env()
+        env.update(self._env)
+        return env
+
+    def start_server(self, params: dict = None, coverage: bool = True, env: dict = dict()) -> None:
+        self._env = env
         self._start(params, coverage)
 
     def stop_server(self) -> None:
@@ -157,8 +175,15 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", "-m", "hurricane.testing.start_k8s_server"]
     test_string = "Started K8s server"
+    _env = {}
 
-    def start_server(self, params: dict = None, coverage: bool = True) -> None:
+    def _get_env(self):
+        env = super(HurricaneK8sServerDriver, self)._get_env()
+        env.update(self._env)
+        return env
+
+    def start_server(self, params: dict = None, coverage: bool = True, env: dict = dict()) -> None:
+        self._env = env
         self._start(params, coverage)
 
     def stop_server(self) -> None:
