@@ -38,6 +38,9 @@ class HurricanServerTest(HurricanBaseTest):
         cls.driver.stop_server()
         super().tearDownClass()
 
+    def _retrieve_env(self, kwargs):
+        return kwargs["env"] if "env" in kwargs else {}
+
     @staticmethod
     def cycle_server(*args, **kwargs):
         def _cycle_server(function):
@@ -52,10 +55,7 @@ class HurricanServerTest(HurricanBaseTest):
                     coverage = kwargs["coverage"]
                 else:
                     coverage = True
-                if "env" in kwargs:
-                    env = kwargs["env"]
-                else:
-                    env = {}
+                env = self._retrieve_env(kwargs)
                 self.driver.start_server(_args, coverage, env)
                 try:
                     function(self)
@@ -98,6 +98,9 @@ class HurricaneAMQPTest(HurricanBaseTest):
         cls.driver.stop_amqp()
         super().tearDownClass()
 
+    def _retrieve_env(self, kwargs):
+        return kwargs["env"] if "env" in kwargs else {}
+
     @staticmethod
     def cycle_consumer(*args, **kwargs):
         def _cycle_consumer(function):
@@ -112,10 +115,7 @@ class HurricaneAMQPTest(HurricanBaseTest):
                     coverage = kwargs["coverage"]
                 else:
                     coverage = True
-                if "env" in kwargs:
-                    env = kwargs["env"]
-                else:
-                    env = {}
+                env = self._retrieve_env(kwargs)
                 self.driver.start_amqp()
                 if "--no_host_port" not in _args:
                     host, port = self.driver.get_amqp_host_port()
