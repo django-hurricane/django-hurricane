@@ -1,8 +1,14 @@
 import tornado.web
 from django.test import SimpleTestCase
 
+from hurricane.kubernetes import K8sServerMetricsHandler
 from hurricane.testing.actors import HTTPClient, WebhookTestHandler
-from hurricane.testing.drivers import HurricaneAMQPDriver, HurricaneServerDriver, HurricaneWebhookServerDriver
+from hurricane.testing.drivers import (
+    HurricaneAMQPDriver,
+    HurricaneK8sServerDriver,
+    HurricaneServerDriver,
+    HurricaneWebhookServerDriver,
+)
 
 
 class HurricanBaseTest(SimpleTestCase):
@@ -32,6 +38,9 @@ class HurricanServerTest(HurricanBaseTest):
         cls.driver.stop_server()
         super().tearDownClass()
 
+    def _retrieve_env(self, kwargs):
+        return kwargs["env"] if "env" in kwargs else {}
+
     @staticmethod
     def cycle_server(*args, **kwargs):
         def _cycle_server(function):
@@ -46,7 +55,8 @@ class HurricanServerTest(HurricanBaseTest):
                     coverage = kwargs["coverage"]
                 else:
                     coverage = True
-                self.driver.start_server(_args, coverage)
+                env = self._retrieve_env(kwargs)
+                self.driver.start_server(_args, coverage, env)
                 try:
                     function(self)
                 except Exception as e:
@@ -68,8 +78,15 @@ class HurricaneWebhookServerTest(HurricanServerTest):
 
     @property
     def probe(self):
-        host, port = self.driver.get_server_host_port(probe_port=True)
         return WebhookTestHandler()
+
+
+class HurricaneK8sServerTest(HurricanServerTest):
+    driver = HurricaneK8sServerDriver
+
+    @property
+    def probe(self):
+        return K8sServerMetricsHandler()
 
 
 class HurricaneAMQPTest(HurricanBaseTest):
@@ -80,6 +97,9 @@ class HurricaneAMQPTest(HurricanBaseTest):
         cls.driver.stop_consumer()
         cls.driver.stop_amqp()
         super().tearDownClass()
+
+    def _retrieve_env(self, kwargs):
+        return kwargs["env"] if "env" in kwargs else {}
 
     @staticmethod
     def cycle_consumer(*args, **kwargs):
@@ -95,10 +115,14 @@ class HurricaneAMQPTest(HurricanBaseTest):
                     coverage = kwargs["coverage"]
                 else:
                     coverage = True
+                env = self._retrieve_env(kwargs)
                 self.driver.start_amqp()
-                host, port = self.driver.get_amqp_host_port()
-                _args += ["--amqp-port", str(port), "--amqp-host", host]
-                self.driver.start_consumer(_args, coverage)
+                if "--no_host_port" not in _args:
+                    host, port = self.driver.get_amqp_host_port()
+                    _args += ["--amqp-port", str(port), "--amqp-host", host]
+                else:
+                    _args = _args[:-1]
+                self.driver.start_consumer(_args, coverage, env)
                 try:
                     function(self)
                 except Exception as e:
