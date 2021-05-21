@@ -112,13 +112,17 @@ class HurricaneAMQPTest(HurricanBaseTest):
                     coverage = kwargs["coverage"]
                 else:
                     coverage = True
+                if "env" in kwargs:
+                    env = kwargs["env"]
+                else:
+                    env = {}
                 self.driver.start_amqp()
                 if "--no_host_port" not in _args:
                     host, port = self.driver.get_amqp_host_port()
                     _args += ["--amqp-port", str(port), "--amqp-host", host]
                 else:
                     _args = _args[:-1]
-                self.driver.start_consumer(_args, coverage)
+                self.driver.start_consumer(_args, coverage, env)
                 try:
                     function(self)
                 except Exception as e:

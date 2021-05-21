@@ -182,7 +182,7 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = dict()) -> None:
+    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
         self._env = env
         self._start(params, coverage)
 
@@ -201,6 +201,12 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     base_command = ["python", MANAGE_FILE, "consume"]
     test_string = "Starting a Tornado-powered Django AMQP consumer"
     ports = [5672, 8000, 8001]
+    _env = {}
+
+    def _get_env(self):
+        env = super(HurricaneAMQPDriver, self)._get_env()
+        env.update(self._env)
+        return env
 
     def start_amqp(self) -> None:
         client = docker.from_env()
@@ -230,7 +236,8 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         host, port = self.get_amqp_host_port()
         return TestPublisher(host, port, vhost)
 
-    def start_consumer(self, params: List[str] = None, coverage: bool = True) -> None:
+    def start_consumer(self, params: List[str] = None, coverage: bool = True, env: dict = None) -> None:
+        self._env = env
         self._start(params, coverage)
 
     def stop_amqp(self) -> None:
