@@ -125,3 +125,10 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(testmessage_read, out)
         self.assertNotIn(testmessage_not_read, out)
+
+    @HurricaneAMQPTest.cycle_consumer(
+        args=["tests.testapp.consumer.BindTestHandler", "--queue", "test", "--exchange", "test"]
+    )
+    def test_exception_in_cycle_consumer(self):
+        with self.assertRaises(ZeroDivisionError):
+            1 / 0

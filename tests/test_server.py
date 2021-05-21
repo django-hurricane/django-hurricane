@@ -338,3 +338,8 @@ class HurricanStartServerTests(HurricanServerTest):
         except TypeError:
             out, err = self.driver.get_output(read_all=True)
             self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_exception_in_cycle_server(self):
+        with self.assertRaises(ZeroDivisionError):
+            1 / 0
