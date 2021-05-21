@@ -345,7 +345,6 @@ class HurricanStartServerTests(HurricanServerTest):
 
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
-        print(out)
         self.assertEqual(res.status, 500)
         self.assertIn("django database error", res.text)
 
@@ -354,6 +353,16 @@ class HurricanStartServerTests(HurricanServerTest):
 
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
-        print(out)
         self.assertEqual(res.status, 500)
         self.assertIn("django check error", res.text)
+
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"},
+        args=["--webhook-url", "http://localhost:8074/webhook"],
+    )
+    def test_django_operational_error_webhook(self):
+
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 500)
+        self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
