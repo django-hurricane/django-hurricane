@@ -1,7 +1,8 @@
 import re
-import time
+from unittest import mock
 
 from hurricane.testing import HurricanServerTest
+from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
 
 class HurricanStartServerTests(HurricanServerTest):
@@ -177,7 +178,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
 
-    @HurricanServerTest.cycle_server(args=["--command", "migrates", "--probe-port", "8090"])
+    @HurricanServerTest.cycle_server(args=["--command", "failingcommand", "--probe-port", "8090"])
     def test_startup_failing_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -194,7 +195,9 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
 
-    @HurricanServerTest.cycle_server(args=["--command", "migrates", "--webhook-url", "http://localhost:8074/webhook"])
+    @HurricanServerTest.cycle_server(
+        args=["--command", "failingcommand", "--webhook-url", "http://localhost:8074/webhook"]
+    )
     def test_startup_failed_command_webhook_no_endpoint(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -215,6 +218,69 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Metric ID (request_counter) is already registered.", str(exception))
 
     @HurricanServerTest.cycle_server
+    def test_registration_metrics_wrong_key(self):
+        class TestWrongKey:
+            code = "test"
+
+        from hurricane.metrics import registry
+
+        registry.unregister(TestWrongKey)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_stored_metric(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.base import StoredMetric
+        from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
+
+        try:
+            registry.register(StoredMetric)
+        except MetricIdAlreadyRegistered:
+            registry.unregister(StoredMetric)
+            registry.register(StoredMetric)
+
+        StoredMetric(code="new_stored_metric", initial="initial_value")
+        StoredMetric.set("new_value")
+        value = StoredMetric.get()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("new_value", value)
+
+    @HurricanServerTest.cycle_server
+    def test_calculated_metric(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.base import CalculatedMetric
+
+        registry.register(CalculatedMetric)
+        CalculatedMetric(code="new_calculated_metric")
+        CalculatedMetric.get_from_registry()
+        with self.assertRaises(NotImplementedError):
+            CalculatedMetric.get_value()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_counter_metric(self):
+        from hurricane.metrics import registry
+        from hurricane.metrics.base import CounterMetric
+        from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
+
+        try:
+            registry.register(CounterMetric)
+        except MetricIdAlreadyRegistered:
+            registry.unregister(CounterMetric)
+            registry.register(CounterMetric)
+
+        CounterMetric.increment()
+        CounterMetric.increment()
+        CounterMetric.decrement()
+        value = CounterMetric.get()
+        self.assertEqual(1, value)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
     def test_unregistering_metrics(self):
         from hurricane.metrics import registry
         from hurricane.metrics.requests import RequestCounterMetric
@@ -229,3 +295,83 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
         self.assertIn("Database was checked successfully", out)
         self.assertIn("No pending migrations", out)
+
+    @HurricanServerTest.cycle_server
+    def test_duplicate_registration_webhooks(self):
+        from hurricane.webhooks import webhook_registry
+        from hurricane.webhooks.webhook_types import StartupWebhook
+
+        m = webhook_registry.get(StartupWebhook.code)
+
+        try:
+            webhook_registry.register(StartupWebhook)
+        except Exception as e:
+            exception = e
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(m.code, out)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Webhook Code (startup) is already registered.", str(exception))
+
+    @HurricanServerTest.cycle_server
+    def test_registration_webhooks_wrong_key(self):
+        class TestWrongKey:
+            code = "test"
+
+        from hurricane.webhooks import webhook_registry
+
+        webhook_registry.unregister(TestWrongKey)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_unregistering_webhooks(self):
+        from hurricane.webhooks import webhook_registry
+        from hurricane.webhooks.webhook_types import StartupWebhook
+
+        webhook_registry.unregister(StartupWebhook)
+        webhook_registry.register(StartupWebhook)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_busy_port(self):
+        with self.assertRaises(BusyPortException):
+            hurricane_server = HurricaneServerDriver()
+            hurricane_server.start_server()
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server
+    def test_not_readall(self):
+        try:
+            out, err = self.driver.get_output(read_all=False)
+        except TypeError:
+            out, err = self.driver.get_output(read_all=True)
+            self.assertIn(self.starting_message, out)
+
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"})
+    def test_django_operational_error(self):
+
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 500)
+        self.assertIn("django database error", res.text)
+
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"})
+    def test_django_systemcheck_error(self):
+
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 500)
+        self.assertIn("django check error", res.text)
+
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"},
+        args=["--webhook-url", "http://localhost:8074/webhook"],
+    )
+    def test_django_operational_error_webhook(self):
+
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 500)
+        self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)

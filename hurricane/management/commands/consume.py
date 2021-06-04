@@ -163,10 +163,10 @@ class Command(BaseCommand):
         connection["amqp_vhost"] = "/"
         if "amqp_vhost" in options and options["amqp_vhost"]:
             connection["amqp_vhost"] = options["amqp_vhost"]
-        elif hasattr(settings, "AMPQ_VHOST"):
+        elif hasattr(settings, "AMQP_VHOST"):
             connection["amqp_vhost"] = settings.AMPQ_VHOST
-        elif os.getenv("AMPQ_VHOST"):
-            connection["amqp_vhost"] = os.getenv("AMPQ_VHOST")
+        elif os.getenv("AMQP_VHOST"):
+            connection["amqp_vhost"] = os.getenv("AMQP_VHOST")
 
         # load the handler class
         _amqp_consumer = import_string(options["handler"])
