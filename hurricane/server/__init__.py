@@ -1,4 +1,6 @@
 import asyncio
+import signal
+import sys
 import time
 import traceback
 from typing import Callable
@@ -101,6 +103,7 @@ def make_http_server_and_listen(start_time: float, options: dict, check: Callabl
     logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
     django_application.listen(options["port"])
+    StartupWebhook().run(url=options["webhook_url"] or None, status=WebhookStatus.SUCCEEDED)
     end_time = time.time()
     time_elapsed = end_time - start_time
     # if startup time metric value is set - startup process is finished
@@ -108,9 +111,8 @@ def make_http_server_and_listen(start_time: float, options: dict, check: Callabl
     logger.info(f"Startup time is {time_elapsed} seconds")
 
 
-def command_task(main_loop: asyncio.unix_events.SelectorEventLoop, callback: Callable, commands: list) -> None:
+def command_task(commands: list, webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None) -> None:
     logger.info("Starting execution of management commands")
-
     for command in commands:
 
         # split a command string to get command options
@@ -118,43 +120,25 @@ def command_task(main_loop: asyncio.unix_events.SelectorEventLoop, callback: Cal
         logger.info(f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}")
         start_time_command = time.time()
         # call management command
-        call_command(*command_split)
+        try:
+            call_command(*command_split)
+        except Exception as e:
+            logger.error(e)
+            error_trace = traceback.format_exc()
+            logger.info("Webhook with a status failed has been initiated")
+            # webhook is registered and run in a new thread, not blocking the process
+            StartupWebhook().run(
+                url=webhook_url or None,
+                error_trace=error_trace,
+                close_loop=True,
+                status=WebhookStatus.FAILED,
+                loop=loop,
+            )
+            raise e
+
         end_time_command = time.time()
 
         logger.info(f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds")
-    # start http server in the main loop
-    main_loop.call_soon_threadsafe(callback)
-
-
-def callback_command_exception_check(future: asyncio.Future, webhook_url: str = None) -> None:
-    # checks if there were any exceptions in the executor and if any stops the loop
-    # if exceptions occured, it means, that some or one of the commands have failed
-    if webhook_url:
-        try:
-            future.result()
-        except Exception as e:
-            logger.error("Execution of management commands has failed. Webhook should be sent")
-            # printing full tracestack
-            error_trace = traceback.format_exc()
-            logger.error(e)
-            logger.error(traceback.print_exc())
-            logger.info("Webhook with a status failed has been initiated")
-            StartupWebhook().run(url=webhook_url, error_trace=error_trace, close_loop=True, status=WebhookStatus.FAILED)
-        else:
-            logger.info("Execution of management commands was successful. Webhook should be sent")
-            logger.info("Webhook with a status succeeded has been initiated")
-            StartupWebhook().run(url=webhook_url, status=WebhookStatus.SUCCEEDED)
-    else:
-        try:
-            future.result()
-        except Exception as e:
-            logger.error("Execution of management command has failed. Webhook is not set")
-            logger.error(e)
-            logger.error(traceback.print_exc())
-            current_loop = asyncio.get_event_loop()
-            current_loop.stop()
-        else:
-            logger.info("Execution of management commands was successful. Webhook is not set")
 
 
 def check_databases():
@@ -164,23 +148,53 @@ def check_databases():
         try:
             cursor.execute("SELECT (1)")
             logger.info("Database was checked successfully")
+            cursor.close()
             return True
         except Exception as e:
             logger.warning(f"Database command execution has failed with {e}")
-            return False
-        finally:
             cursor.close()
+            return False
 
 
 def count_migrations():
     number_of_migrations = 0
     for db_name in connections:
         connection = connections[db_name]
-        try:
+        if hasattr(connection, "prepare_database"):
             connection.prepare_database()
-        except AttributeError:
-            pass
         executor = MigrationExecutor(connection)
         targets = executor.loader.graph.leaf_nodes()
         number_of_migrations += len(executor.migration_plan(targets))
     return number_of_migrations
+
+
+def signal_handler(signal, frame):
+    print("\nprogram exiting gracefully")
+    sys.exit(0)
+
+
+signal.signal(signal.SIGINT, signal_handler)
+
+
+def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None):
+    try:
+        while True:
+            if check_databases():
+                number_of_migrations = count_migrations()
+
+                if number_of_migrations == 0:
+                    logger.info("No pending migrations")
+                    break
+
+                logger.info(f"There are {number_of_migrations} pending migrations")
+
+            else:
+                logger.info("Database connections are not ready")
+    except Exception as e:
+        logger.error(e)
+        error_trace = traceback.format_exc()
+        logger.info("Webhook with a status warning has been initiated")
+
+        StartupWebhook().run(
+            url=webhook_url or None, error_trace=error_trace, close_loop=False, status=WebhookStatus.WARNING, loop=loop
+        )

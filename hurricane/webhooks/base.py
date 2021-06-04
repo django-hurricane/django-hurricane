@@ -14,6 +14,7 @@ from requests import RequestException
 class WebhookStatus(Enum):
     FAILED = "failed"
     SUCCEEDED = "succeeded"
+    WARNING = "warning"
 
 
 class Webhook:
@@ -39,7 +40,7 @@ class Webhook:
 
         return webhook_registry.get(cls.code)
 
-    def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False):
+    def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False, loop=None):
 
         """
         Initiates the sending of webhook in an asynchronous manner. Also specifies the callback of the async process,
@@ -59,11 +60,13 @@ class Webhook:
         self.set_timestamp()
         self.set_podname()
         self.set_version()
-        current_loop = asyncio.get_event_loop()
+        current_loop = loop or asyncio.get_event_loop()
         executor = ThreadPoolExecutor(max_workers=1)
         fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url, close_loop)
         # callback runs after run_in_executor is done
-        callback_wrapper = functools.partial(self._callback_webhook_exception_check, url=url, close_loop=close_loop)
+        callback_wrapper = functools.partial(
+            self._callback_webhook_exception_check, url=url, close_loop=close_loop, loop=loop
+        )
         fut.add_done_callback(callback_wrapper)
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
@@ -96,7 +99,7 @@ class Webhook:
         return self.data
 
     @staticmethod
-    def _callback_webhook_exception_check(future: asyncio.Future, url: str, close_loop: bool):
+    def _callback_webhook_exception_check(future: asyncio.Future, url: str, close_loop: bool, loop=None):
         # checks if sending webhook had any failures, it indicates, that command was successfully executed
         # but sending webhook has failed
         logger = logging.getLogger()
@@ -107,5 +110,4 @@ class Webhook:
 
         if close_loop:
             logger.info("Loop will be closed")
-            current_loop = asyncio.get_event_loop()
-            current_loop.stop()
+            loop.stop()
