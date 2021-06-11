@@ -1,6 +1,7 @@
 import re
 from unittest import mock
 
+from hurricane.server import signal_handler
 from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
@@ -391,3 +392,10 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         self.assertIn("Database command execution has failed with Fake cursor execute exception", out)
+
+    @HurricanServerTest.cycle_server(args=["--check-migrations"])
+    def test_signal_handler(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        with self.assertRaises(SystemExit):
+            signal_handler("signal", "frame")

@@ -169,7 +169,7 @@ def count_migrations():
 
 
 def signal_handler(signal, frame):
-    print("\nprogram exiting gracefully")
+    logger.error("\nprogram exiting gracefully")
     sys.exit(0)
 
 
@@ -181,11 +181,11 @@ def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.S
         while check_databases():
             number_of_migrations = count_migrations()
 
+            logger.info(f"There are {number_of_migrations} pending migrations")
             if number_of_migrations == 0:
                 logger.info("No pending migrations")
                 break
 
-            logger.info(f"There are {number_of_migrations} pending migrations")
     except Exception as e:
         logger.error(e)
         error_trace = traceback.format_exc()
