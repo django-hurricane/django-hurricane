@@ -1,6 +1,7 @@
 import re
 from unittest import mock
 
+from hurricane.server import signal_handler
 from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
@@ -368,3 +369,33 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
         self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
+
+    @HurricanServerTest.cycle_server(args=["--check-migrations"])
+    def test_check_migrations(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Database was checked successfully", out)
+        self.assertIn("No pending migrations", out)
+
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_db_and_migrations"}, args=["--check-migrations"]
+    )
+    def test_db_and_migrations_error(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Webhook with a status warning has been initiated", out)
+
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_check_databases"}, args=["--check-migrations"]
+    )
+    def test_check_databases_error(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Database command execution has failed with Fake cursor execute exception", out)
+
+    @HurricanServerTest.cycle_server(args=["--check-migrations"])
+    def test_signal_handler(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        with self.assertRaises(SystemExit):
+            signal_handler("signal", "frame")

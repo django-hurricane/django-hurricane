@@ -2,6 +2,7 @@ import asyncio
 import functools
 import signal
 import time
+import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import tornado.autoreload
@@ -10,7 +11,7 @@ import tornado.wsgi
 from django.core.management.base import BaseCommand
 
 from hurricane.server import (
-    callback_command_exception_check,
+    check_db_and_migrations,
     command_task,
     logger,
     make_http_server_and_listen,
@@ -43,6 +44,7 @@ class Command(BaseCommand):
         - ``--no-probe`` - disable probe endpoint
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
+        - ``--check-migrations`` - check if all migrations were applied before starting application
         - ``--webhook-url``- If specified, webhooks will be sent to this url
     """
 
@@ -84,6 +86,7 @@ class Command(BaseCommand):
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
+        parser.add_argument("--check-migrations", action="store_true", help="Check if migrations were applied")
         parser.add_argument(
             "--webhook-url",
             type=str,
@@ -136,31 +139,43 @@ class Command(BaseCommand):
 
         loop = asyncio.get_event_loop()
 
+        make_http_server_wrapper = functools.partial(
+            make_http_server_and_listen,
+            start_time=start_time,
+            options=options,
+            check=self.check,
+            include_probe=include_probe,
+        )
+
+        # all commands, that should be executed before starting http server should be added to this list
+        exec_list = []
         if options["command"]:
-            # command_task is a function that executes management commands
-            # make_http_server_and_listen is a callback, further parameters are parameters of the callback function
-            executor = ThreadPoolExecutor(max_workers=1)
-            make_http_server_wrapper = functools.partial(
-                make_http_server_and_listen,
-                start_time=start_time,
-                options=options,
-                check=self.check,
-                include_probe=include_probe,
+            # wrap function to use additional variables
+            management_commands_wrapper = functools.partial(
+                command_task,
+                commands=options["command"],
+                webhook_url=options["webhook_url"] or None,
+                loop=loop,
             )
-            future = loop.run_in_executor(executor, command_task, loop, make_http_server_wrapper, options["command"])
-            if options["webhook_url"]:
-                # wrap callback function to use additional variables
-                callback_wrapper_command_exception_check = functools.partial(
-                    callback_command_exception_check, webhook_url=options["webhook_url"]
-                )
-                # callback runs after run_in_executor is done
-                future.add_done_callback(callback_wrapper_command_exception_check)
-            else:
-                future.add_done_callback(callback_command_exception_check)
-        else:
-            make_http_server_and_listen(start_time, options, self.check, include_probe)
-            if options["webhook_url"]:
-                StartupWebhook().run(url=options["webhook_url"], status=WebhookStatus.SUCCEEDED)
+            exec_list.append(management_commands_wrapper)
+        if options["check_migrations"]:
+            check_db_and_migrations_wrapper = functools.partial(
+                check_db_and_migrations, webhook_url=options["webhook_url"] or None, loop=loop
+            )
+            exec_list.append(check_db_and_migrations_wrapper)
+
+        def bundle_func(exec_list, loop, make_http_server_wrapper):
+            # executes functions from exec_list sequentially
+            for func in exec_list:
+                func(*args)
+            # after all functions were executed http server is started in the main thread
+            # call_soon_threadsafe puts http server into the main loop of the program
+            loop.call_soon_threadsafe(make_http_server_wrapper)
+
+        executor = ThreadPoolExecutor(max_workers=1)
+        # bundle_func is executed in a separate thread. Main thread has an active probe server, which should not be
+        # interrupted
+        loop.run_in_executor(executor, bundle_func, exec_list, loop, make_http_server_wrapper)
 
         def ask_exit(signame):
             logger.info(f"Received signal {signame}. Shutting down now.")
