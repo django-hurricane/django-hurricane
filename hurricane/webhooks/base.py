@@ -55,19 +55,20 @@ class Webhook:
         close_loop : specifies, whether the main loop should be closed or be left running
         """
 
-        self.set_traceback(error_trace)
-        self.set_status(status)
-        self.set_timestamp()
-        self.set_podname()
-        self.set_version()
-        current_loop = loop or asyncio.get_event_loop()
-        executor = ThreadPoolExecutor(max_workers=1)
-        fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url, close_loop)
-        # callback runs after run_in_executor is done
-        callback_wrapper = functools.partial(
-            self._callback_webhook_exception_check, url=url, close_loop=close_loop, loop=loop
-        )
-        fut.add_done_callback(callback_wrapper)
+        if url:
+            self.set_traceback(error_trace)
+            self.set_status(status)
+            self.set_timestamp()
+            self.set_podname()
+            self.set_version()
+            current_loop = loop or asyncio.get_event_loop()
+            executor = ThreadPoolExecutor(max_workers=1)
+            fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url, close_loop)
+            # callback runs after run_in_executor is done
+            callback_wrapper = functools.partial(
+                self._callback_webhook_exception_check, url=url, close_loop=close_loop, loop=loop
+            )
+            fut.add_done_callback(callback_wrapper)
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url

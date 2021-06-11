@@ -289,13 +289,6 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
 
-    @HurricanServerTest.cycle_server(args=["--check-migrations"])
-    def test_check_migrations(self):
-        out, err = self.driver.get_output(read_all=True)
-        self.assertIn(self.starting_message, out)
-        self.assertIn("Database was checked successfully", out)
-        self.assertIn("No pending migrations", out)
-
     @HurricanServerTest.cycle_server
     def test_duplicate_registration_webhooks(self):
         from hurricane.webhooks import webhook_registry
@@ -382,3 +375,19 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
         self.assertIn("Database was checked successfully", out)
         self.assertIn("No pending migrations", out)
+
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_db_and_migrations"}, args=["--check-migrations"]
+    )
+    def test_db_and_migrations_error(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Webhook with a status warning has been initiated", out)
+
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_check_databases"}, args=["--check-migrations"]
+    )
+    def test_check_databases_error(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Database command execution has failed with Fake cursor execute exception", out)

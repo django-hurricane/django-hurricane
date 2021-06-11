@@ -178,18 +178,14 @@ signal.signal(signal.SIGINT, signal_handler)
 
 def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None):
     try:
-        while True:
-            if check_databases():
-                number_of_migrations = count_migrations()
+        while check_databases():
+            number_of_migrations = count_migrations()
 
-                if number_of_migrations == 0:
-                    logger.info("No pending migrations")
-                    break
+            if number_of_migrations == 0:
+                logger.info("No pending migrations")
+                break
 
-                logger.info(f"There are {number_of_migrations} pending migrations")
-
-            else:
-                logger.info("Database connections are not ready")
+            logger.info(f"There are {number_of_migrations} pending migrations")
     except Exception as e:
         logger.error(e)
         error_trace = traceback.format_exc()
