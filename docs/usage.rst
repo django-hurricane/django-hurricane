@@ -74,6 +74,8 @@ Command options for *serve*-command:
 +--------------------+-------------------------------------------------------------------------------------+
 | --command          | Repetitive command for adding execution of management commands before serving       |
 +--------------------+-------------------------------------------------------------------------------------+
+| --check-migrations | Check if all migrations were applied before starting application                    |
++--------------------+-------------------------------------------------------------------------------------+
 | --webhook-url      | If specified, webhooks will be sent to this url                                     |
 +--------------------+-------------------------------------------------------------------------------------+
 
@@ -148,6 +150,11 @@ specify Webhook class as a parent class. After creating a new webhook class, you
 management command to parametrize the url, to which webhook will be sent. Then, you can just create an object of webhook
 and run it at the place in code, where it should be executed. Run method should have several methods i.e. url (to which
 webhook should be sent) and status (webhook on success or failure).
+
+**Check migrations**
+
+When check-migrations option is enabled, hurricane checks if database is available and subsequently checks if there are
+any unapplied migrations. It is executed in a separate thread, so the main thread with the probe server is not blocked.
 
 **Settings**
 `HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.

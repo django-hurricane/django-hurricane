@@ -139,6 +139,7 @@ Command options for *serve*-command:
 | --startup-probe    | The exposed path (default is /startup) for probes to check startup |  
 | --readiness-probe  | The exposed path (default is /ready) for probes to check readiness |  
 | --liveness-probe   | The exposed path (default is /alive) for probes to check liveness |
+| --check-migrations | Check if all migrations were applied before starting application |
 | --webhook-url      | If specified, webhooks will be sent to this url |
 
 #### Probes and the System Check Framework
