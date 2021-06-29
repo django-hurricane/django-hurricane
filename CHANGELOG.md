@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.8.6 (2021-06-29)
+
+#### Fixes
+
+* rework code
+* adds docs
+
 ## 0.8.5 (2021-03-26)
 
 #### Fixes
