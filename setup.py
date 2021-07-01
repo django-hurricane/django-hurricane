@@ -19,11 +19,7 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     version=VERSION,
-    install_requires=[
-        "tornado~=6.1",
-        "Django>=2.2",
-        "pika~=1.1.0",
-    ],
+    install_requires=["tornado~=6.1", "Django<3", "pika~=1.1.0", "requests~=2.25"],
     python_requires="~=3.8",
     packages=[
         "hurricane",
