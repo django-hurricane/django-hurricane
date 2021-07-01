@@ -2,6 +2,7 @@ from types import TracebackType
 from typing import Any, Callable, Dict, List, Optional, Tuple, Type
 
 import tornado.wsgi
+from asgiref.sync import sync_to_async
 from tornado import escape, httputil
 
 
@@ -23,7 +24,7 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
     def _log(self, status_code: int, request: httputil.HTTPServerRequest) -> None:
         self.handler._status_code = status_code
 
-    def __call__(self, request: httputil.HTTPServerRequest) -> None:
+    async def __call__(self, request: httputil.HTTPServerRequest) -> None:
         data = {}  # type: Dict[str, Any]
         response = []  # type: List[bytes]
 
@@ -42,7 +43,9 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
             data["headers"] = headers
             return response.append
 
-        app_response = self.wsgi_application(self.environ(request), start_response)
+        sync_wsgi_data = sync_to_async(self.wsgi_application)
+        app_response = await sync_wsgi_data(self.environ(request), start_response)
+
         try:
             response.extend(app_response)
             body = b"".join(response)

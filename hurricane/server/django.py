@@ -1,7 +1,7 @@
 import traceback
 
 import tornado.web
-from channels.db import database_sync_to_async
+from asgiref.sync import async_to_sync, sync_to_async
 from django.conf import settings
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
@@ -33,11 +33,11 @@ class DjangoHandler(tornado.web.RequestHandler):
         """
         self.django = HurricaneWSGIContainer(self, get_wsgi_application())
 
-    def prepare(self) -> None:
+    async def prepare(self) -> None:
         """
         Transmitting incoming request to django application via WSGI Container.
         """
-        self.django(self.request)
+        await self.django(self.request)
         self._finished = True
         self._log()
         self.on_finish()
@@ -88,7 +88,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
         self.check = check_handler
         self.liveness_webhook = webhook_url
 
-    @database_sync_to_async
+    @sync_to_async
     def ensure_connection(self):
         connection.ensure_connection()
 
