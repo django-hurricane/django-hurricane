@@ -142,6 +142,10 @@ Command options for *serve*-command:
 | --check-migrations | Check if all migrations were applied before starting application |
 | --webhook-url      | If specified, webhooks will be sent to this url |
 
+**Please note**: `req-queue-len` parameter is set to a default value of 10. It means, that if the length of
+asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
+`req-queue-len` value. Adjust this parameter if you want asynchronous task queue to be larger than 10.
+
 #### Probes and the System Check Framework
 
 The probe endpoint invokes Django's check framework (please see: https://docs.djangoproject.com/en/2.2/topics/checks/). 

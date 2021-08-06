@@ -79,6 +79,10 @@ Command options for *serve*-command:
 | --webhook-url      | If specified, webhooks will be sent to this url                                     |
 +--------------------+-------------------------------------------------------------------------------------+
 
+**Please note**: `req-queue-len` parameter is set to a default value of 10. It means, that if the length of
+asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
+`req-queue-len` value. Adjust this parameter if you want asynchronous task queue to be larger than 10.
+
 **Probes and the System Check Framework**
 
 The probe endpoint invokes `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
@@ -223,7 +227,7 @@ Command options for *consume*-command:
 +------------------+-------------------------------------------------------------------------------------+
 | --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
 +------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len  | Threshold of length of queue of request, which is considered for readiness probe    |
+| --req-queue-len  | Threshold of queue length of request, which is considered for readiness probe       |
 +------------------+-------------------------------------------------------------------------------------+
 | --no-probe       | Disable probe endpoint                                                              |
 +------------------+-------------------------------------------------------------------------------------+
@@ -236,6 +240,9 @@ Command options for *consume*-command:
 | --reconnect      | Reconnect the consumer if the broker connection is lost (not recommended)           |
 +------------------+-------------------------------------------------------------------------------------+
 
+**Please note**: `req-queue-len` parameter is set to a default value of 10. It means, that if the length of
+asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
+`req-queue-len` value. Adjust this parameter if you want asynchronous task queue to be larger than 10.
 
 **Example AMQP Consumer**
 
