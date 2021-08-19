@@ -135,7 +135,7 @@ Command options for *serve*-command:
 | --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |  
 | --no-probe         | Disable probe endpoint |  
 | --no-metrics       | Disable metrics collection | 
-| --req-queue-len    | Threshold of length of queue of request, which is considered for readiness probe | 
+| --req-queue-len    | Threshold of queue length of request, which is considered for readiness probe, default value is 10 |                                                                 |
 | --startup-probe    | The exposed path (default is /startup) for probes to check startup |  
 | --readiness-probe  | The exposed path (default is /ready) for probes to check readiness |  
 | --liveness-probe   | The exposed path (default is /alive) for probes to check liveness |
@@ -207,8 +207,10 @@ Command options for *consume*-command:
 | --startup-probe   | The exposed path (default is /startup) for probes to check startup |  
 | --readiness-probe | The exposed path (default is /ready) for probes to check readiness |  
 | --liveness-probe  | The exposed path (default is /alive) for probes to check liveness | 
-| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |  
-| --no-probe        | Disable probe endpoint |  
+| --probe-port      | The port for Tornado probe routes to listen on (default is the next port of --port) |
+| --no-probe        | Disable probe endpoint | 
+| --no-metrics      | Disable metrics collection | 
+| --req-queue-len   | Threshold of queue length of request, which is considered for readiness probe, default value is 10 | 
 | --autoreload      | Reload code on change |  
 | --debug           | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |
 | --reconnect       | Reconnect the consumer if the broker connection is lost (not recommended) |

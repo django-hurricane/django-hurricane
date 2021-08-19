@@ -66,7 +66,8 @@ Command options for *serve*-command:
 +--------------------+-------------------------------------------------------------------------------------+
 | --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |
 +--------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len    | Threshold of length of queue of request, which is considered for readiness probe    |
+| --req-queue-len    | Threshold of queue length of request, which is considered for readiness probe,      |
+|                    | default value is 10                                                                 |
 +--------------------+-------------------------------------------------------------------------------------+
 | --no-probe         | Disable probe endpoint                                                              |
 +--------------------+-------------------------------------------------------------------------------------+
@@ -221,7 +222,8 @@ Command options for *consume*-command:
 +------------------+-------------------------------------------------------------------------------------+
 | --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
 +------------------+-------------------------------------------------------------------------------------+
-| --readiness-probe| The exposed path (default is /ready) for probes to check readiness                  |
+| --req-queue-len  | Threshold of queue length of request, which is considered for readiness probe,      |
+|                  | default value is 10                                                                 |
 +------------------+-------------------------------------------------------------------------------------+
 | --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
 +------------------+-------------------------------------------------------------------------------------+
