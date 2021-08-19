@@ -1,5 +1,6 @@
 import re
-from unittest import mock
+
+import requests
 
 from hurricane.server import signal_handler
 from hurricane.testing import HurricanServerTest
@@ -399,3 +400,10 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn(self.starting_message, out)
         with self.assertRaises(SystemExit):
             signal_handler("signal", "frame")
+
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_media"}, args=["--media"])
+    def test_django_media(self):
+        response = requests.get("http://localhost:8000/media/logo.png")
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Serving media files", out)
