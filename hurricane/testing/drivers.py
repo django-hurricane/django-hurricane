@@ -225,12 +225,14 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
                 ports={"5672": ("127.0.0.1", None)},
             )
         self.container = client.containers.get(c.id)
-        # busy wait for rabbitmq to come up (timeout 10 seconds)
-        for _ in range(20):
+        # busy wait for rabbitmq to come up (timeout 20 seconds)
+        for _ in range(40):
             if "Ready to start client connection listeners" in self.container.logs().decode("utf-8"):
                 break
             else:
                 sleep(0.5)
+        if "Ready to start client connection listeners" not in self.container.logs().decode("utf-8"):
+            raise Exception("Could not successfully start AMQP broker")  # NOSONAR
 
     def get_test_publisher(self, vhost="/"):
         host, port = self.get_amqp_host_port()
