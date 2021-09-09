@@ -231,6 +231,8 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
                 break
             else:
                 sleep(0.5)
+        if "Ready to start client connection listeners" not in self.container.logs().decode("utf-8"):
+            raise Exception("Could not successfully start AMQP broker")
 
     def get_test_publisher(self, vhost="/"):
         host, port = self.get_amqp_host_port()
