@@ -3,7 +3,7 @@ layout: page
 title: GETTING STARTED WITH HURRICANE
 ---
 ## 1. You need an IDE
-You can chose what ever IDE you like. For remote Python debugging to work you need an
+You can choose whatever IDE you like. For remote Python debugging to work you need an
 IDE which supports [**debugpy**](https://pypi.org/project/debugpy/) or [**pydevd**](https://pypi.org/project/pydevd/), like VS Code or PyCharm. 
 
 ## 2. Start a project with django
