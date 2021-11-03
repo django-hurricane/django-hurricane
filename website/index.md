@@ -7,7 +7,7 @@ cover-img: assets/img/bg_clouds1.png
 
 <div class="jumbotron dh-color">
     <p class="lead">Hurricane is an initiative to fit Django perfectly with Kubernetes. It is supposed to cover many capabilities in order to run Django in a cloud-native environment, including a Tornado-powered Django app server.</p>
-    <h2>Now available <a href="https://github.com/Blueshoe/django-hurricane/releases/tag/0.8.10">Hurricane 0.8.1</a></h2>
+    <h2>Now available <a href="https://github.com/Blueshoe/django-hurricane/releases/tag/0.8.10">Hurricane 0.8.10</a></h2>
     <hr class="my-4">
     <div class="centered">
         <a class="btn btn-success btn-lg" href="getting-started">Get Started With Hurricane</a>
