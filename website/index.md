@@ -26,21 +26,21 @@ cover-img: assets/img/bg_clouds1.png
 
 
 ## Why Hurricane?
-Django was developed with the batteries included-approach and already handles most of the challenges around web 
+Django was developed with the batteries included approach and already handles most of the challenges around web 
 development with grace. It was initially developed at a time when web applications got deployed and run on a server 
-(physical or virtual). With its pragmatic design it enabled many developers to keep up with changing requirements, 
+(physical or virtual). Its pragmatic design enabled many developers to keep up with changing requirements, 
 performance and maintenance work.  
 <br />
 However, service architectures have become quite popular for complex applications in the past few years. They provide a 
 modular style based on the philosophy of dividing overwhelming software projects into smaller and more controllable 
-parts. The advantage of highly specialized applications gained prominence among developers, but introduces new 
-challenges to the IT-operation.
+parts. The advantage of highly specialized applications gained prominence among developers but introduces new 
+challenges to the IT operation.
 <br />
 
-However, with the advent of Kubernetes and the cloud-native development philosophy a couple of new possibilities 
+However, with the advent of Kubernetes and the Cloud Native development philosophy, a couple of new possibilities 
 emerged to run those service-based applications even better. Kubernetes is a wonderful answer for just as many 
-IT-operation requirements as Django is for web development. The inherent monolithic design of Django can be tempting 
+IT operation requirements as Django is for web development. The inherent monolithic design of Django can be tempting 
 to roll out recurring operation patterns with each application. It's not about getting Django to run in a 
-Kubernetes cluster (you may already solved this), it's about integrating Django as tightly as possible with Kubernetes 
+Kubernetes cluster (you may have already solved this), it's about integrating Django as tightly as possible with Kubernetes 
 in order to harness the full power of that platform. Creating the most robust, scalable and secure applications with 
-Django by leveraging the existing expertise of our favorite framework is the main goal of this initiative.
+Django by leveraging the existing expertise of our favourite framework is the main goal of this initiative.
