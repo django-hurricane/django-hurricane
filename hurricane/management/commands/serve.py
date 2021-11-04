@@ -88,6 +88,10 @@ class Command(BaseCommand):
         parser.add_argument("--command", type=str, action="append", nargs="+")
         parser.add_argument("--check-migrations", action="store_true", help="Check if migrations were applied")
         parser.add_argument(
+            "--debugger", action="store_true", help="Open a debugger port according to the Debug Adapter Protocol"
+        )
+        parser.add_argument("--debugger-port", type=int, default=5678, help="The port for the debug client to attach")
+        parser.add_argument(
             "--webhook-url",
             type=str,
             help="Url for webhooks",
@@ -137,6 +141,17 @@ class Command(BaseCommand):
         else:
             logger.info("No probe application running")
 
+        if options["debugger"]:
+            try:
+                import debugpy
+            except ImportError:
+                logger.warning(
+                    "Ignoring '--debugger' flag because module 'debugpy' was not found. "
+                    "Make sure to install 'django-hurricane' with the 'debug' option, "
+                    "e.g. 'pip install django-hurricane[debug]'."
+                )
+            else:
+                debugpy.listen(("0.0.0.0", options["debugger_port"]))
         loop = asyncio.get_event_loop()
 
         make_http_server_wrapper = functools.partial(

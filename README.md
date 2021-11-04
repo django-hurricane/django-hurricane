@@ -130,7 +130,9 @@ Command options for *serve*-command:
 | --static           | Serve collected static files |  
 | --media            | Serve media files |  
 | --autoreload       | Reload code on change |  
-| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
+| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) | 
+| --debugger         | Open a port for a debugger client to connect to according to the [Debug Adapter Protocol][0] | 
+| --debugger-port    | Which port to open for the debug client (default: 5678). This is ignored if `--debugger` is not used |  
 | --port             | The port for Tornado to listen on (default is port 8000) |  
 | --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |  
 | --no-probe         | Disable probe endpoint |  
@@ -256,3 +258,4 @@ To build the docs following command should be started in a docs directory:
 make html
 ```
 
+[0]: https://github.com/microsoft/vscode-debugadapter-node/blob/main/debugProtocol.json
