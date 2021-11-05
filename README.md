@@ -265,6 +265,7 @@ Debugging a python/django or in fact any application running in a kubernetes clu
 common IDEs use different approaches to remote debugging: 
 
 1. The [Microsoft Debug Adapter Protocol (DAP)][0] is used, among others, by Visual Studio Code and Eclipse.
+   A full list of supporting IDE's can be found [here][3].
    Here, the application itself must listen on a port and wait for the debug client (in this case: the IDE's debug UI)
    to connect. 
 2. Pycharm, which uses the [pydevd][2] debugger, sets up a debug server (you will have to configure a host 
@@ -292,3 +293,4 @@ the corresponding locations inside the running container (e.g. "/home/me/proj/sr
 [0]: https://microsoft.github.io/debug-adapter-protocol/
 [1]: https://code.visualstudio.com/
 [2]: https://github.com/fabioz/PyDev.Debugger
+[3]: https://microsoft.github.io/debug-adapter-protocol/implementors/tools/
