@@ -1,24 +1,24 @@
 ---
 layout: page
-title: GETTING STARTED WITH HURRICANE
+title: Getting started with Hurricane
 ---
 ## 1. You need an IDE
 You can choose whatever IDE you like. For remote Python debugging to work you need an
 IDE which supports [**debugpy**](https://pypi.org/project/debugpy/) or [**pydevd**](https://pypi.org/project/pydevd/), like VS Code or PyCharm. 
 
-## 2. Start a project with django
-Start a new django-based project as you like.  
+## 2. Start a project with Django
+Start a new Django-based project as you like.  
 
 Be sure to check out the specifically created 
 [**cookiecutter**](https://cookiecutter.readthedocs.io/en/latest/) template [**django-hurricane-template**](https://github.com/Blueshoe/django-hurricane-template). 
-With that you can run 
+With that, you can run 
 ~~~bash
 cookiecutter gh:Blueshoe/django-hurricane-template
 ~~~
-and you'll get a Hurricane-based project layout created for you. In that case you can straight head over to
+and you'll get a Hurricane-based project layout created for you. In that case, you can head over straight to
 point 5.
 
-## 3. Install Hurricane to you environment
+## 3. Install Hurricane to your environment
 Hurricane can be installed from Python Package Index with
 ~~~bash
 pip3 install hurricane
