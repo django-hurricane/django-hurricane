@@ -16,6 +16,7 @@ from hurricane.server import (
     make_http_server_and_listen,
     make_probe_server,
 )
+from hurricane.server.debugging import setup_debugpy, setup_pycharm
 from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
 
@@ -142,38 +143,8 @@ class Command(BaseCommand):
         else:
             logger.info("No probe application running")
 
-        if options["debugger"]:
-            try:
-                import debugpy
-            except ImportError:
-                logger.warning(
-                    "Ignoring '--debugger' flag because module 'debugpy' was not found. "
-                    "Make sure to install 'django-hurricane' with the 'debug' option, "
-                    "e.g. 'pip install django-hurricane[debug]'."
-                )
-            else:
-                debugpy.listen(("0.0.0.0", options["debugger_port"]))
-
-        if options["pycharm_host"]:
-            try:
-                import pydevd_pycharm
-            except ImportError:
-                logger.warning(
-                    "Ignoring '--pycharm_host' option because module 'pydevd_pycharm' was not found. "
-                    "Make sure to install 'django-hurricane' with the 'pycharm' option, "
-                    "e.g. 'pip install django-hurricane[pycharm]' or install your required version "
-                    "of 'pydevd-pycharm' manually."
-                )
-            else:
-                host = options["pycharm_host"]
-                port = options["pycharm_port"]
-                if port:
-                    pydevd_pycharm.settrace(host, port=port, stdoutToServer=True, stderrToServer=True)
-                else:
-                    logger.warning(
-                        "No '--pycharm-port' was specified. The '--pycharm-host' option can "
-                        "only be used in combination with the '--pycharm-port' option. "
-                    )
+        setup_debugpy(options)
+        setup_pycharm(options)
 
         loop = asyncio.get_event_loop()
 
