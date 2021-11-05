@@ -2,7 +2,6 @@ import asyncio
 import functools
 import signal
 import time
-import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import tornado.autoreload
@@ -96,6 +95,8 @@ class Command(BaseCommand):
             type=str,
             help="Url for webhooks",
         )
+        parser.add_argument("--pycharm-host", type=str, default=None, help="The host of the pycharm debug server")
+        parser.add_argument("--pycharm-port", type=int, default=None, help="The port of the pycharm debug server")
 
     def handle(self, *args, **options):
         """
@@ -152,6 +153,28 @@ class Command(BaseCommand):
                 )
             else:
                 debugpy.listen(("0.0.0.0", options["debugger_port"]))
+
+        if options["pycharm_host"]:
+            try:
+                import pydevd_pycharm
+            except ImportError:
+                logger.warning(
+                    "Ignoring '--pycharm_host' option because module 'pydevd_pycharm' was not found. "
+                    "Make sure to install 'django-hurricane' with the 'pycharm' option, "
+                    "e.g. 'pip install django-hurricane[pycharm]' or install your required version "
+                    "of 'pydevd-pycharm' manually."
+                )
+            else:
+                host = options["pycharm_host"]
+                port = options["pycharm_port"]
+                if port:
+                    pydevd_pycharm.settrace(host, port=port, stdoutToServer=True, stderrToServer=True)
+                else:
+                    logger.warning(
+                        "No '--pycharm-port' was specified. The '--pycharm-host' option can "
+                        "only be used in combination with the '--pycharm-port' option. "
+                    )
+
         loop = asyncio.get_event_loop()
 
         make_http_server_wrapper = functools.partial(
