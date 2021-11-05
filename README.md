@@ -130,7 +130,9 @@ Command options for *serve*-command:
 | --static           | Serve collected static files |  
 | --media            | Serve media files |  
 | --autoreload       | Reload code on change |  
-| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) |  
+| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True) | 
+| --debugger         | Open a port for a debugger client to connect to according to the [Debug Adapter Protocol][0] | 
+| --debugger-port    | Which port to open for the debug client (default: 5678). This is ignored if `--debugger` is not used |  
 | --port             | The port for Tornado to listen on (default is port 8000) |  
 | --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |  
 | --no-probe         | Disable probe endpoint |  
@@ -141,6 +143,8 @@ Command options for *serve*-command:
 | --liveness-probe   | The exposed path (default is /alive) for probes to check liveness |
 | --check-migrations | Check if all migrations were applied before starting application |
 | --webhook-url      | If specified, webhooks will be sent to this url |
+| --pycharm-host     | The host of the pycharm debug server |  
+| --pycharm-port     | The port of the pycharm debug server. This is only used in combination with the '--pycharm-host' option |  
 
 **Please note**: `req-queue-len` parameter is set to a default value of 10. It means, that if the length of
 asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
@@ -256,3 +260,37 @@ To build the docs following command should be started in a docs directory:
 make html
 ```
 
+## Debugging django applications
+Debugging a python/django or in fact any application running in a kubernetes cluster can be cumbersome. Some of the most 
+common IDEs use different approaches to remote debugging: 
+
+1. The [Microsoft Debug Adapter Protocol (DAP)][0] is used, among others, by Visual Studio Code and Eclipse.
+   A full list of supporting IDE's can be found [here][3].
+   Here, the application itself must listen on a port and wait for the debug client (in this case: the IDE's debug UI)
+   to connect. 
+2. Pycharm, which uses the [pydevd][2] debugger, sets up a debug server (you will have to configure a host 
+   and a port in your IDE debug run config) and waits for the application to connect. Therefore, the application must 
+   know where to reach the debug server.
+
+Both approaches would usually require the application to contain code that is specific to the IDE/protocol used by the 
+developer. Django-hurricane supports these two approaches without the need for changes to your django project:
+
+1. For the Debug Adapter Protocol (Visual Studio Code, Eclipse, ...)  
+   a. Install Djanog-hurricane with the "debug" option: `pip install django-hurricane[debug]`   
+   b. Run it with the "--debugger" flag, e.g.: `python manage.py serve --debugger`  
+   c. Optionally, provide a port (default: 5678), e.g.: `python manage.py serve --debugger --debugger-port 1234`  
+   Now you can connect your IDE's remote debug client (configure the appropriate host and port).
+2. For working with the Pycharm debugger:
+   a. Install Djanog-hurricane with the "pycharm" option: `pip install django-hurricane[pycharm]`  
+   b. Configure the remote debug server in Pycharm and start it
+   c. Run your app with the "--pycharm-host" and "--pycharm-port" flags, e.g.: `python manage.py serve --pycharm-host 127.0.0.1 --pycharm-port 1234`  
+   Now, the app should connect to the debug server. Upon connection, the execution will halt. You must resume it from 
+   Pycharm's debugger UI. 
+
+For both approaches, you may have to configure path mappings in your IDE that map your local source code directories to 
+the corresponding locations inside the running container (e.g. "/home/me/proj/src" -> "/app"). 
+
+[0]: https://microsoft.github.io/debug-adapter-protocol/
+[1]: https://code.visualstudio.com/
+[2]: https://github.com/fabioz/PyDev.Debugger
+[3]: https://microsoft.github.io/debug-adapter-protocol/implementors/tools/

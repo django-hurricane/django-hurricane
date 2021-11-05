@@ -2,7 +2,6 @@ import asyncio
 import functools
 import signal
 import time
-import traceback
 from concurrent.futures.thread import ThreadPoolExecutor
 
 import tornado.autoreload
@@ -17,6 +16,7 @@ from hurricane.server import (
     make_http_server_and_listen,
     make_probe_server,
 )
+from hurricane.server.debugging import setup_debugpy, setup_pycharm
 from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
 
@@ -88,10 +88,16 @@ class Command(BaseCommand):
         parser.add_argument("--command", type=str, action="append", nargs="+")
         parser.add_argument("--check-migrations", action="store_true", help="Check if migrations were applied")
         parser.add_argument(
+            "--debugger", action="store_true", help="Open a debugger port according to the Debug Adapter Protocol"
+        )
+        parser.add_argument("--debugger-port", type=int, default=5678, help="The port for the debug client to attach")
+        parser.add_argument(
             "--webhook-url",
             type=str,
             help="Url for webhooks",
         )
+        parser.add_argument("--pycharm-host", type=str, default=None, help="The host of the pycharm debug server")
+        parser.add_argument("--pycharm-port", type=int, default=None, help="The port of the pycharm debug server")
 
     def handle(self, *args, **options):
         """
@@ -136,6 +142,9 @@ class Command(BaseCommand):
 
         else:
             logger.info("No probe application running")
+
+        setup_debugpy(options)
+        setup_pycharm(options)
 
         loop = asyncio.get_event_loop()
 
