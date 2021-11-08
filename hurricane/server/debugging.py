@@ -36,7 +36,7 @@ def setup_pycharm(options):
                     pydevd_pycharm.settrace(host, port=port, stdoutToServer=True, stderrToServer=True)
                     logger.info(f"Connected to debug server at {host}:{port}")
                 except Exception:
-                    logger.warning("Could not connect to debug server at {host}:{port}")
+                    logger.warning(f"Could not connect to debug server at {host}:{port}")
             else:
                 logger.warning(
                     "No '--pycharm-port' was specified. The '--pycharm-host' option can "
