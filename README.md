@@ -238,7 +238,6 @@ This handler can be started using the following command:
 ```bash
 python manage.py consume myamqp.consumer.MyTestHandler --queue my.test.topic --exchange test \ 
 --amqp-host 127.0.0.1 --amqp-port 5672
-```
 
 
 ## Test Hurricane
@@ -253,6 +252,10 @@ coverage report
 **Important:** the AMQP testcase requires *Docker* to be accessible from your current user as it 
 spins up a container with *RabbitMQ*. The AMQP consumer under test will connect to
 it and exchange messages using the *TestPublisher* class.
+
+
+## Commercial Support
+Hurricane is developed and maintained by [Blueshoe](https://www.blueshoe.de). If you need help implementing implementing hurricane, please contact us: hurricane@blueshoe.de.``
 
 ## Docs
 To build the docs following command should be started in a docs directory:
