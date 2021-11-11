@@ -45,3 +45,22 @@ and media files, too.
     <p class="lead">For detailed configuration parameters please refer to the documentation of <a href="https://django-hurricane.readthedocs.io/en/latest/usage.html#application-server">Hurricane's application server</a>.</p>
 </div>
 
+## 6. Test your application in Kubernetes
+In order to run your fancy new application in Kubernetes you will need workload manifests. You can write them yourself
+or generate them from our specifically prepared [**cookiecutter**](https://cookiecutter.readthedocs.io/en/latest/) 
+Helm charts template [**hurricane-based-helm-template**](https://github.com/Blueshoe/hurricane-based-helm-template).
+Just run the following command, answer the questions accordingly and you will get ready-to-go Helm charts: 
+~~~bash
+cookiecutter gh:Blueshoe/hurricane-based-helm-template
+~~~
+Go on and select your favorite Kubernetes-distributon for development. Besides others, [**k3d**](https://k3d.io) works very well.
+Be sure to have [Helm](https://helm.sh/) installed and go on with:
+~~~bash
+helm install my-release <app-name>/
+~~~
+
+That's it. You can now hand over everything to production, relax and let Kubernetes operate your Django application 
+(almost) hassle-free.
+
+
+
