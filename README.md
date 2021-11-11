@@ -172,6 +172,29 @@ specify the url, to which webhook should be sent.
 It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
 not be displayed when application server will be started. Log level can be easily adjusted to own needs.
 
+Example:
+```python
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+        },
+        "hurricane": {
+            "handlers": ["console"],
+            "level": os.getenv("HURRICANE_LOG_LEVEL", "INFO"),
+        },
+    },
+}
+```
+
 ### AMQP Worker
 
 #### Run the AMQP (0-9-1) Consumer
