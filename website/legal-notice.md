@@ -1,3 +1,8 @@
+---
+layout: page
+title: Imprint
+---
+
 ## Legal Notice
 
 According to § 5 TMG
