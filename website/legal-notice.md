@@ -1,6 +1,6 @@
 ---
 layout: page
-title: Imprint
+title: Legal Notice
 ---
 
 ## Legal Notice
