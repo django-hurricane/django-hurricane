@@ -202,3 +202,11 @@ def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.S
         StartupWebhook().run(
             url=webhook_url or None, error_trace=error_trace, close_loop=False, status=WebhookStatus.WARNING, loop=loop
         )
+
+
+def add_trailing_slash(options):
+    # adding optional / to the regular expression of probe handler
+    options["liveness_probe"] = options["liveness_probe"] + "/{0,1}"
+    options["readiness_probe"] = options["readiness_probe"] + "/{0,1}"
+    options["startup_probe"] = options["startup_probe"] + "/{0,1}"
+    return options

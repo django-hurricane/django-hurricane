@@ -10,6 +10,7 @@ import tornado.wsgi
 from django.core.management.base import BaseCommand
 
 from hurricane.server import (
+    add_trailing_slash,
     check_db_and_migrations,
     command_task,
     logger,
@@ -130,6 +131,8 @@ class Command(BaseCommand):
                     f"{options['liveness_probe']}, readiness-probe: {options['readiness_probe']}, "
                     f"startup-probe: {options['startup_probe']}"
                 )
+                # adding trailing slash to the probe regular expressions
+                options = add_trailing_slash(options)
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
             else:
@@ -139,6 +142,8 @@ class Command(BaseCommand):
                     f"readiness-probe: {options['readiness_probe']}, startup-probe: {options['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
+                # adding trailing slash to the probe regular expressions
+                options = add_trailing_slash(options)
 
         else:
             logger.info("No probe application running")
