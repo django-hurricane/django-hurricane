@@ -67,8 +67,16 @@ def make_http_server(options, check_func, include_probe=False):
     """create all routes for this application"""
     if include_probe:
         handlers = [
-            (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-            (options["readiness_probe"], DjangoReadinessHandler, {"req_queue_len": options["req_queue_len"]}),
+            (
+                options["liveness_probe"],
+                DjangoLivenessHandler,
+                {"check_handler": check_func, "webhook_url": options["webhook_url"]},
+            ),
+            (
+                options["readiness_probe"],
+                DjangoReadinessHandler,
+                {"req_queue_len": options["req_queue_len"], "webhook_url": options["webhook_url"]},
+            ),
             (options["startup_probe"], DjangoStartupHandler),
         ]
     else:
