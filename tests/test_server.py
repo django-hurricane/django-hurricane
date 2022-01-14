@@ -56,6 +56,18 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.post(self.probe_route + "//", data=None)
         self.assertEqual(res.status, 404)
 
+    @HurricanServerTest.cycle_server(args=["--startup-probe", "/probe/", "--probe-port", "8090"])
+    def test_probe_startup_trail_slash(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Starting probe application running on port 8090 with route", out)
+        res = self.probe_client.get(self.probe_route)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.get(self.probe_route + "/")
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.get(self.probe_route + "//")
+        self.assertEqual(res.status, 404)
+
     @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8000", "--port", "8000"])
     def test_probe_integrated_startup(self):
         out, err = self.driver.get_output(read_all=True)
