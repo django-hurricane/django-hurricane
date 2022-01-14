@@ -51,6 +51,10 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         res = self.probe_client.post(self.probe_route, data=None)
         self.assertEqual(res.status, 200)
+        res = self.probe_client.post(self.probe_route + "/", data=None)
+        self.assertEqual(res.status, 200)
+        res = self.probe_client.post(self.probe_route + "//", data=None)
+        self.assertEqual(res.status, 404)
 
     @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8000", "--port", "8000"])
     def test_probe_integrated_startup(self):
