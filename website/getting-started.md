@@ -21,7 +21,7 @@ point 5.
 ## 3. Install Hurricane to your environment
 Hurricane can be installed from Python Package Index with
 ~~~bash
-pip3 install hurricane
+pip3 install django-hurricane
 ~~~
 
 ## 4. Add it to your *INSTALLED_APPS*
