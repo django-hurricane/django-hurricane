@@ -37,7 +37,7 @@ INSTALLED_APPS += (
 You can run a development server exactly the same way you would run the production server. It is realized
 with a Django management command:
 ~~~bash
-python manage.py serve --autoreload --static --media
+python manage.py serve --autoreload --static
 ~~~
 That will start a Tornado-based web server that hot-reloads your code upon changes. It will serve your static
 and media files, too.
