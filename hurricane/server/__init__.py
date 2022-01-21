@@ -67,8 +67,16 @@ def make_http_server(options, check_func, include_probe=False):
     """create all routes for this application"""
     if include_probe:
         handlers = [
-            (options["liveness_probe"], DjangoLivenessHandler, {"check_handler": check_func}),
-            (options["readiness_probe"], DjangoReadinessHandler, {"req_queue_len": options["req_queue_len"]}),
+            (
+                options["liveness_probe"],
+                DjangoLivenessHandler,
+                {"check_handler": check_func, "webhook_url": options["webhook_url"]},
+            ),
+            (
+                options["readiness_probe"],
+                DjangoReadinessHandler,
+                {"req_queue_len": options["req_queue_len"], "webhook_url": options["webhook_url"]},
+            ),
             (options["startup_probe"], DjangoStartupHandler),
         ]
     else:
@@ -194,3 +202,31 @@ def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.S
         StartupWebhook().run(
             url=webhook_url or None, error_trace=error_trace, close_loop=False, status=WebhookStatus.WARNING, loop=loop
         )
+
+
+def sanitize_probes(options):
+
+    # sanitize probe paths
+    options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}".replace(" ", "")
+    options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}".replace(" ", "")
+    options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}".replace(" ", "")
+
+    representations = {
+        "liveness_probe": options["liveness_probe"],
+        "readiness_probe": options["readiness_probe"],
+        "startup_probe": options["startup_probe"],
+    }
+    # adding optional / to the regular expression of probe handler
+    options["liveness_probe"] = add_trailing_slash(options, "liveness_probe")
+    options["readiness_probe"] = add_trailing_slash(options, "readiness_probe")
+    options["startup_probe"] = add_trailing_slash(options, "startup_probe")
+    return options, representations
+
+
+def add_trailing_slash(options, probe_name):
+    # adding optional / to the regular expression of probe handler
+    probe = options[probe_name]
+    if probe[-1] == "/":
+        return probe + "{0,1}"
+    else:
+        return probe + "/{0,1}"

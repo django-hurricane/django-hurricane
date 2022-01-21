@@ -15,6 +15,7 @@ from hurricane.server import (
     logger,
     make_http_server_and_listen,
     make_probe_server,
+    sanitize_probes,
 )
 from hurricane.server.debugging import setup_debugpy, setup_pycharm
 from hurricane.webhooks import StartupWebhook
@@ -115,10 +116,8 @@ class Command(BaseCommand):
         # the probe port by default is supposed to run the next port of the application
         probe_port = options["probe_port"] if options["probe_port"] else options["port"] + 1
 
-        # sanitize probe paths
-        options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}"
-        options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}"
-        options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}"
+        # sanitize probes: returns regexps for probes in options and their representations for logging
+        options, probe_representations = sanitize_probes(options)
 
         # set the probe routes
         # if probe port is set to the application's port, add it to the application's routes
@@ -127,16 +126,19 @@ class Command(BaseCommand):
             if probe_port != options["port"]:
                 logger.info(
                     f"Starting probe application running on port {probe_port} with route liveness-probe: "
-                    f"{options['liveness_probe']}, readiness-probe: {options['readiness_probe']}, "
-                    f"startup-probe: {options['startup_probe']}"
+                    f"{probe_representations['liveness_probe']}, "
+                    f"readiness-probe: {probe_representations['readiness_probe']}, "
+                    f"startup-probe: {probe_representations['startup_probe']}"
                 )
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
             else:
                 include_probe = True
                 logger.info(
-                    f"Starting probe application with routes liveness-probe: {options['liveness_probe']}, "
-                    f"readiness-probe: {options['readiness_probe']}, startup-probe: {options['startup_probe']} "
+                    f"Starting probe application with routes "
+                    f"liveness-probe: {probe_representations['liveness_probe']}, "
+                    f"readiness-probe: {probe_representations['readiness_probe']}, "
+                    f"startup-probe: {probe_representations['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
 
