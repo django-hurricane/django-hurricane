@@ -21,7 +21,7 @@ point 5.
 ## 3. Install Hurricane to your environment
 Hurricane can be installed from Python Package Index with
 ~~~bash
-pip3 install hurricane
+pip3 install django-hurricane
 ~~~
 
 ## 4. Add it to your *INSTALLED_APPS*
@@ -37,7 +37,7 @@ INSTALLED_APPS += (
 You can run a development server exactly the same way you would run the production server. It is realized
 with a Django management command:
 ~~~bash
-python manage.py serve --autoreload --static --media
+python manage.py serve --autoreload --static
 ~~~
 That will start a Tornado-based web server that hot-reloads your code upon changes. It will serve your static
 and media files, too.
