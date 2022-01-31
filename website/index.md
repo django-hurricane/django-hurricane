@@ -24,6 +24,15 @@ cover-img: assets/img/bg_clouds1.png
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+## Key Features of Django Hurricane
+
+The goal of Django Hurricane is to build the most robust and scalable applications with Django by leveraging the existing know-how of our favourite framework.
+
+-   Better integration of Django and Kubernetes
+-   Tornado-powered Django application server
+-   Tornado-powered Django AMQP consumer
+-   Probe server out-of-the box with options for standard Kubernetes probes
+-   Webhooks to check up on the application status
 
 ## Why Hurricane?
 Django was developed with the batteries included approach and already handles most of the challenges around web 
