@@ -290,7 +290,7 @@ By running this command we can get the host name, which we can use to access the
 ~~~bash
 kubectl ingress
 ~~~
-Now you should be able to access the application using the ingress hostname (in this case spacecrafts.127.0.0.1.nip.io)
+You should be able to access the application using the ingress hostname (in this case spacecrafts.127.0.0.1.nip.io)
 and for instance you can access the graphql background at **spacecrafts.127.0.0.1.nip.io/graphql**.
 
 A big advantage of Django Hurricane is, that you don't need to write a lot of boilerplate code, i.e. probe handlers for Kubernetes probes,
@@ -302,7 +302,7 @@ You can check the inbuilt probes, going to **spacecrafts.127.0.0.1.nip.io/startu
 
 Alternatively, you can create your own check handeler.
 
-For this, you can create a file with a name checks.py with the following content:
+For this, you can create a file with a name `components/checks.py` with the following content:
 
 ~~~python
 from django.core.checks import Error
@@ -335,8 +335,14 @@ Important: if you have synchronous call in your check to the database or other p
 use sync_to_async to wrap those parts or otherwise you will have problems with hurricane, as it expects all parts to be
 asynchronous.
 
-Now we need to register this check, so that Django can use it in it's check logic.
-from django.apps import AppConfig
+First, we can set a default app config in `components/__init__.py`
+
+~~~python
+default_app_config = 'spacecrafts.components.apps.ComponentsConfig'
+~~~
+
+Now we need to register this check, so that Django can use it in it's check logic. You can add this code to your
+`components/apps.py`
 
 ~~~python
 from django.apps import AppConfig
@@ -351,7 +357,7 @@ class ComponentsConfig(AppConfig):
         register(example_check_main_engine)
 ~~~
 
-Here we register our check only after the application is ready, otherwise we will run into the error of AppNotReady.
+We register our check only after the application is ready, otherwise we will run into the error of AppNotReady.
 This way we make sure, that this check is only registered after the application is ready, as check requires connection
 to the model.
 
