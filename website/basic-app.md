@@ -296,5 +296,65 @@ and for instance you can access the graphql background at **spacecrafts.127.0.0.
 A big advantage of Django Hurricane is, that you don't need to write a lot of boilerplate code, i.e. probe handlers for Kubernetes probes,
 hurricane takes care of it.
 
+You can check the inbuilt probes, going to **spacecrafts.127.0.0.1.nip.io/startup**, 
+**spacecrafts.127.0.0.1.nip.io/alive** or **spacecrafts.127.0.0.1.nip.io/ready**. To learn more about probes, please refer to
+[<ins>**hurricane probes**</ins>](https://django-hurricane.readthedocs.io/en/latest/api/server.html#module-hurricane.server.django).
+
+Alternatively, you can create your own check handeler.
+
+For this, you can create a file with a name checks.py with the following content:
+
+~~~python
+from django.core.checks import Error
+from spacecrafts.components.models import Component
+from asgiref.sync import sync_to_async
+import logging
+
+def example_check_main_engine(app_configs=None, **kwargs):
+    '''
+    Check for existance of the main engine in the database
+    '''
+
+    # your check logic here
+    errors = []
+    logging.info("Our check actully works!")
+    # we need to wrap all sync calls to the database into a sync_to_async wrapper for hurricane to use it in async way
+    if not sync_to_async(Component.objects.filter(title="Main engine").exists):
+        errors.append(
+            Error(
+                'an error',
+                hint='There is no main engine in the spacecraft.',
+                id='components.E001',
+            )
+        )
+
+    return errors
+~~~
+
+Important: if you have synchronous call in your check to the database or other part of your app, make sure, that you
+use sync_to_async to wrap those parts or otherwise you will have problems with hurricane, as it expects all parts to be
+asynchronous.
+
+Now we need to register this check, so that Django can use it in it's check logic.
+from django.apps import AppConfig
+
+~~~python
+from django.apps import AppConfig
 
 
+class ComponentsConfig(AppConfig):
+    name = 'spacecrafts.components'
+
+    def ready(self):
+        from spacecrafts.components.checks import example_check_main_engine
+        from django.core.checks import register
+        register(example_check_main_engine)
+~~~
+
+Here we register our check only after the application is ready, otherwise we will run into the error of AppNotReady.
+This way we make sure, that this check is only registered after the application is ready, as check requires connection
+to the model.
+
+If you will now go to **spacecrafts.127.0.0.1.nip.io/alive**, you will see the message "Our check actully works!" in
+the logs. It means, that our check will be invoked every time alive-probe will be requested. This way you can write
+custom checks with your own logic in them.
