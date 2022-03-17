@@ -36,6 +36,7 @@ class Command(BaseCommand):
         - ``--media`` - serve media files
         - ``--autoreload`` - reload code on change
         - ``--debug`` - set Tornado's Debug flag
+        - ``--interface`` - set a host name for probe server
         - ``--port`` - the port for Tornado to listen on
         - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
         - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
@@ -59,6 +60,7 @@ class Command(BaseCommand):
         parser.add_argument("--media", action="store_true", help="Serve media files")
         parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
         parser.add_argument("--debug", action="store_true", help="Set Tornado's Debug flag")
+        parser.add_argument("--interface", type=str, help="Set a host name for probe server")
         parser.add_argument("--port", type=int, default=8000, help="The port for Tornado to listen on")
         parser.add_argument(
             "--liveness-probe",

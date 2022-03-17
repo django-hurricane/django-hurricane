@@ -10,6 +10,7 @@ from django.conf import settings
 from django.core.management import call_command
 from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
+from tornado.routing import HostMatches
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
 from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
@@ -60,7 +61,12 @@ def make_probe_server(options, check_func):
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
-    return HurricaneApplication(handlers, debug=options["debug"], metrics=False)
+
+    if options["interface"]:
+        handlers_wrapper = [(HostMatches(options["interface"]), handlers)]
+    else:
+        handlers_wrapper = handlers
+    return HurricaneApplication(handlers_wrapper, debug=options["debug"], metrics=False)
 
 
 def make_http_server(options, check_func, include_probe=False):
