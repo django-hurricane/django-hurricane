@@ -2,21 +2,30 @@
 layout: page
 title: Guide to your first Hurricane-based Application
 ---
-Content:
-- [x] Create a basic Django application
-- [x] Run this application using django-hurricane
-- [x] Create Kubernetes cluster
+## Table of contents:
+1. [Create basic Django application](#1-create-basic-django-application)
+   1. [Manual Django setup](#manual-django-setup)
+   2. [Setup with a cookiecutter template](#setup-with-a-cookiecutter-template)
+   3. [Basic setup of the spacecrafts application](#basic-setup-of-the-spacecrafts-application)
+   4. [Configure GraphQL](#configure-graphql)
+   5. [Start hurricane server](#start-hurricane-server)
+3. [Run this application using django-hurricane in a Kubernetes cluster](#2-run-this-application-using-django-hurricane-in-a-kubernetes-cluster)
 
 ## 1. Create basic Django application
 We will make it a little bit more interesting and instead of a plain Django application we will create a django-graphene application.
 You can learn more about Graphene [<ins>**here**</ins>](https://docs.graphene-python.org/projects/django/en/latest/). In it's essence, with 
 django-graphene we will be able to use GraphQL functionality for our application.
 
-> Alternatively, you can skip this part and clone [<ins>**this repository**</ins>](https://github.com/vvvityaaa/spacecrafts). 
+> Alternatively, you can skip this part and clone [<ins>**this repository**</ins>](https://github.com/django-hurricane/spacecrafts-demo). 
 > 
 > You can then head directly to step 2:  
 > [<ins>**Run this application using Django Hurricane**</ins>](#2-run-this-application-using-django-hurricane)
 
+If you want to setup the project manual, you can proceed with the following section.
+Alternatively you could [<ins>**head to the next section**</ins>](#setup-with-a-cookiecutter-template) which uses the [<ins>**cookiecutter template**</ins>](https://github.com/Blueshoe/django-hurricane-template) we developed to bootstrap Django applications that use django-hurricane.
+Keep in mind that the cookiecutter template includes more (e.g. poetry, pre-commit, GitHub workflow, split-settings, etc.), so you might have slightly different results when doing the manual setup. 
+
+### Manual Django setup
 First, create a project directory
 ~~~bash
 mkdir spacecrafts
@@ -29,41 +38,89 @@ virtualenv env
 source env/bin/activate  # On Windows use `env\Scripts\activate`
 ~~~
 
-Install Django and Django-Graphene
+Install Django, Django-Graphene and django-hurricane
 ~~~bash
-pip install django~=3.2.12 graphene_django
+pip install django~=3.2.12 graphene_django django-hurricane
 ~~~
 
-Set up a new project with a single application
+Create directory to contain source code. This step is optional, we do it so it matches our cookiecutter and [<ins>**our repository**</ins>](https://github.com/django-hurricane/spacecrafts-demo).
+~~~bash
+mkdir src
+cd src
+~~~
+
+Set up a new project
 ~~~bash
 django-admin startproject spacecrafts .  # Note:'.' character
+~~~
+
+Create a directory to contain Django apps. This is also optional and done to match the cookiecutter.
+~~~bash
+mkdir apps
+~~~
+
+### Setup with a cookiecutter template
+
+If necessary [<ins>install cookiecutter</ins>](https://cookiecutter.readthedocs.io/en/1.7.2/installation.html) (i.e. `pip install cookiecutter`).
+
+Use our cookiecutter template to set up the Django project
+~~~bash
+cookiecutter gh:Blueshoe/django-hurricane-template
+~~~
+
+You can use following answers for the prompt:
+~~~bash
+project_name [awesome-django-project]: spacecrafts
+project_verbose_name [Awesome Django Hurricane Project]: A demo project to create "spacecrafts", using django-hurricane.
+project_domain [blueshoe.de]: 
+organization [Blueshoe GmbH]:
+~~~
+
+Create a virtualenv:
+~~~bash
 cd spacecrafts
+virtualenv env
+source env/bin/activate  # On Windows use `env\Scripts\activate`
+~~~
+
+If you know how to use [<ins>**poetry**</ins>](https://python-poetry.org/docs/), you can use it to add Django-Graphene and django-hurricane:
+~~~bash
+poetry add graphene-django django-hurricane
+~~~
+Otherwise you can just use pip
+~~~bash
+pip install graphene-django django-hurricane
+~~~
+Install the rest of the dependencies (which are specified in `src/pyproject.toml`):
+~~~bash
+pip install .
+~~~
+
+To continue with the next section, change into the `src` directory
+~~~bash
+cd src
+~~~
+
+### Basic setup of the spacecrafts application
+The following steps will create the spacecrafts application. They are the same, no matter whether you did a manual project setup or whether you used our cookiecutter template. 
+
+Set up the application
+~~~bash
+cd apps
 django-admin startapp components
 cd ..
 ~~~
 
-Migrate initial changes
-~~~bash
-python manage.py migrate
-~~~
-
 Create model structures
 ~~~python
-# spacecrafts/components/models.py
+# src/apps/components/models.py
 
 from django.db import models
 
 
 class Category(models.Model):
-    COMPONENT_CATEGORIES = [
-        ('Power Source', 'Power Source'),
-        ('Electronics', 'Electronics'),
-        ('Hardware', 'Hardware'),
-        ('Engines', 'Engines'),
-        ('Safety Tools', 'Safety Tools'),
-    ]
     title = models.CharField(
-        max_length=100, choices=COMPONENT_CATEGORIES,
+        max_length=100, 
     )
 
     def __str__(self):
@@ -74,36 +131,67 @@ class Component(models.Model):
     title = models.CharField(max_length=100)
     description = models.TextField()
     category = models.ForeignKey(
-        Category, related_name="category", on_delete=models.CASCADE,
+        Category, 
+        related_name="categories", 
+        on_delete=models.CASCADE,
     )
 
     def __str__(self):
         return self.title
 
 ~~~
-> Please refert to [<ins>**Django Documentation**</ins>](https://docs.djangoproject.com/en/4.0/topics/db/models/) for further information about Django models.
 
-Add your new app `spacecrafts.components` as well as `graphene_django` to your settings file
+Add your new app as well as `graphene_django` and `hurricane` to your settings file
 ~~~python
-# spacecrafts/settings.py
+# manual setup: src/spacecrafts/settings.py 
+# cookiecutter: src/configuration/components/apps.py
 
 INSTALLED_APPS = [
     ...,
-    'spacecrafts.components',
-    'graphene_django',
+    "apps.components.apps.ComponentsConfig",
+    "graphene_django",
+    "hurricane",
 ]
+~~~
+
+To have hurricanes logs available, add the following logging setting to your settings file:
+~~~python
+# manual setup: src/spacecrafts/settings.py
+# cookiecutter: src/configuration/components/logging.py
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "formatters": {"console": {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}},
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "console",
+            "stream": sys.stdout,
+        }
+    },
+    "root": {"handlers": ["console"], "level": "INFO"},
+    "loggers": {
+        "hurricane": {
+            "handlers": ["console"],
+            "level": os.getenv("HURRICANE_LOG_LEVEL", "INFO"),
+            "propagate": False,
+        },
+    },
+}
+
 ~~~
 
 We also need to adapt the name of the app config:
 ~~~python
-# spacecrafts/components/apps.py
+# src/apps/components/apps.py
 
 from django.apps import AppConfig
 
 
 class ComponentsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'spacecrafts.components'
+    name = 'apps.components'
 
 ~~~
 
@@ -113,32 +201,35 @@ python manage.py makemigrations
 python manage.py migrate
 ~~~
 
-You can load fixture file from [<ins>**here**</ins>](Link to JSON file). It allows you to load data to your database from the fixture file, that defines several model instances
+Our repository contains a fixture in `src/apps/components/fixture.yaml`, you can download it from [<ins>**here**</ins>](Link to JSON file). It allows you to load data to your database from the fixture file, that defines several model instances
 ~~~bash
 python manage.py loaddata components
 ~~~
 Alternatively you can create model instances on your own through the admin interface. For that you need to add following lines to your admin file:
 
 ~~~python
-# spacecrafts/components/admin.py
+# src/apps/components/admin.py
 
 from django.contrib import admin
-from spacecrafts.components.models import Category, Component
+from apps.components.models import Category, Component
 
 admin.site.register(Category)
 admin.site.register(Component)
 
 ~~~
 
+### Configure GraphQL
+
 The essential part of `graphene_django` is a graph representation of objects. To create such a representation you need to create a so-called schema. Create a `schema.py` file in your projects root with the following content:
 
 ~~~python
-# spacecrafts/schema.py
+# manual setup: src/spacecrafts/schema.py
+# cookiecutter: src/configuration/schema.py
 
 import graphene
 from graphene_django import DjangoObjectType
 
-from spacecrafts.components.models import Category, Component
+from apps.components.models import Category, Component
 
 
 class CategoryType(DjangoObjectType):
@@ -172,18 +263,29 @@ schema = graphene.Schema(query=Query)
 ~~~
 > For more information on the concept of schema, please refer to [<ins>**Graphene Documentation**</ins>](https://docs.graphene-python.org/projects/django/en/latest/schema/).
 
-Now you just need to let Django know where it can find graphene schema. Add following setting to your settings file:
+Now you just need to let Django know where it can find the graphene schema. Add following setting to your settings file:
+If you did the manual Django setup:
 ~~~python
-# spacecrafts/settings.py
+# src/spacecrafts/settings.py
 
 GRAPHENE = {
     "SCHEMA": "spacecrafts.schema.schema"
 }
 ~~~
+If you did the cookiecutter setup (to keep it clean you can add a new file `src/configuration/components/graphene.py` for this and include it in the `_base_settings` specified in `src/configuration/__init__.py`):
+~~~python
+# src/configuration/components/commons.py
+
+GRAPHENE = {
+    "SCHEMA": "configuration.schema.schema"
+}
+~~~
+
 
 You also need to add a graphql endpoint to your urls configuration. Your `urls.py` should look like the following:
 ~~~python
-# spacecrafts/urls.py
+# manual setup: src/spacecrafts/urls.py
+# cookiecutter: src/configuration/urls.py
 
 from django.contrib import admin
 from django.urls import path
@@ -197,84 +299,7 @@ urlpatterns = [
 ]
 ~~~
 
-If it doesn't run already, you can now start the runserver:
-~~~bash
-python manage.py runserver
-~~~
-
-After going to the graphql url (http://127.0.0.1:8000/graphql) you can play around with GraphQL querying. For example you could list all components and their categories:
-~~~
-{
-  allComponents {
-    id
-    title
-    description
-    category {
-      id
-      title
-    }
-  }
-}
-~~~
-
-## 2. Run this application using django-hurricane
-
-If you have directly cloned the repository, you need to create a virtualenv, install the requirements and migrate:
-~~~bash
-cd spacecrafts
-virtualenv env
-source env/bin/activate  # On Windows use `env\Scripts\activate`
-python manage.py migrate
-~~~
-
-If you followed step 1 and created the project manually you need to install `django-hurricane`  in your virtual environment:
-
-~~~bash
-pip3 install django-hurricane
-~~~
-
-Add hurricane to your installed apps in django settings file:
-
-~~~python
-# spacecrafts/settings.py
-
-INSTALLED_APPS = [
-    ...
-    'hurricane',
-]
-~~~
-
-To have logs available, add the following logging setting to your settings file:
-
-~~~python
-# spacecrafts/settings.py
-
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": True,
-    "formatters": {"console": {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}},
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "console",
-            "stream": sys.stdout,
-        }
-    },
-    "root": {"handlers": ["console"], "level": "INFO"},
-    "loggers": {
-        "hurricane": {
-            "handlers": ["console"],
-            "level": os.getenv("HURRICANE_LOG_LEVEL", "INFO"),
-            "propagate": False,
-        },
-        "pika": {
-            "handlers": ["console"],
-            "level": "ERROR",
-            "propagate": False,
-        },
-    },
-}
-~~~
+### Start hurricane server
 
 Now you can start the server. With `--autoreload` flag server will be automatically reloaded upon changes in the code. 
 Static files will be served if you add `--static` flag. We instruct hurricane to run two Django management command. We collect statics with `--command 'collectstatic --noinput'` and we also migrate the database with `--command 'migrate'`.
@@ -292,10 +317,26 @@ You should get similar output upon the start of the server:
 2022-01-21 10:19:21,437 INFO     hurricane.server.general Startup time is 0.0026073455810546875 seconds
 ~~~
 
+After going to the graphql url (http://127.0.0.1:8000/graphql) you can play around with GraphQL querying. For example you could list all components and their categories:
+~~~
+{
+  allComponents {
+    id
+    title
+    description
+    category {
+      id
+      title
+    }
+  }
+}
+~~~
+
+
 In addition to the previously defined `admin` and `graphql` endpoints, hurricane starts a probe server on port+1, unless an explicit port for probes is specified. This feature is essential for cloud-native development, and it is only one of the many features of django-hurricane. For further features and information on hurricane, please refer to [Full Django Hurricane Documentation](https://django-hurricane.readthedocs.io/en/latest/).
 
 
-## 3. Create Kubernetes cluster
+## 2. Run this application using django-hurricane in a Kubernetes cluster
 
 We're using [k3d](https://k3d.io/) to create and run a local kubernetes cluster. You can install it via:
 ~~~bash
