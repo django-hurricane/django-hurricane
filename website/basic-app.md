@@ -9,7 +9,7 @@ title: Guide to your first Hurricane-based Application
    3. [Basic setup of the spacecrafts application](#basic-setup-of-the-spacecrafts-application)
    4. [Configure GraphQL](#configure-graphql)
    5. [Start hurricane server](#start-hurricane-server)
-2. [Run this application using django-hurricane in a Kubernetes cluster](#2-run-this-application-using-django-hurricane-in-a-kubernetes-cluster)
+2. [Run this application using Django-Hurricane in a Kubernetes cluster](#2-run-this-application-using-django-hurricane-in-a-kubernetes-cluster)
    1. [Built-in Kubernetes probes and custom check handler](#built-in-kubernetes-probes-and-custom-check-handler)
    2. [Local Kubernetes development: code hot-reloading, debugging and more](#local-kubernetes-development-code-hot-reloading-debugging-and-more)
 
@@ -24,7 +24,7 @@ django-graphene we will be able to use GraphQL functionality for our application
 > [<ins>**Run this application using Django Hurricane**</ins>](#2-run-this-application-using-django-hurricane)
 
 If you want to setup the project manual, you can proceed with the following section.
-Alternatively you could [<ins>**head to the next section**</ins>](#setup-with-a-cookiecutter-template) which uses the [<ins>**cookiecutter template**</ins>](https://github.com/Blueshoe/django-hurricane-template) we developed to bootstrap Django applications that use django-hurricane.
+Alternatively you could [<ins>**head to the next section**</ins>](#setup-with-a-cookiecutter-template) which uses the [<ins>**cookiecutter template**</ins>](https://github.com/Blueshoe/django-hurricane-template) we developed to bootstrap Django applications that use Django-Hurricane.
 Keep in mind that the cookiecutter template includes more (e.g. poetry, pre-commit, GitHub workflow, split-settings, etc.), so you might have slightly different results when doing the manual setup. 
 
 ### Manual Django setup
@@ -40,7 +40,7 @@ virtualenv env
 source env/bin/activate  # On Windows use `env\Scripts\activate`
 ~~~
 
-Install Django, Django-Graphene and django-hurricane
+Install Django, Django-Graphene and Django-Hurricane
 ~~~bash
 pip install django~=3.2.12 graphene_django django-hurricane
 ~~~
@@ -73,7 +73,7 @@ cookiecutter gh:Blueshoe/django-hurricane-template
 You can use following answers for the prompt:
 ~~~bash
 project_name [awesome-django-project]: spacecrafts
-project_verbose_name [Awesome Django Hurricane Project]: A demo project to create "spacecrafts", using django-hurricane.
+project_verbose_name [Awesome Django Hurricane Project]: A demo project to create "spacecrafts", using Django-Hurricane.
 project_domain [blueshoe.de]: 
 organization [Blueshoe GmbH]:
 ~~~
@@ -85,7 +85,7 @@ virtualenv env
 source env/bin/activate  # On Windows use `env\Scripts\activate`
 ~~~
 
-If you know how to use [<ins>**poetry**</ins>](https://python-poetry.org/docs/), you can use it to add Django-Graphene and django-hurricane:
+If you know how to use [<ins>**poetry**</ins>](https://python-poetry.org/docs/), you can use it to add Django-Graphene and Django-Hurricane:
 ~~~bash
 poetry add graphene-django django-hurricane
 ~~~
@@ -358,10 +358,10 @@ After going to the graphql url (http://127.0.0.1:8000/graphql) you can play arou
 ~~~
 
 
-In addition to the previously defined `admin` and `graphql` endpoints, hurricane starts a probe server on port+1, unless an explicit port for probes is specified. This feature is essential for cloud-native development, and it is only one of the many features of django-hurricane. For further features and information on hurricane, please refer to [<ins>**Full Django Hurricane Documentation**</ins>](https://django-hurricane.readthedocs.io/en/latest/).
+In addition to the previously defined `admin` and `graphql` endpoints, hurricane starts a probe server on port+1, unless an explicit port for probes is specified. This feature is essential for cloud-native development, and it is only one of the many features of Django-Hurricane. For further features and information on hurricane, please refer to [<ins>**Full Django Hurricane Documentation**</ins>](https://django-hurricane.readthedocs.io/en/latest/).
 
 
-## 2. Run this application using django-hurricane in a Kubernetes cluster
+## 2. Run this application using Django-Hurricane in a Kubernetes cluster
 
 We're using [k3d](https://k3d.io/) to create and run a local kubernetes cluster. You can install it via:
 ~~~bash
@@ -432,7 +432,7 @@ kubectl get pods
 ~~~
 This way we can inspect the logs of a pod
 ~~~bash
-kubectl logs -f buzzword-counter-web-XXXXX-XXXXXXXX
+kubectl logs -f spacecrafts-XXXXX-XXXXXXXX
 ~~~
 By running this command we can get the url, which we can use to access the spacecrafts application
 ~~~bash
@@ -445,10 +445,6 @@ and for instance you can access the graphql background at [**spacecrafts.127.0.0
 
 A big advantage of Django Hurricane is, that you don't need to write a lot of boilerplate code, i.e. probe handlers for Kubernetes probes,
 hurricane takes care of it.
-
-You can check the inbuilt probes, going to [**spacecrafts.127.0.0.1.nip.io:8080/startup**](http://spacecrafts.127.0.0.1.nip.io:8080/startup), 
-[**spacecrafts.127.0.0.1.nip.io:8080/alive**](http://spacecrafts.127.0.0.1.nip.io:8080/alive) or [**spacecrafts.127.0.0.1.nip.io:8080/ready**](http://spacecrafts.127.0.0.1.nip.io:8080/ready). To learn more about probes, please refer to
-[<ins>**hurricane probes**</ins>](https://django-hurricane.readthedocs.io/en/latest/api/server.html#module-hurricane.server.django).
 
 You can also create your own check handler.
 
@@ -512,9 +508,6 @@ We register our check only after the application is ready, otherwise we will run
 This way we make sure, that this check is only registered after the application is ready, as check requires connection
 to the model.
 
-If you will now go to [**spacecrafts.127.0.0.1.nip.io:8080/alive**](http://spacecrafts.127.0.0.1.nip.io:8080/alive), you will see the message "Our check has been called :]" in
-the logs. It means, that our check will be invoked every time the alive-probe is requested. This way you can write
-custom checks with your own logic in them.
 
 ### Local Kubernetes development: code hot-reloading, debugging and more
 
