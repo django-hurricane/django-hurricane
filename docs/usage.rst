@@ -1,6 +1,9 @@
 User's guide
 ============
 
+.. contents:: Table of Contents
+   :depth: 4
+   :local:
 
 Introduction
 ------------
@@ -24,24 +27,25 @@ Django as tightly as possible with Kubernetes in order to harness the full power
 robust, scalable and secure applications with Django by leveraging the existing expertise of our favorite framework is
 the main goal of this initiative.
 
-Using Tornado-powered application server gives several advantages compared to the standard Django application server.
-It is single-threaded and at the same time non-blocking and includes a builtin IO Loop from
+Using a Tornado-powered application server gives several advantages compared to the standard Django application server.
+It is a single-threaded and at the same time a non-blocking server, that includes a builtin IO Loop from
 `asyncio <https://docs.python.org/3/library/asyncio.html>`_ library. Django application server is blocked while waiting
-for the client. On the other hand Tornado application server can handle processes asynchronously and thus is not blocked
-while waiting for the client or database. This also gives the possibility to run webhooks and other asynchronous tasks
+for the client. On the other hand a Tornado application server can handle processes asynchronously and thus is not blocked
+while waiting for the client or the database. This also gives the possibility to run webhooks and other asynchronous tasks
 directly in the application server, avoiding the usage of external asynchronous task queues such as Celery.
 
 Application Server
 ------------------
 
-**Run the application server**
+Run the application server
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to start the Django app run the management command *serve*:
 ::
    python manage.py serve
 
-It simply starts a Tornado-based application server ready to serve your Django application. No need for any other
-app server.
+This command simply starts a Tornado-based application server ready to serve your Django application.
+There is no need for any other application server.
 
 Command options for *serve*-command:
 
@@ -79,25 +83,34 @@ Command options for *serve*-command:
 +--------------------+-------------------------------------------------------------------------------------+
 | --webhook-url      | If specified, webhooks will be sent to this url                                     |
 +--------------------+-------------------------------------------------------------------------------------+
+| --pycharm-host     | The host of the pycharm debug server                                                |
++--------------------+-------------------------------------------------------------------------------------+
+| --pycharm-port     | The port of the pycharm debug server. This is only used in combination              |
+|                    | with the '--pycharm-host' option                                                    |
++--------------------+-------------------------------------------------------------------------------------+
 
-**Please note**: `req-queue-len` parameter is set to a default value of 10. It means, that if the length of
-asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
-`req-queue-len` value. Adjust this parameter if you want asynchronous task queue to be larger than 10.
+**Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of the
+asynchronous tasks' queue will exceed 10, readiness probe will return the status 400 until the length of the queue
+gets below the :code:`req-queue-len` value. Adjust this parameter if you want the asynchronous task queue to be larger
+than 10.
 
-**Probes and the System Check Framework**
+Probes and the System Check Framework
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The probe endpoint invokes `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
-This endpoint is called in a certain interval by Kubernetes, hence we get regular checks on the application. That's
+This endpoint is called in a certain intervals by Kubernetes, hence we get regular checks on the application. That's
 a well-suited approach to integrate custom checks (please refer to the Django documentation how to do that) and get
 health and sanity checks for free. Upon unhealthy declared applications (error-level) Kubernetes will restart the
-application and remove unhealthy PODs once a new instance is in healthy state.
-The port for the probe route is separated from the application's port. If not specified, the probe port is one port
-added to the application's port. For more information on this topic on Kubernetes side, please refer to
+application and remove the unhealthy PODs once a new instance is in a healthy state.
+A port for the probe route is separated from the application's port. If the probe port is not specified, it
+will be set to the application port plus one e.g. if the application port is 8000, the probe port will be set to 8001.
+For more information about this topic on a Kubernetes side, please refer to
 `Configure Liveness, Readiness and Startup Probes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
 
 
-**Management commands**
-Management commands can be added as options for hurricane serve command. Kubernetes is be able to poll startup probe
+Management commands
+^^^^^^^^^^^^^^^^^^^
+Management commands can be added as options for the hurricane serve command. Kubernetes is be able to poll startup probe
 and if management commands are still running, it knows, that it should not restart the container yet. Management
 commands can be given as repeating arguments to the serve management command e.g.:
 ::
@@ -115,7 +128,8 @@ should look like this:
 ::
     python manage.py serve --command management_command_1 --command management_command_2
 
-**Endpoints**
+Endpoints
+^^^^^^^^^
 
 Probe server creates handlers for three endpoints: startup, readiness and liveness.
 
@@ -137,7 +151,8 @@ Probe server, which defines handlers for every probe endpoint, runs in the main 
 commands does not block the main event loop and thus runs in a separate executor. Upon successful execution
 of management commands, the HTTP server is started.
 
-**Webhooks**
+Webhooks
+^^^^^^^^
 
 Webhooks can be specified as command options of *serve*-command. Right now, there are available two webhooks: startup-
 webhook and liveness-webhook. First is an indicator of the status of startup probe. Startup-webhook sends a status, and
@@ -149,34 +164,65 @@ Webhooks run as asynchronous processes and thus do not block the asyncio-loop. I
 cannot handle webhook properly, an error or a warning will be logged. Response of the webhook should
 be 200 to indicate the success of receiving webhook.
 
-*Creating new webhook types*
+**Creating new webhook types**
 The new webhook types can be specified in an easy manner in the hurricane/webhooks/webhook_types.py file. They need to
 specify Webhook class as a parent class. After creating a new webhook class, you can specify a new argument of the
 management command to parametrize the url, to which webhook will be sent. Then, you can just create an object of webhook
 and run it at the place in code, where it should be executed. Run method should have several methods i.e. url (to which
 webhook should be sent) and status (webhook on success or failure).
 
-**Check migrations**
+Check migrations
+^^^^^^^^^^^^^^^^
 
 When check-migrations option is enabled, hurricane checks if database is available and subsequently checks if there are
 any unapplied migrations. It is executed in a separate thread, so the main thread with the probe server is not blocked.
 
-**Settings**
-`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
+Settings
+^^^^^^^^
+:code:`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
 
-**Logging**
+Logging
+^^^^^^^
 
 It should be ensured, that the *hurricane* logger is added to Django logging configuration, otherwise log outputs will
-not be displayed when application server will be started.
+not be displayed when application server will be started. Log level can be easily adjusted to own needs.
+
+Example:
+.. code-block:: python
+
+   LOGGING = {
+       "version": 1,
+       "disable_existing_loggers": True,
+       "formatters": {"console":
+                        {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}
+                     },
+       "handlers": {
+           "console": {
+               "class": "logging.StreamHandler",
+               "formatter": "console",
+               "stream": sys.stdout,
+           }
+       },
+       "root": {"handlers": ["console"], "level": "INFO"},
+       "loggers": {
+           "hurricane": {
+               "handlers": ["console"],
+               "level": os.getenv("HURRICANE_LOG_LEVEL", "INFO"),
+               "propagate": False,
+           },
+       },
+   }
+
 
 AMQP Worker
 -----------
 
-**Run the AMQP (0-9-1) Consumer**
+Run the AMQP (0-9-1) Consumer
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 In order to start the Django-powered AMQP consumer following *consume*-command can be used:
 ::
-    python manage.py consume HANLDER
+    python manage.py consume HANDLER
 
 This command starts a `Pika-based <https://pika.readthedocs.io/en/stable/>`_ amqp consumer which is observed by
 Kubernetes. The required *Handler* argument is the dotted path to an *_AMQPConsumer* implementation. Please use
@@ -242,11 +288,12 @@ Command options for *consume*-command:
 | --reconnect      | Reconnect the consumer if the broker connection is lost (not recommended)           |
 +------------------+-------------------------------------------------------------------------------------+
 
-**Please note**: `req-queue-len` parameter is set to a default value of 10. It means, that if the length of
+**Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of
 asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
-`req-queue-len` value. Adjust this parameter if you want asynchronous task queue to be larger than 10.
+:code:`req-queue-len` value. Adjust this parameter if you want asynchronous task queue to be larger than 10.
 
-**Example AMQP Consumer**
+Example AMQP Consumer
+^^^^^^^^^^^^^^^^^^^^^
 
 Implementation of a basic AMQP handler with no functionality:
 
@@ -265,7 +312,8 @@ This handler can be started using the following command:
 ::
     python manage.py consume myamqp.consumer.MyTestHandler --queue my.test.topic --exchange test --amqp-host 127.0.0.1 --amqp-port 5672
 
-**Test Hurricane**
+Test Hurricane
+--------------
 
 In order to run the entire test suite following commands should be executed:
 ::
@@ -278,3 +326,42 @@ In order to run the entire test suite following commands should be executed:
 **Important:** the AMQP testcase requires *Docker* to be accessible from the current user as it
 spins up a container with *RabbitMQ*. The AMQP consumer in a test mode will connect to
 it and exchange messages using the *TestPublisher* class.
+
+Debugging django applications
+-----------------------------
+Debugging a python/django or in fact any application running in a kubernetes cluster can be cumbersome. Some of the most
+common IDEs use different approaches to remote debugging:
+
+1. The `Microsoft Debug Adapter Protocol (DAP) <https://microsoft.github.io/debug-adapter-protocol/>`_ is used, among
+   others, by Visual Studio Code and Eclipse.
+   A full list of supporting IDE's can be found `here <https://microsoft.github.io/debug-adapter-protocol/implementors/tools/>`_.
+   Here, the application itself must listen on a port and wait for the debug client (in this case: the IDE's debug UI)
+   to connect.
+2. Pycharm, which uses the `pydevd <https://github.com/fabioz/PyDev.Debugger>`_ debugger, sets up a debug server (you will have to configure a host
+   and a port in your IDE debug run config) and waits for the application to connect. Therefore, the application must
+   know where to reach the debug server.
+
+Both approaches would usually require the application to contain code that is specific to the IDE/protocol used by the
+developer. Django-hurricane supports these two approaches without the need for changes to your django project:
+
+1. For the Debug Adapter Protocol (Visual Studio Code, Eclipse, ...)
+
+   * a. Install Djanog-hurricane with the "debug" option: :code:`pip install django-hurricane[debug]`.
+
+   * b. Run it with the "--debugger" flag, e.g.: :code:`python manage.py serve --debugger`.
+
+   * c. Optionally, provide a port (default: 5678), e.g.: :code:`python manage.py serve --debugger --debugger-port 1234`.
+Now you can connect your IDE's remote debug client (configure the appropriate host and port).
+
+2. For working with the Pycharm debugger:
+
+   * a. Install Djanog-hurricane with the "pycharm" option: :code:`pip install django-hurricane[pycharm]`.
+
+   * b. Configure the remote debug server in Pycharm and start it.
+
+   * c. Run your app with the "--pycharm-host" and "--pycharm-port" flags, e.g.: :code:`python manage.py serve --pycharm-host 127.0.0.1 --pycharm-port 1234`.
+
+Now the app should connect to the debug server. Upon connection, the execution will halt. You must resume it from Pycharm's debugger UI.
+
+For both approaches, you may have to configure path mappings in your IDE that map your local source code directories to
+the corresponding locations inside the running container (e.g. "/home/me/proj/src" -> "/app").
