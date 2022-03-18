@@ -14,7 +14,9 @@ author: The Django Hurricane Community
 # --- List of links in the navigation bar --- #
 
 navbar-links:
-  Getting Started: "getting-started"
+  Guides:
+    - Getting Started: "getting-started"
+    - Basic Django Application: "basic-app"
   Source Code: "https://github.com/Blueshoe/django-hurricane"
   Documentation: "https://django-hurricane.readthedocs.io/en/latest/"
   Changelog: "https://github.com/Blueshoe/django-hurricane/releases"
