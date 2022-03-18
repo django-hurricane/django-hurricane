@@ -522,6 +522,6 @@ In order to comfortably further develop the spacecrafts app in the local cluster
 
 [comment]: <> (TODO: We can achieve this by using the local path mapping of k3d.)
 
-A comfortable way with more capabilities for debugging is [<ins>**Gefyra**</ins>](https://gefyra.dev/).
+A comfortable way to achieve this, with supported capabilities for debugging is [<ins>**Gefyra**</ins>](https://gefyra.dev/).
 
 If you want maximum convenience for your developers and a supported team oriented workflow, we recommend you check out [<ins>**Unikube**</ins>](https://unikube.io/).
