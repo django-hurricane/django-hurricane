@@ -2,6 +2,11 @@
 layout: page
 title: Guide to your first Hurricane-based Application
 ---
+## What you'll learn
+- Create a Django app with Hurricane
+- Run it locally and then in Kubernetes with k3d
+- Add a custom check for Hurricane
+
 ## Table of contents:
 1. [Create basic Django application](#1-create-basic-django-application)
    1. [Manual Django setup](#manual-django-setup)
@@ -451,10 +456,14 @@ You can also create your own check handler.
 For this, you can create a file named `src/apps/components/checks.py` with the following content:
 
 ~~~python
-from django.core.checks import Error
-from spacecrafts.components.models import Component
-from asgiref.sync import sync_to_async
+# src/apps/components/checks.py
 import logging
+
+from django.core.checks import Error
+
+from apps.components.models import Component
+
+logger = logging.getLogger("hurricane")
 
 
 def example_check_main_engine(app_configs=None, **kwargs):
@@ -464,14 +473,15 @@ def example_check_main_engine(app_configs=None, **kwargs):
 
     # your check logic here
     errors = []
-    logging.info("Our check has been called :]")
+    logger.info("Our check has been called :]")
     # we need to wrap all sync calls to the database into a sync_to_async wrapper for hurricane to use it in async way
-    if not sync_to_async(Component.objects.filter(title="Main engine").exists()):
+    if not Component.objects.filter(title="Main engine").exists():
         errors.append(
             Error(
-                'an error',
-                hint='There is no main engine in the spacecraft.',
-                id='components.E001',
+                "an error",
+                hint="There is no main engine in the spacecraft, it need's to exist with the name 'Main engine'. "
+                "Please create it in the admin or by installing the fixture.",
+                id="components.E001",
             )
         )
 
@@ -489,32 +499,41 @@ Next, we set a default app config in `apps/components/__init__.py`
 default_app_config = 'apps.components.apps.ComponentsConfig'
 ~~~
 
-Now we need to register this check, so that Django can use it in it's check logic. Your `apps/components/apps.py` should have following content:
+Now we need to register this check, so that Django can use it in its check logic. 
+Note that we register the check with the tag `hurricane`, as Hurricane only runs check with that tag.
+Your `apps/components/apps.py` should have following content:
 
 ~~~python
+# apps/components/apps.py
 from django.apps import AppConfig
 
 
 class ComponentsConfig(AppConfig):
-    name = 'spacecrafts.components'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.components"
 
     def ready(self):
-        from apps.components.checks import example_check_main_engine
         from django.core.checks import register
-        register(example_check_main_engine)
+
+        from apps.components.checks import example_check_main_engine
+
+        register(example_check_main_engine, "hurricane")
 ~~~
 
 We register our check only after the application is ready, otherwise we will run into the error of AppNotReady.
 This way we make sure, that this check is only registered after the application is ready, as check requires connection
-to the model.
+to the model. 
+
+To verify whether the check works, you can just delete the `Main engine` component from the database (if you don't use our image registry and you've just added the check, keep in mind that you need to build, push and deploy the image).
+If you're running Hurricane locally, you can also directly browse to `/alive` at the probe endpoint to inspect its output.
 
 
 ### Local Kubernetes development: code hot-reloading, debugging and more
 
 In order to comfortably further develop the spacecrafts app in the local cluster, we should absolutely have hot-reloading of the source code.
 
-[comment]: <> (TODO: We can achieve this by using the local path mapping of k3d.)
+This can be done e.g. with local path mapping of k3d.
 
-A comfortable way to achieve this, with supported capabilities for debugging is [<ins>**Gefyra**</ins>](https://gefyra.dev/).
+A more comfortable way to achieve this, with supported capabilities for debugging, is [<ins>**Gefyra**</ins>](https://gefyra.dev/).
 
 If you want maximum convenience for your developers and a supported team oriented workflow, we recommend you check out [<ins>**Unikube**</ins>](https://unikube.io/).
