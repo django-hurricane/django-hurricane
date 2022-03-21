@@ -66,17 +66,17 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
         """
         pass
 
-    def get(self):
+    async def get(self):
         """
         Get method, which runs the check.
         """
-        self._check()
+        await self._check()
 
-    def post(self):
+    async def post(self):
         """
         Post method, which runs the check.
         """
-        self._check()
+        await self._check()
 
 
 class DjangoLivenessHandler(DjangoProbeHandler):
@@ -96,11 +96,12 @@ class DjangoLivenessHandler(DjangoProbeHandler):
         if StartupTimeMetric.get():
             got_exception = None
             try:
-                self.check()
+                async_check = sync_to_async(self.check)
+                await async_check(tags=["hurricane"])
                 if settings.DATABASES:
                     # once a connection has been established, this will be successful
                     # (even if the connection is gone later on)
-                    self.ensure_connection()
+                    await self.ensure_connection()
             except SystemCheckError as e:
                 got_exception = traceback.format_exc()
                 if settings.DEBUG:
