@@ -213,7 +213,7 @@ python manage.py makemigrations
 python manage.py migrate
 ~~~
 
-Our repository contains a fixture in `src/apps/components/fixture.yaml`, you can download it from [<ins>**here**</ins>](Link to JSON file). It allows you to load data to your database from the fixture file, that defines several model instances
+Our repository contains a fixture in `src/apps/components/fixture.yaml`, you can download it from [<ins>**here**</ins>](https://github.com/django-hurricane/spacecrafts-demo/blob/1ec41396048baef501092ebf247b5d7450bed515/src/apps/components/fixtures/components.json). It allows you to load data to your database from the fixture file, that defines several model instances
 ~~~bash
 python manage.py loaddata components
 ~~~
@@ -342,7 +342,7 @@ You should get similar output upon the start of the server:
 2022-01-21 10:19:21,437 INFO     hurricane.server.general Startup time is 0.0026073455810546875 seconds
 ~~~
 
-After going to the graphql url (http://127.0.0.1:8000/graphql) you can play around with GraphQL querying. For example you could list all components and their categories:
+After going to the graphql url ([http://127.0.0.1:8000/graphql](http://127.0.0.1:8000/graphql)) you can play around with GraphQL querying. For example you could list all components and their categories:
 ~~~
 {
   allComponents {
