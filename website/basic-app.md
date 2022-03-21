@@ -525,7 +525,7 @@ This way we make sure, that this check is only registered after the application 
 to the model. 
 
 To verify whether the check works, you can just delete the `Main engine` component from the database (if you don't use our image registry and you've just added the check, keep in mind that you need to build, push and deploy the image).
-If you're running Hurricane locally, you can also directly browse to `/alive` at the probe endpoint to inspect its output.
+If you're running Hurricane locally, you can also directly browse to `/alive` at the probe port (`8001` if you've followed the first steps of the tutorial) to inspect its output.
 
 
 ### Local Kubernetes development: code hot-reloading, debugging and more
