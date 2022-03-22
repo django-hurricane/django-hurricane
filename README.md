@@ -12,7 +12,9 @@
 Hurricane is an initiative to fit Django perfectly with Kubernetes. It is supposed to cover
 many capabilities in order to run Django in a cloud-native environment, including a Tornado-powered Django app server.  
 
-[Documentation](https://django-hurricane.readthedocs.io/en/latest/)
+## Documentation
+
+You can find the full documentation [here](https://django-hurricane.readthedocs.io/en/latest/).
 
 ## Intro
 
@@ -108,6 +110,8 @@ INSTALLED_APPS += (
     'hurricane',
 )
 ```
+
+Check out the [documentation](https://django-hurricane.readthedocs.io/en/latest/) for more information and a user's guide.
 
 ## Commercial Support
 Hurricane is developed and maintained by [Blueshoe](https://www.blueshoe.de). If you need help implementing implementing hurricane, please contact us: hurricane@blueshoe.de.``

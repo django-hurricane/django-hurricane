@@ -346,7 +346,7 @@ developer. Django-hurricane supports these two approaches without the need for c
 
 1. For the Debug Adapter Protocol (Visual Studio Code, Eclipse, ...)
 
-   * a. Install Djanog-hurricane with the "debug" option: :code:`pip install django-hurricane[debug]`.
+   * a. Install Django-hurricane with the "debug" option: :code:`pip install django-hurricane[debug]`.
 
    * b. Run it with the "--debugger" flag, e.g.: :code:`python manage.py serve --debugger`.
 
@@ -355,7 +355,7 @@ Now you can connect your IDE's remote debug client (configure the appropriate ho
 
 2. For working with the Pycharm debugger:
 
-   * a. Install Djanog-hurricane with the "pycharm" option: :code:`pip install django-hurricane[pycharm]`.
+   * a. Install Django-hurricane with the "pycharm" option: :code:`pip install django-hurricane[pycharm]`.
 
    * b. Configure the remote debug server in Pycharm and start it.
 
