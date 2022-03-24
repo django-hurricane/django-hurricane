@@ -23,7 +23,7 @@ settings.configure()
 # -- Project information -----------------------------------------------------
 
 project = "Hurricane"
-copyright = "2020, Blueshoe GmbH"
+copyright = "2022, Blueshoe GmbH"
 author = "Blueshoe"
 
 
