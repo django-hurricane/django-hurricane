@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 
 import tornado.web
@@ -92,7 +93,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     def ensure_connection(self):
         connection.ensure_connection()
 
-    def _check(self):
+    async def _check(self):
         if StartupTimeMetric.get():
             got_exception = None
             try:
@@ -153,7 +154,7 @@ class DjangoReadinessHandler(DjangoProbeHandler):
         self.request_queue_length = req_queue_len
         self.readiness_webhook = webhook_url
 
-    def _check(self):
+    async def _check(self):
         if StartupTimeMetric.get() and RequestQueueLengthMetric.get() > self.request_queue_length:
             self.set_status(400)
             if ReadinessMetric.get() is not False:
@@ -181,7 +182,7 @@ class DjangoStartupHandler(DjangoProbeHandler):
     liveness/readiness probes.
     """
 
-    def _check(self):
+    async def _check(self):
         if StartupTimeMetric.get():
             self.write(f"Startup was finished {StartupTimeMetric.get()}")
             self.set_status(200)
