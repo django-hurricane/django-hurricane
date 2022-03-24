@@ -4,4 +4,4 @@ import tests.testapp.utils as utils
 
 from .settings import *
 
-register(utils.check_raise_operational_error)
+register(utils.check_raise_operational_error, "hurricane")
