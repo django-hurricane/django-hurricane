@@ -35,6 +35,7 @@ class Command(BaseCommand):
         - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
         - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
         - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
+        - ``--interface`` - set a host name for probe server
         - ``--probe-port`` - the port for Tornado probe route to listen on
         - ``--req-queue-len`` - threshold of length of queue of request, which is considered for readiness probe
         - ``--no-probe`` - disable probe endpoint
@@ -42,6 +43,7 @@ class Command(BaseCommand):
         - ``--autoreload`` - reload code on change
         - ``--debug`` - set Tornado's Debug flag
         - ``--reconnect`` - try to reconnect this client automatically as the broker is available again
+        - ``--webhook-url``- If specified, webhooks will be sent to this url
     """
 
     help = "Start a Tornado-powered Django AMQP 0-9-1 consumer"
@@ -88,6 +90,7 @@ class Command(BaseCommand):
             default="/startup",
             help="The exposed path (default is /startup) for probes to check startup",
         )
+        parser.add_argument("--interface", type=str, help="Set a host name for probe server")
         parser.add_argument(
             "--probe-port",
             type=int,
