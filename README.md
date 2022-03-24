@@ -99,7 +99,7 @@ cases the superb ORM (object relation mapper) and a simple HTTP-interface is all
 
 ## Installation
 
-Hurricane can be installed from Python Package Index:
+Hurricane can be installed from a Python Package Index:
 ```bash
 pip3 install hurricane
 ```
@@ -114,10 +114,11 @@ INSTALLED_APPS += (
 Check out the [documentation](https://django-hurricane.readthedocs.io/en/latest/) for more information and a user's guide.
 
 ## Commercial Support
-Hurricane is developed and maintained by [Blueshoe](https://www.blueshoe.de). If you need help implementing implementing hurricane, please contact us: hurricane@blueshoe.de.``
+Hurricane is developed and maintained by [Blueshoe](https://www.blueshoe.de). 
+If you need any help implementing with hurricane, please contact us: hurricane@blueshoe.de.
 
 ## Docs
-To build the docs following command should be started in a docs directory:
+To build the docs the following command should be executed in the docs directory:
 ```bash
 make html
 ```
