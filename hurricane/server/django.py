@@ -1,3 +1,4 @@
+import asyncio
 import traceback
 
 import tornado.web
@@ -92,7 +93,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     def ensure_connection(self):
         connection.ensure_connection()
 
-    def _check(self):
+    async def _check(self):
         if StartupTimeMetric.get():
             got_exception = None
             try:
@@ -104,16 +105,10 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     await self.ensure_connection()
             except SystemCheckError as e:
                 got_exception = traceback.format_exc()
-                if settings.DEBUG:
-                    self.write("django check error: " + str(e))
-                else:
-                    self.write("check error")
+                self._write_error(msg="check error", e=e)
             except OperationalError as e:
                 got_exception = traceback.format_exc()
-                if settings.DEBUG:
-                    self.write("django database error: " + str(e))
-                else:
-                    self.write("db error")
+                self._write_error(msg="database error", e=e)
             else:
                 if response_average_time := ResponseTimeAverageMetric.get():
                     self.write(
@@ -122,24 +117,33 @@ class DjangoLivenessHandler(DjangoProbeHandler):
                     )
                 else:
                     self.write("alive")
-                if HealthMetric.get() is not True:
-                    HealthMetric.set(True)
-                    if self.liveness_webhook:
-                        logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
-                        LivenessWebhook().run(url=self.liveness_webhook, status=WebhookStatus.SUCCEEDED)
+                self._update_health_metric(self.liveness_webhook, got_exception)
             finally:
                 if got_exception:
                     self.set_status(500)
-                    if HealthMetric.get() is not False:
-                        HealthMetric.set(False)
-                        if self.liveness_webhook:
-                            logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
-                            LivenessWebhook().run(
-                                url=self.liveness_webhook, status=WebhookStatus.FAILED, error_trace=got_exception
-                            )
+                    self._update_health_metric(self.liveness_webhook, got_exception)
 
         else:
             self.set_status(400)
+
+    def _update_health_metric(self, liveness_webhook, got_exception):
+        if not got_exception:
+            if not HealthMetric.get():
+                HealthMetric.set(True)
+                if liveness_webhook:
+                    logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
+                    LivenessWebhook().run(url=liveness_webhook, status=WebhookStatus.SUCCEEDED)
+        elif HealthMetric.get():
+            HealthMetric.set(False)
+            if liveness_webhook:
+                logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
+                LivenessWebhook().run(url=liveness_webhook, status=WebhookStatus.FAILED, error_trace=got_exception)
+
+    def _write_error(self, msg, e=None):
+        if settings.DEBUG:
+            self.write(f"django {msg}: " + str(e))
+        else:
+            self.write(f"{msg}")
 
 
 class DjangoReadinessHandler(DjangoProbeHandler):
@@ -153,7 +157,7 @@ class DjangoReadinessHandler(DjangoProbeHandler):
         self.request_queue_length = req_queue_len
         self.readiness_webhook = webhook_url
 
-    def _check(self):
+    async def _check(self):
         if StartupTimeMetric.get() and RequestQueueLengthMetric.get() > self.request_queue_length:
             self.set_status(400)
             if ReadinessMetric.get() is not False:
@@ -181,7 +185,7 @@ class DjangoStartupHandler(DjangoProbeHandler):
     liveness/readiness probes.
     """
 
-    def _check(self):
+    async def _check(self):
         if StartupTimeMetric.get():
             self.write(f"Startup was finished {StartupTimeMetric.get()}")
             self.set_status(200)
