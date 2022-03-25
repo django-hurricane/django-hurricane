@@ -62,6 +62,8 @@ Command options for *serve*-command:
 +--------------------+-------------------------------------------------------------------------------------+
 | --port             | The port for Tornado to listen on (default is port 8000)                            |
 +--------------------+-------------------------------------------------------------------------------------+
+| --interface        | Set a host name for probe server                                                    |
++--------------------+-------------------------------------------------------------------------------------+
 | --startup-probe    | The exposed path (default is /startup) for probes to check startup                  |
 +--------------------+-------------------------------------------------------------------------------------+
 | --readiness-probe  | The exposed path (default is /ready) for probes to check readiness                  |
@@ -273,6 +275,8 @@ Command options for *consume*-command:
 +------------------+-------------------------------------------------------------------------------------+
 | --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
 +------------------+-------------------------------------------------------------------------------------+
+| --interface      | Set a host name for probe server                                                    |
++------------------+-------------------------------------------------------------------------------------+
 | --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
 +------------------+-------------------------------------------------------------------------------------+
 | --req-queue-len  | Threshold of queue length of request, which is considered for readiness probe       |
@@ -286,6 +290,8 @@ Command options for *consume*-command:
 | --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
 +------------------+-------------------------------------------------------------------------------------+
 | --reconnect      | Reconnect the consumer if the broker connection is lost (not recommended)           |
++------------------+-------------------------------------------------------------------------------------+
+| --webhook-url    | If specified, webhooks will be sent to this url                                     |
 +------------------+-------------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of
