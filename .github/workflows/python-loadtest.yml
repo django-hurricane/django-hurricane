@@ -2,9 +2,8 @@ name: Load Test
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    tags:
+      - '*'
 
 jobs:
   load_test:
