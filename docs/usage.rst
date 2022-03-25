@@ -2,7 +2,7 @@ User's guide
 ============
 
 .. contents:: Table of Contents
-   :depth: 4
+   :depth: 3
    :local:
 
 Introduction
@@ -62,6 +62,8 @@ Command options for *serve*-command:
 +--------------------+-------------------------------------------------------------------------------------+
 | --port             | The port for Tornado to listen on (default is port 8000)                            |
 +--------------------+-------------------------------------------------------------------------------------+
+| --interface        | Set a host name for probe server                                                    |
++--------------------+-------------------------------------------------------------------------------------+
 | --startup-probe    | The exposed path (default is /startup) for probes to check startup                  |
 +--------------------+-------------------------------------------------------------------------------------+
 | --readiness-probe  | The exposed path (default is /ready) for probes to check readiness                  |
@@ -94,42 +96,89 @@ asynchronous tasks' queue will exceed 10, readiness probe will return the status
 gets below the :code:`req-queue-len` value. Adjust this parameter if you want the asynchronous task queue to be larger
 than 10.
 
-Probes and the System Check Framework
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Django System Custom Checks
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The probe endpoint invokes `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
+The liveness-probe endpoint invokes `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
 This endpoint is called in a certain intervals by Kubernetes, hence we get regular checks on the application. That's
-a well-suited approach to integrate custom checks (please refer to the Django documentation how to do that) and get
-health and sanity checks for free. Upon unhealthy declared applications (error-level) Kubernetes will restart the
-application and remove the unhealthy PODs once a new instance is in a healthy state.
+a well-suited approach to integrate custom checks.
+
+In all the subsequent examples, we use an example app :code:`components` with an example model :code:`Component`.
+Here is an example of a custom check:
+
+.. code-block:: python
+
+   # src/apps/components/checks.py
+   import logging
+
+   from django.core.checks import Error
+
+   from apps.components.models import Component
+
+   logger = logging.getLogger("hurricane")
+
+
+   def example_check(app_configs=None, **kwargs):
+       """
+       Check for existence of the MODEL Component in the database
+       """
+
+       # your check logic here
+       errors = []
+       logger.info("Our check has been called :]")
+       if not Component.objects.filter(title="Title").exists():
+           errors.append(
+               Error(
+                   "an error",
+                   hint="There is no main engine in the spacecraft, it need's to exist with the name 'Title'. "
+                   "Please create it in the admin or by installing the fixture.",
+                   id="components.E001",
+               )
+           )
+
+       return errors
+
+The registration of a check can be done in the configuration file of the corresponding app.
+For instance:
+
+.. code-block:: python
+
+   # apps/components/apps.py
+   from django.apps import AppConfig
+
+
+   class ComponentsConfig(AppConfig):
+       default_auto_field = "django.db.models.BigAutoField"
+       name = "apps.components"
+
+       def ready(self):
+           from django.core.checks import register
+
+           from apps.components.checks import example_check
+
+           register(example_check, "hurricane")
+
+In this case, the check is registered upon the readiness of the application. It means, that only after all the services of the
+app i.e. the database are started, the check is registered and executed. If readiness is not required, check can be registered
+in the main body of the config class.
+
+**Please note:** register function takes as an argument a check function and a "hurricane" tag. It is absolutely essential
+to register the check with this tag.
+
+The register function can be used as a decorator in different ways. For more information, please refer to the
+`Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
+
+
+Probe endpoints
+^^^^^^^^^^^^^^^
+There are three standard probe endpoints: startup-probe, liveness-probe and readiness-probe.
+All probe endpoints are called regularly by Kubernetes, it allows to monitor the health and the status of the application.
+Upon unhealthy declared applications (error-level) Kubernetes will restart the
+application and remove unhealthy PODs once a new instance is in a healthy state.
 A port for the probe route is separated from the application's port. If the probe port is not specified, it
 will be set to the application port plus one e.g. if the application port is 8000, the probe port will be set to 8001.
-For more information about this topic on a Kubernetes side, please refer to
+For more information about probes on a Kubernetes side, please refer to
 `Configure Liveness, Readiness and Startup Probes <https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/>`_.
-
-
-Management commands
-^^^^^^^^^^^^^^^^^^^
-Management commands can be added as options for the hurricane serve command. Kubernetes is be able to poll startup probe
-and if management commands are still running, it knows, that it should not restart the container yet. Management
-commands can be given as repeating arguments to the serve management command e.g.:
-::
-    python manage.py serve --command makemigrations --command migrate
-
-If you want to add some options to the specific management command take both this command and it's options in the
-quotation marks:
-::
-    python manage.py serve --command "compilemessages --no-color"
-
-**Important:** management commands should be given in the order, which is required for django application. Each
-management command is then executed sequentially. Commands, which depend on other commands should be given after
-the commands they depend on. E.g. management_command_2 is depending on management_command_1, thus the serve command
-should look like this:
-::
-    python manage.py serve --command management_command_1 --command management_command_2
-
-Endpoints
-^^^^^^^^^
 
 Probe server creates handlers for three endpoints: startup, readiness and liveness.
 
@@ -147,9 +196,32 @@ is larger than the threshold, it returns 400, which means, that application is n
 The liveness probe uses Django system check framework to identify problems with the Django application.
 **3** are api requests, sent by the application service, which are then handled in Django application.
 
+
+Management commands
+^^^^^^^^^^^^^^^^^^^
+Management commands can be added as options for the hurricane serve command. Kubernetes is be able to poll startup probe
+and if management commands are still running, it knows, that it should not restart the container yet. Management
+commands can be given as repeating arguments to the serve management command e.g.:
+::
+    python manage.py serve --command makemigrations --command migrate
+
+If you want to add some options to the specific management command take both this command and it's options in the
+quotation marks:
+::
+    python manage.py serve --command "compilemessages --no-color"
+
+**Please note:** management commands should be given in the order, which is required for django application. Each
+management command is then executed sequentially. Commands, which depend on other commands should be given after
+the commands they depend on. E.g. management_command_2 is depending on management_command_1, thus the serve command
+should look like this:
+::
+    python manage.py serve --command management_command_1 --command management_command_2
+
 Probe server, which defines handlers for every probe endpoint, runs in the main loop. Execution of management
-commands does not block the main event loop and thus runs in a separate executor. Upon successful execution
-of management commands, the HTTP server is started.
+commands does not block the main event loop, as it runs in a separate executor. This way probes can be called by Kubernetes
+during the execution of the management commands. Upon successful execution of management commands, the HTTP server is
+started. If command execution was interrupted due to some error, the main loop
+is stopped and the HTTP server is not going to be started.
 
 Webhooks
 ^^^^^^^^
@@ -188,6 +260,7 @@ It should be ensured, that the *hurricane* logger is added to Django logging con
 not be displayed when application server will be started. Log level can be easily adjusted to own needs.
 
 Example:
+
 .. code-block:: python
 
    LOGGING = {
@@ -273,6 +346,8 @@ Command options for *consume*-command:
 +------------------+-------------------------------------------------------------------------------------+
 | --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
 +------------------+-------------------------------------------------------------------------------------+
+| --interface      | Set a host name for probe server                                                    |
++------------------+-------------------------------------------------------------------------------------+
 | --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
 +------------------+-------------------------------------------------------------------------------------+
 | --req-queue-len  | Threshold of queue length of request, which is considered for readiness probe       |
@@ -286,6 +361,8 @@ Command options for *consume*-command:
 | --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
 +------------------+-------------------------------------------------------------------------------------+
 | --reconnect      | Reconnect the consumer if the broker connection is lost (not recommended)           |
++------------------+-------------------------------------------------------------------------------------+
+| --webhook-url    | If specified, webhooks will be sent to this url                                     |
 +------------------+-------------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of
@@ -327,7 +404,7 @@ In order to run the entire test suite following commands should be executed:
 spins up a container with *RabbitMQ*. The AMQP consumer in a test mode will connect to
 it and exchange messages using the *TestPublisher* class.
 
-Debugging django applications
+Debugging Django applications
 -----------------------------
 Debugging a python/django or in fact any application running in a kubernetes cluster can be cumbersome. Some of the most
 common IDEs use different approaches to remote debugging:
@@ -346,20 +423,20 @@ developer. Django-hurricane supports these two approaches without the need for c
 
 1. For the Debug Adapter Protocol (Visual Studio Code, Eclipse, ...)
 
-   * a. Install Django-hurricane with the "debug" option: :code:`pip install django-hurricane[debug]`.
+   1.1. Install Django-hurricane with the "debug" option: :code:`pip install django-hurricane[debug]`.
 
-   * b. Run it with the "--debugger" flag, e.g.: :code:`python manage.py serve --debugger`.
+   1.2. Run it with the "--debugger" flag, e.g.: :code:`python manage.py serve --debugger`.
 
-   * c. Optionally, provide a port (default: 5678), e.g.: :code:`python manage.py serve --debugger --debugger-port 1234`.
+   1.3. Optionally, provide a port (default: 5678), e.g.: :code:`python manage.py serve --debugger --debugger-port 1234`.
 Now you can connect your IDE's remote debug client (configure the appropriate host and port).
 
 2. For working with the Pycharm debugger:
 
-   * a. Install Django-hurricane with the "pycharm" option: :code:`pip install django-hurricane[pycharm]`.
+   2.1. Install Django-hurricane with the "pycharm" option: :code:`pip install django-hurricane[pycharm]`.
 
-   * b. Configure the remote debug server in Pycharm and start it.
+   2.2. Configure the remote debug server in Pycharm and start it.
 
-   * c. Run your app with the "--pycharm-host" and "--pycharm-port" flags, e.g.: :code:`python manage.py serve --pycharm-host 127.0.0.1 --pycharm-port 1234`.
+   2.3. Run your app with the "--pycharm-host" and "--pycharm-port" flags, e.g.: :code:`python manage.py serve --pycharm-host 127.0.0.1 --pycharm-port 1234`.
 
 Now the app should connect to the debug server. Upon connection, the execution will halt. You must resume it from Pycharm's debugger UI.
 
