@@ -128,12 +128,12 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
     def _update_health_metric(self, liveness_webhook, got_exception):
         if not got_exception:
-            if not HealthMetric.get():
+            if HealthMetric.get() is not True:
                 HealthMetric.set(True)
                 if liveness_webhook:
                     logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
                     LivenessWebhook().run(url=liveness_webhook, status=WebhookStatus.SUCCEEDED)
-        elif HealthMetric.get():
+        elif HealthMetric.get() is not False:
             HealthMetric.set(False)
             if liveness_webhook:
                 logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
