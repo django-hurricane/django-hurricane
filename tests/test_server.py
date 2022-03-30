@@ -423,3 +423,27 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Serving media files", out)
+
+    @HurricanServerTest.cycle_server(args=["--debugger"])
+    def test_debugger(self):
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 200)
+
+    @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1", "--pycharm-port", "1234"])
+    def test_pycharm_debug_no_existing_host(self):
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 200)
+        self.assertIn("Could not connect to 127.0.0.1: 1234", out)
+
+    @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1"])
+    def test_pycharm_debug_no_port(self):
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 200)
+        self.assertIn(
+            "No '--pycharm-port' was specified. The '--pycharm-host' option can "
+            "only be used in combination with the '--pycharm-port' option. ",
+            out,
+        )
