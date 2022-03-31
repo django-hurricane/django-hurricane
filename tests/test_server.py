@@ -424,12 +424,6 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Serving media files", out)
 
-    @HurricanServerTest.cycle_server(args=["--debugger"])
-    def test_debugger(self):
-        res = self.probe_client.get(self.alive_route)
-        out, err = self.driver.get_output(read_all=True)
-        self.assertEqual(res.status, 200)
-
     @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1", "--pycharm-port", "1234"])
     def test_pycharm_debug_no_existing_host(self):
         res = self.probe_client.get(self.alive_route)
