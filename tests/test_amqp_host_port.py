@@ -84,3 +84,37 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
     def test_amqp_settings(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_amqp_message, out)
+
+    @HurricaneAMQPTest.cycle_consumer(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_amqp_environs"},
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+            "--no_host_port",
+        ],
+    )
+    def test_amqp_settings_environs(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_amqp_message, out)
+
+    @HurricaneAMQPTest.cycle_consumer(
+        args=[
+            "tests.testapp.consumer.IncorrectHandler",
+            "--amqp-host",
+            "127.0.0.1",
+            "--amqp-port",
+            "8082",
+            "--amqp-vhost",
+            "test",
+        ],
+    )
+    def test_amqp_incorrect_handler(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_amqp_message, out)
+        self.assertIn(
+            "The type <class 'tests.testapp.consumer.IncorrectHandler'> is not subclass of _AMQPConsumer", out
+        )
+        self.assertIn("CommandError: Cannot start the consumer due to an implementation error", out)

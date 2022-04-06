@@ -12,3 +12,8 @@ class MyTestHandler(TopicHandler):
 class BindTestHandler(MyTestHandler):
     def get_routing_keys(self, queue_name: str) -> List[str]:
         return [queue_name.rsplit(".", 1)[0]]
+
+
+class IncorrectHandler:
+    def __init__(self):
+        print("Incorrect Handler")
