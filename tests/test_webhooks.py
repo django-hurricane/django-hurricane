@@ -92,7 +92,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
     def test_set_hurricane_version(self):
         hurricane_server = HurricaneServerDriver()
         hurricane_server.start_server(
-            params=["--webhook-url", "http://localhost:8074/webhook"],
+            params=["--webhook-url", "http://localhost:8076/webhook"],
             env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_hurricane_version"},
         )
         response = requests.get("http://localhost:8001/alive", timeout=5)
