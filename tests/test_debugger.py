@@ -10,3 +10,4 @@ class HurricanDebuggerServerTest(HurricanServerTest):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 200)
+        self.assertIn("Listening for debug clients at port 5678", out)

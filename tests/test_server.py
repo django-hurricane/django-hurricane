@@ -366,7 +366,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
-        self.assertIn("django database error", res.text)
+        self.assertIn("database error", res.text)
 
     @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"})
     def test_django_systemcheck_error(self):
