@@ -61,11 +61,19 @@ class WebhookTestHandler(tornado.web.RequestHandler):
 
 class WebhookReceiverServer:
     def make_http_receiver_app(self):
-        return tornado.web.Application(
-            [
-                ("/webhook", WebhookTestHandler),
-            ]
-        )
+        from hurricane.server import HurricaneApplication
+        from hurricane.server.django import DjangoHandler
+
+        handlers = [("/webhook", WebhookTestHandler)]
+        # append the django routing system
+
+        handlers.append((".*", DjangoHandler))
+        return HurricaneApplication(handlers)
+        # return tornado.web.Application(
+        #     [
+        #         ("/webhook", WebhookTestHandler),
+        #     ]
+        # )
 
 
 class K8sServer:
