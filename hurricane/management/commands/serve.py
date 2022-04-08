@@ -25,12 +25,12 @@ from hurricane.webhooks.base import WebhookStatus
 class Command(BaseCommand):
 
     """
-    Start a Tornado-powered Django web server.
-    Implements serve command as a management command for django application.
-    The new command can be called using ``python manage.py server <arguments>``.
-    It also can take command arguments, which are python django management commands and will be executed asynchronously.
-    Upon successful execution of management commands, application server will be started. During execution of management
-    commands probe server can be polled, in particular startup probe, which will respond with a status 400.
+    Start a Tornado-powered Django web server by using ``python manage.py serve <arguments>``.
+
+    It can run Django management commands with the ``--command`` flag, that will be executed asynchronously.
+    The application server will only be started upon successful execution of management commands. During execution
+    of management commands the startup probe responds with a status 400.
+
     Arguments:
         - ``--static`` - serve collected static files
         - ``--media`` - serve media files
