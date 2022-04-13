@@ -2,6 +2,7 @@ import asyncio
 import functools
 import socket
 import time
+import typing
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
@@ -72,7 +73,7 @@ class Webhook:
             fut.add_done_callback(callback_wrapper)
         if not url and close_loop:
             logger.warning("No webhook can be sent, as no url is specified")
-            self._callback_webhook_exception_check(future=None, url=None, close_loop=True, loop=loop)
+            self._callback_webhook_exception_check(future=None, url="", close_loop=True, loop=loop)
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url
@@ -103,7 +104,9 @@ class Webhook:
         return self.data
 
     @staticmethod
-    def _callback_webhook_exception_check(future: asyncio.Future, url: str, close_loop: bool, loop=None):
+    def _callback_webhook_exception_check(
+        future: typing.Union[asyncio.Future, None], url: str, close_loop: bool, loop=None
+    ):
         # checks if sending webhook had any failures, it indicates, that command was successfully executed
         # but sending webhook has failed
         if future:
