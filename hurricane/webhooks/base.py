@@ -71,7 +71,7 @@ class Webhook:
             )
             fut.add_done_callback(callback_wrapper)
         if not url and close_loop:
-            logger.warning("No webhook can be sent, as a url is not specified")
+            logger.warning("No webhook can be sent, as no url is specified")
             self._callback_webhook_exception_check(future=None, url=None, close_loop=True, loop=loop)
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
