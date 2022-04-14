@@ -1,6 +1,7 @@
 from time import sleep
 
 from hurricane.testing import HurricaneAMQPTest
+from tests.test_utils import BasicProperties, Channel, Deliver
 
 
 class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
@@ -118,3 +119,22 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
             "The type <class 'tests.testapp.consumer.IncorrectHandler'> is not subclass of _AMQPConsumer", out
         )
         self.assertIn("CommandError: Cannot start the consumer due to an implementation error", out)
+
+    from hurricane.amqp.basehandler import _AMQPConsumer
+
+    amqp_consumer = _AMQPConsumer(queue_name="test", exchange_name="test", host="localhost", port=8075)
+    amqp_consumer._channel = Channel()
+
+    def test_on_consumer_cancel(self):
+        # pika.frame.Method(2, pika.amqp_object.Method())
+        self.amqp_consumer.on_consumer_cancelled("Test")
+
+    def test_on_message(self):
+        with self.assertRaises(NotImplementedError):
+            self.amqp_consumer.on_message(None, Deliver(), BasicProperties(), "")
+
+    def test_stop_consuming(self):
+        self.amqp_consumer.stop_consuming()
+
+    def test_on_cancelok(self):
+        self.amqp_consumer.on_cancelok(None, "Test")
