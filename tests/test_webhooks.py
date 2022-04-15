@@ -1,5 +1,6 @@
 import requests
 
+from hurricane.testing.actors import WebhookReceiverServer
 from hurricane.testing.drivers import HurricaneServerDriver
 from hurricane.testing.testcases import HurricaneWebhookServerTest
 
@@ -101,3 +102,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         self.assertEqual(response.status_code, 200)
         self.assertIn(self.starting_message, out)
         self.assertIn("succeeded", out)
+
+    def test_webhook_app(self):
+        app = WebhookReceiverServer().make_http_receiver_app()
+        self.assertEqual(str(type(app)), "<class 'tornado.web.Application'>")
