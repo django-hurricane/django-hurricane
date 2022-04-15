@@ -18,14 +18,18 @@ class HurricanDebuggerServerTest(HurricanServerTest):
         self.assertIn("Listening for debug clients at port 5678", out)
 
     def test_debugger_import_debugpy(self):
+        debugpy_path = sys.modules["debugpy"]
         sys.modules["debugpy"] = None
         options = {"debugger": True}
         setup_debugpy(options)
+        sys.modules["debugpy"] = debugpy_path
 
     def test_pycharm_import_pydevd_pycharm(self):
+        pydevd_path = sys.modules["pydevd_pycharm"]
         sys.modules["pydevd_pycharm"] = None
         options = {"pycharm_host": "test"}
         setup_pycharm(options)
+        sys.modules["pydevd_pycharm"] = pydevd_path
 
     def test_debugger_success(self):
         options = {"debugger": True, "debugger_port": 8071}
