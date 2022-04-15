@@ -1,7 +1,7 @@
 from time import sleep
 
 from hurricane.testing import HurricaneAMQPTest
-from tests.test_utils import BasicProperties, Channel, Deliver
+from tests.test_utils import BasicProperties, Channel, Connection, Deliver
 
 
 class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
@@ -121,8 +121,10 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
         self.assertIn("CommandError: Cannot start the consumer due to an implementation error", out)
 
     from hurricane.amqp.basehandler import _AMQPConsumer
+    from hurricane.amqp.worker import AMQPClient
 
     amqp_consumer = _AMQPConsumer(queue_name="test", exchange_name="test", host="localhost", port=8075)
+    amqp_client = AMQPClient(type(amqp_consumer), "test", "test", "test", 8083, "test")
     amqp_consumer._channel = Channel()
 
     def test_on_consumer_cancel(self):
@@ -130,6 +132,7 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
         self.amqp_consumer.on_consumer_cancelled("Test")
 
     def test_on_message(self):
+        self.amqp_consumer._channel = Channel()
         with self.assertRaises(NotImplementedError):
             self.amqp_consumer.on_message(None, Deliver(), BasicProperties(), "")
 
@@ -138,3 +141,22 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
 
     def test_on_cancelok(self):
         self.amqp_consumer.on_cancelok(None, "Test")
+
+    def test_on_connection_closed(self):
+        self.amqp_consumer._closing = True
+        self.amqp_consumer._connection = Connection()
+        self.amqp_consumer.on_connection_closed(None, Exception("Test"))
+
+    def test_stop(self):
+        self.amqp_consumer._closing = False
+        self.amqp_consumer._consuming = True
+        self.amqp_consumer._connection = Connection()
+        self.amqp_consumer.stop()
+
+    def test_run_keyboard_interrupt(self):
+
+        self.amqp_client._consumer._connection = Connection()
+        import mock
+
+        self.amqp_client._consumer.run = mock.Mock(side_effect=KeyboardInterrupt)
+        self.amqp_client.run(reconnect=True)

@@ -1,12 +1,21 @@
 class Channel:
     def close(self):
-        print("dummy")
+        pass
 
     def basic_nack(self, delivery_tag, requeue):
-        print("dummy")
+        pass
 
     def basic_cancel(self, tag, cb):
-        print("dummy")
+        pass
+
+
+class IOLoop:
+    def stop(self):
+        pass
+
+
+class Connection:
+    ioloop = IOLoop()
 
 
 class Deliver:
