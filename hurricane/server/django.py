@@ -98,7 +98,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
             got_exception = None
             try:
                 async_check = sync_to_async(self.check)
-                await async_check(tags=["hurricane"])
+                await async_check(tags=["hurricane"], include_deployment_checks=True)
                 if settings.DATABASES:
                     # once a connection has been established, this will be successful
                     # (even if the connection is gone later on)
