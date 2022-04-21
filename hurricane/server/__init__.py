@@ -195,13 +195,13 @@ def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.S
                 break
 
     except Exception as e:
-        logger.error(e)
         error_trace = traceback.format_exc()
         logger.info("Webhook with a status warning has been initiated")
 
         StartupWebhook().run(
-            url=webhook_url or None, error_trace=error_trace, close_loop=False, status=WebhookStatus.WARNING, loop=loop
+            url=webhook_url or None, error_trace=error_trace, close_loop=True, status=WebhookStatus.WARNING, loop=loop
         )
+        raise e
 
 
 def sanitize_probes(options):
