@@ -30,6 +30,19 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         self.assertEqual(res.status, 200)
 
     @HurricaneAMQPTest.cycle_consumer(
+        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"],
+        coverage=True,
+    )
+    def test_default_startup_coverage_kwarg(self):
+        out, err = self.driver.get_output(read_all=True)
+        host, port = self.driver.get_amqp_host_port()
+        self.assertIn(self.starting_amqp_message, out)
+        self.assertIn(f"Connecting to {host}:{port}/", out)
+        self._wait_for_queue()
+        res = self.probe_client.get("/startup")
+        self.assertEqual(res.status, 200)
+
+    @HurricaneAMQPTest.cycle_consumer(
         args=[
             "tests.testapp.consumer.MyTestHandler",
             "--queue",

@@ -27,6 +27,16 @@ class HurricanStartServerTests(HurricanServerTest):
         )
         self.assertIn(self.starting_http_message, out)
 
+    @HurricanServerTest.cycle_server(coverage=True)
+    def test_default_startup_coverage_kwarg(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn(
+            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+            out,
+        )
+        self.assertIn(self.starting_http_message, out)
+
     @HurricanServerTest.cycle_server(args=["--port", "8085"])
     def test_port_startup(self):
         out, err = self.driver.get_output(read_all=True)
