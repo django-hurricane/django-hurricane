@@ -1,14 +1,16 @@
 import asyncio
 import functools
-import logging
 import socket
 import time
+import typing
 from concurrent.futures.thread import ThreadPoolExecutor
 from enum import Enum
 
 import requests
 from django.conf import settings
 from requests import RequestException
+
+from hurricane.server.loggers import logger
 
 
 class WebhookStatus(Enum):
@@ -69,10 +71,12 @@ class Webhook:
                 self._callback_webhook_exception_check, url=url, close_loop=close_loop, loop=loop
             )
             fut.add_done_callback(callback_wrapper)
+        if not url and close_loop:
+            logger.warning("No webhook can be sent, as no url is specified")
+            self._callback_webhook_exception_check(future=None, url="", close_loop=True, loop=loop)
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url
-        logger = logging.getLogger()
         logger.info(f"Start sending {self.code} webhook to {webhook_url}")
 
         response = requests.post(webhook_url, timeout=5, json=data)
@@ -100,14 +104,16 @@ class Webhook:
         return self.data
 
     @staticmethod
-    def _callback_webhook_exception_check(future: asyncio.Future, url: str, close_loop: bool, loop=None):
+    def _callback_webhook_exception_check(
+        future: typing.Union[asyncio.Future, None], url: str, close_loop: bool, loop=None
+    ):
         # checks if sending webhook had any failures, it indicates, that command was successfully executed
         # but sending webhook has failed
-        logger = logging.getLogger()
-        try:
-            future.result()
-        except RequestException as e:
-            logger.warning(f"Sending webhook to {url} has failed due to {e}")
+        if future:
+            try:
+                future.result()
+            except RequestException as e:
+                logger.warning(f"Sending webhook to {url} has failed due to {e}")
 
         if close_loop:
             logger.info("Loop will be closed")
