@@ -451,3 +451,8 @@ class HurricanStartServerTests(HurricanServerTest):
             "only be used in combination with the '--pycharm-port' option. ",
             out,
         )
+
+    def test_cycle_server_function_exception(self):
+        with self.assertRaises(Exception):
+            hurricane_server = HurricaneServerDriver()
+            hurricane_server.start_server(args=["test_function"])
