@@ -98,10 +98,11 @@ Probes and the System Check Framework
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The probe endpoint invokes `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
-This endpoint is called in a certain intervals by Kubernetes, hence we get regular checks on the application. That's
-a well-suited approach to integrate custom checks (please refer to the Django documentation how to do that) and get
-health and sanity checks for free. Upon unhealthy declared applications (error-level) Kubernetes will restart the
-application and remove the unhealthy PODs once a new instance is in a healthy state.
+This endpoint is called in a certain interval by Kubernetes, hence we get regular checks on the application. That's
+a well-suited approach to integrate custom checks (please check out `our guide <https://django-hurricane.io/custom-checks/>`_
+on how to do that, or refer to the Django documentation) and get health and sanity checks for free. Upon unhealthy
+declared applications (error-level) Kubernetes will restart the application and remove the unhealthy PODs once a new
+instance is in a healthy state.
 A port for the probe route is separated from the application's port. If the probe port is not specified, it
 will be set to the application port plus one e.g. if the application port is 8000, the probe port will be set to 8001.
 For more information about this topic on a Kubernetes side, please refer to
