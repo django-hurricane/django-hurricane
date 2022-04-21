@@ -2,5 +2,5 @@
 Sphinx==3.2.1
 Pygments==2.7.4
 sphinx_rtd_theme==0.5.0
-Jinja2==2.11.2
+Jinja2==2.11.3
 MarkupSafe==2.0.1
