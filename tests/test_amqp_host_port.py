@@ -1,6 +1,7 @@
 from time import sleep
 
 from hurricane.testing import HurricaneAMQPTest
+from tests.test_utils import BasicProperties, Channel, Connection, Deliver
 
 
 class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
@@ -84,3 +85,78 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
     def test_amqp_settings(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_amqp_message, out)
+
+    @HurricaneAMQPTest.cycle_consumer(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_amqp_environs"},
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+            "--no_host_port",
+        ],
+    )
+    def test_amqp_settings_environs(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_amqp_message, out)
+
+    @HurricaneAMQPTest.cycle_consumer(
+        args=[
+            "tests.testapp.consumer.IncorrectHandler",
+            "--amqp-host",
+            "127.0.0.1",
+            "--amqp-port",
+            "8082",
+            "--amqp-vhost",
+            "test",
+        ],
+    )
+    def test_amqp_incorrect_handler(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_amqp_message, out)
+        self.assertIn(
+            "The type <class 'tests.testapp.consumer.IncorrectHandler'> is not subclass of _AMQPConsumer", out
+        )
+        self.assertIn("CommandError: Cannot start the consumer due to an implementation error", out)
+
+    from hurricane.amqp.basehandler import _AMQPConsumer
+    from hurricane.amqp.worker import AMQPClient
+
+    amqp_consumer = _AMQPConsumer(queue_name="test", exchange_name="test", host="localhost", port=8075)
+    amqp_client = AMQPClient(type(amqp_consumer), "test", "test", "test", 8083, "test")
+    amqp_consumer._channel = Channel()
+
+    def test_on_consumer_cancel(self):
+        # pika.frame.Method(2, pika.amqp_object.Method())
+        self.amqp_consumer.on_consumer_cancelled("Test")
+
+    def test_on_message(self):
+        self.amqp_consumer._channel = Channel()
+        with self.assertRaises(NotImplementedError):
+            self.amqp_consumer.on_message(None, Deliver(), BasicProperties(), "")
+
+    def test_stop_consuming(self):
+        self.amqp_consumer.stop_consuming()
+
+    def test_on_cancelok(self):
+        self.amqp_consumer.on_cancelok(None, "Test")
+
+    def test_on_connection_closed(self):
+        self.amqp_consumer._closing = True
+        self.amqp_consumer._connection = Connection()
+        self.amqp_consumer.on_connection_closed(None, Exception("Test"))
+
+    def test_stop(self):
+        self.amqp_consumer._closing = False
+        self.amqp_consumer._consuming = True
+        self.amqp_consumer._connection = Connection()
+        self.amqp_consumer.stop()
+
+    def test_run_keyboard_interrupt(self):
+
+        self.amqp_client._consumer._connection = Connection()
+        import mock
+
+        self.amqp_client._consumer.run = mock.Mock(side_effect=KeyboardInterrupt)
+        self.amqp_client.run(reconnect=True)

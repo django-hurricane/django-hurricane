@@ -1,5 +1,6 @@
 import requests
 
+from hurricane.testing.actors import WebhookReceiverServer
 from hurricane.testing.drivers import HurricaneServerDriver
 from hurricane.testing.testcases import HurricaneWebhookServerTest
 
@@ -87,3 +88,21 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         StartupWebhook.get_from_registry()
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+
+    @HurricaneWebhookServerTest.cycle_server
+    def test_set_hurricane_version(self):
+        hurricane_server = HurricaneServerDriver()
+        hurricane_server.start_server(
+            params=["--webhook-url", "http://localhost:8074/webhook"],
+            env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_hurricane_version"},
+        )
+        response = requests.get("http://localhost:8001/alive", timeout=5)
+        out, err = self.driver.get_output(read_all=True)
+        hurricane_server.stop_server()
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("succeeded", out)
+
+    def test_webhook_app(self):
+        app = WebhookReceiverServer().make_http_receiver_app()
+        self.assertEqual(str(type(app)), "<class 'tornado.web.Application'>")

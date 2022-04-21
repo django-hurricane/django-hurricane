@@ -61,17 +61,9 @@ class WebhookTestHandler(tornado.web.RequestHandler):
 
 class WebhookReceiverServer:
     def make_http_receiver_app(self):
-        return tornado.web.Application(
-            [
-                ("/webhook", WebhookTestHandler),
-            ]
-        )
+        return tornado.web.Application([("/webhook", WebhookTestHandler)])
 
 
 class K8sServer:
     def make_http_receiver_app(self):
-        return tornado.web.Application(
-            [
-                ("/k8s", K8sServerMetricsHandler),
-            ]
-        )
+        return tornado.web.Application([("/k8s", K8sServerMetricsHandler)])
