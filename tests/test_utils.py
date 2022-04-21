@@ -24,3 +24,7 @@ class Deliver:
 
 class BasicProperties:
     app_id = "test"
+
+
+def simple_error_function():
+    raise Exception("Test")

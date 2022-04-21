@@ -1,6 +1,8 @@
 from time import sleep
 
-from hurricane.testing import HurricaneAMQPTest
+from django.test import SimpleTestCase
+
+from hurricane.testing.testcases import HurricaneAMQPTest
 from tests.test_utils import BasicProperties, Channel, Connection, Deliver
 
 
@@ -160,3 +162,14 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
 
         self.amqp_client._consumer.run = mock.Mock(side_effect=KeyboardInterrupt)
         self.amqp_client.run(reconnect=True)
+
+
+class CycleServerException(SimpleTestCase):
+    def test_cycle_server_function_exception_amqp(self):
+        from tests.test_utils import simple_error_function
+
+        with self.assertRaises(Exception):
+            from hurricane.testing.testcases import HurricaneAMQPTest
+
+            hurricane_server = HurricaneAMQPTest
+            hurricane_server.cycle_consumer(simple_error_function())
