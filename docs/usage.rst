@@ -100,8 +100,9 @@ Django System Custom Checks
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 The liveness-probe endpoint invokes `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
-This endpoint is called in a certain intervals by Kubernetes, hence we get regular checks on the application. That's
-a well-suited approach to integrate custom checks.
+This endpoint is called in a certain interval by Kubernetes, hence we get regular checks on the application. That's
+a well-suited approach to integrate custom checks (please check out `our guide <https://django-hurricane.io/custom-checks/>`_
+on how to do that, or refer to the Django documentation) and get health and sanity checks for free.
 
 In all the subsequent examples, we use an example app :code:`components` with an example model :code:`Component`.
 Here is an example of a custom check:
