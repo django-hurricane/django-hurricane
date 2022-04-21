@@ -164,7 +164,7 @@ class Command(BaseCommand):
         if "amqp_vhost" in options and options["amqp_vhost"]:
             connection["amqp_vhost"] = options["amqp_vhost"]
         elif hasattr(settings, "AMQP_VHOST"):
-            connection["amqp_vhost"] = settings.AMPQ_VHOST
+            connection["amqp_vhost"] = settings.AMQP_VHOST
         elif os.getenv("AMQP_VHOST"):
             connection["amqp_vhost"] = os.getenv("AMQP_VHOST")
 

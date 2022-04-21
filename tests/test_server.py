@@ -27,6 +27,16 @@ class HurricanStartServerTests(HurricanServerTest):
         )
         self.assertIn(self.starting_http_message, out)
 
+    @HurricanServerTest.cycle_server(coverage=True)
+    def test_default_startup_coverage_kwarg(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn(
+            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+            out,
+        )
+        self.assertIn(self.starting_http_message, out)
+
     @HurricanServerTest.cycle_server(args=["--port", "8085"])
     def test_port_startup(self):
         out, err = self.driver.get_output(read_all=True)
@@ -366,7 +376,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
-        self.assertIn("django database error", res.text)
+        self.assertIn("database error", res.text)
 
     @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"})
     def test_django_systemcheck_error(self):
@@ -423,3 +433,21 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Serving media files", out)
+
+    @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1", "--pycharm-port", "1234"])
+    def test_pycharm_debug_no_existing_host(self):
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 200)
+        self.assertIn("Could not connect to 127.0.0.1: 1234", out)
+
+    @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1"])
+    def test_pycharm_debug_no_port(self):
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 200)
+        self.assertIn(
+            "No '--pycharm-port' was specified. The '--pycharm-host' option can "
+            "only be used in combination with the '--pycharm-port' option. ",
+            out,
+        )
