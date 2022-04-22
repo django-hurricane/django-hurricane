@@ -131,6 +131,7 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
 
     def test_on_consumer_cancel(self):
         # pika.frame.Method(2, pika.amqp_object.Method())
+        self.amqp_consumer._channel = Channel()
         self.amqp_consumer.on_consumer_cancelled("Test")
 
     def test_on_message(self):
