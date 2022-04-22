@@ -1,20 +1,29 @@
+[![PyPI version](https://badge.fury.io/py/django-hurricane.svg)](https://badge.fury.io/py/django-hurricane) ![Build Status](https://github.com/Blueshoe/django-hurricane/actions/workflows/python-app.yml/badge.svg) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Blueshoe_django-hurricane&metric=alert_status)](https://sonarcloud.io/dashboard?id=django-hurricane_django-hurricane) [![Coverage Status](https://coveralls.io/repos/github/django-hurricane/django-hurricane/badge.svg?branch=main)](https://coveralls.io/github/django-hurricane/django-hurricane?branch=main) [![ReadTheDocs](https://readthedocs.org/projects/django-hurricane/badge/?version=latest)](https://django-hurricane.readthedocs.io/en/latest/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+--------------------------------------------------------------------------------
+<br />
+<br />
+
 ![Hurricane Logo](https://raw.githubusercontent.com/Blueshoe/django-hurricane/master/docs/_static/img/logo.png)
 
---------------------------------------------------------------------------------
-[![PyPI version](https://badge.fury.io/py/django-hurricane.svg)](https://badge.fury.io/py/django-hurricane)
-![Build Status](https://github.com/Blueshoe/django-hurricane/actions/workflows/python-app.yml/badge.svg)
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=Blueshoe_django-hurricane&metric=alert_status)](https://sonarcloud.io/dashboard?id=django-hurricane_django-hurricane)
-[![Coverage Status](https://coveralls.io/repos/github/django-hurricane/django-hurricane/badge.svg?branch=main)](https://coveralls.io/github/django-hurricane/django-hurricane?branch=main)
-[![ReadTheDocs](https://readthedocs.org/projects/django-hurricane/badge/?version=latest)](https://django-hurricane.readthedocs.io/en/latest/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+<!-- PROJECT LOGO -->
+<br />
+<div align="center">
+  <h3 align="center">Hurricane</h3>
 
-Hurricane is an initiative to fit Django perfectly with Kubernetes. It is supposed to cover
-many capabilities in order to run Django in a cloud-native environment, including a Tornado-powered Django app server.  
-
-## Documentation
-
-You can find the full documentation [here](https://django-hurricane.readthedocs.io/en/latest/).
+  <p align="center">
+    An initiative to fit Django perfectly with Kubernetes. It is supposed to cover many capabilities in order to run 
+    Django in a cloud-native environment, including a Tornado-powered Django app server.
+    <br />
+    <a href="https://django-hurricane.readthedocs.io/en/latest/"><strong>Explore the docs »</strong></a>
+    <br />
+    <br />
+    <a href="https://django-hurricane.io/">Hurricane website</a>
+    ·
+    <a href="https://django-hurricane.readthedocs.io/en/latest/usage.html">User's guide</a>
+    ·
+    <a href="https://django-hurricane.readthedocs.io/en/latest/usage.html">Guide to the first Hurricane-based Application</a>
+  </p>
+</div> 
 
 ## Intro
 
@@ -34,7 +43,6 @@ Kubernetes cluster (you may already solved this), it's about integrating Django 
 in order to harness the full power of that platform. Creating the most robust, scalable and secure applications 
 with Django by leveraging the existing expertise of our favorite framework is the main goal of this initiative.
 
-## Parts
 Hurricane is supposed to make the most out of the existing Django ecosystem without reinventing the wheel. 
 We will collect best-practices and opinions about how to run Django in Kubernetes and put them on Hurricane's roadmap.
 
@@ -47,56 +55,6 @@ Those traditional app servers (i.e. uwsgi et.al.) have a highly optimized proces
 many CPUs, multiple threads and so on. In Kubernetes the scaling of an application is done through the Replication-value
 in a workload description manifest. This is no longer something we configure with app server parameters.
   
-**Todo**
-
-- [x] Basic setup, POC, logging
-- [x] Different endpoints for all Kubernetes probes
-- [x] Extensive documentation
-- [x] Django management command execution before serving
-- [ ] actual Tornado integration (currently uses the `tornado.wsgi.WSGIContainer`)
-- [ ] web sockets with Django 3
-- [ ] Testing, testing in production
-- [ ] Load-testing, automated performance regression testing  
-- [ ] Implement the Kubernetes Metrics API
-- [x] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
-- [ ] Add another metrics collector endpoint (e.g Prometheus)  
-
-
-### Celery
-In the future, Hurricane should provide a sophisticated Django-celery integration with health checks and Kubernetes-scaling.
-
-**Todo**
-
-- [ ] Concept draft
-- [ ] Kubernetes health probes for celery workers
-- [ ] Kubernetes health probes for celery beat
-- [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
-- [ ] Implement the Kubernetes Metrics API
-
-
-### AMQP Worker/Consumer
-Hurricane provides a generic yet simple *amqp* worker with health checks and Kubernetes-scaling.
-
-**Todo**
-
-- [x] Concept draft
-- [ ] Kubernetes health probes for amqp workers
-- [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes) 
-- [ ] Implement the Kubernetes Metrics API
-
-### Guidelines
-In order to keep Django as lean and swift as possible we have to get rid of several parts: unneeded middlewares,
-apps and other overhead. A small Django-based service does not need all the batteries Django comes with. In many
-cases the superb ORM (object relation mapper) and a simple HTTP-interface is all it needs.
-
-**Todo**
-
-- [ ] Concept draft
-- [ ] Cookiecutter template
-- [ ] Container (Docker) best-practices
-
-
-
 ## Installation
 
 Hurricane can be installed from a Python Package Index:
@@ -116,9 +74,3 @@ Check out the [documentation](https://django-hurricane.readthedocs.io/en/latest/
 ## Commercial Support
 Hurricane is developed and maintained by [Blueshoe](https://www.blueshoe.de). 
 If you need any help implementing with hurricane, please contact us: hurricane@blueshoe.de.
-
-## Docs
-To build the docs the following command should be executed in the docs directory:
-```bash
-make html
-```
