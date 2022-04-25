@@ -156,14 +156,14 @@ For instance:
 
            from apps.components.checks import example_check
 
-           register(example_check, "hurricane")
+           register(example_check, "hurricane", deploy=True)
 
 In this case, the check is registered upon the readiness of the application. It means, that only after all the services of the
 app i.e. the database are started, the check is registered and executed. If readiness is not required, check can be registered
 in the main body of the config class.
 
 **Please note:** register function takes as an argument a check function and a "hurricane" tag. It is absolutely essential
-to register the check with this tag.
+to register the check with this tag. Additionally `deploy=True` needs to be set.
 
 The register function can be used as a decorator in different ways. For more information, please refer to the
 `Django system check framework <https://docs.djangoproject.com/en/2.2/topics/checks/>`_.
