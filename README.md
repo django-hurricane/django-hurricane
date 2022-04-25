@@ -21,7 +21,7 @@
     ·
     <a href="https://django-hurricane.readthedocs.io/en/latest/usage.html">User's guide</a>
     ·
-    <a href="https://django-hurricane.readthedocs.io/en/latest/usage.html">Guide to the first Hurricane-based Application</a>
+    <a href="https://django-hurricane.io/basic-app/">Guide to the first Hurricane-based Application</a>
   </p>
 </div> 
 
