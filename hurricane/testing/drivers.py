@@ -80,15 +80,7 @@ class HurricaneBaseDriver(object):
         params = params if params else []
 
         base_command = base_command + params
-        if "--port" in params:
-            self.port = int(params[params.index("--port") + 1])
-        else:
-            self.port = 8000
-
-        if "--probe-port" in params:
-            self.probe_port = int(params[params.index("--probe-port") + 1])
-        else:
-            self.probe_port = 8001
+        self.set_ports(params)
 
         self.proc = subprocess.Popen(base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self._get_env())
         self.q = Queue()
@@ -111,6 +103,17 @@ class HurricaneBaseDriver(object):
     def _stop(self):
         if self.proc:
             self.proc.terminate()
+
+    def set_ports(self, params) -> None:
+        if "--port" in params:
+            self.port = int(params[params.index("--port") + 1])
+        else:
+            self.port = 8000
+
+        if "--probe-port" in params:
+            self.probe_port = int(params[params.index("--probe-port") + 1])
+        else:
+            self.probe_port = 8001
 
 
 class HurricaneServerDriver(HurricaneBaseDriver):
