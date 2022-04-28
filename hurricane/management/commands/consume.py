@@ -16,7 +16,7 @@ from hurricane.amqp import logger
 from hurricane.amqp.basehandler import _AMQPConsumer
 from hurricane.amqp.worker import AMQPClient
 from hurricane.metrics import StartupTimeMetric
-from hurricane.server import make_probe_server
+from hurricane.server import make_probe_server, sanitize_probes
 
 
 class Command(BaseCommand):
@@ -123,10 +123,8 @@ class Command(BaseCommand):
             tornado.autoreload.start()
             logger.info("Autoreload was performed")
 
-        # sanitize probe paths
-        options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}"
-        options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}"
-        options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}"
+        # sanitize probes: returns regexps for probes in options and their representations for logging
+        options, probe_representations = sanitize_probes(options)
 
         # set the probe routes
         if not options["no_probe"]:
@@ -136,6 +134,39 @@ class Command(BaseCommand):
         else:
             logger.info("No probe application running")
 
+        connection = self.set_connection_values(options)
+
+        # load the handler class
+        _amqp_consumer = import_string(options["handler"])
+        if not issubclass(_amqp_consumer, _AMQPConsumer):
+            logger.error(f"The type {_amqp_consumer} is not subclass of _AMQPConsumer")
+            raise CommandError("Cannot start the consumer due to an implementation error")
+
+        worker = AMQPClient(
+            _amqp_consumer,
+            queue_name=options["queue"],
+            exchange_name=options["exchange"],
+            amqp_host=connection["amqp_host"],
+            amqp_port=connection["amqp_port"],
+            amqp_vhost=connection["amqp_vhost"],
+        )
+
+        # prepate the io loop
+        loop = asyncio.get_event_loop()
+
+        def ask_exit(signame):
+            logger.info(f"Received signal {signame}. Shutting down now.")
+            loop.stop()
+            sys.exit(0)
+
+        for signame in ("SIGINT", "SIGTERM"):
+            loop.add_signal_handler(getattr(signal, signame), functools.partial(ask_exit, signame))
+        end_time = time.time()
+        time_elapsed = end_time - start_time
+        StartupTimeMetric.set(time_elapsed)
+        worker.run(options["reconnect"])
+
+    def set_connection_values(self, options):
         # load connection data
         connection = {}
         if "amqp_host" in options and options["amqp_host"]:
@@ -168,32 +199,4 @@ class Command(BaseCommand):
         elif os.getenv("AMQP_VHOST"):
             connection["amqp_vhost"] = os.getenv("AMQP_VHOST")
 
-        # load the handler class
-        _amqp_consumer = import_string(options["handler"])
-        if not issubclass(_amqp_consumer, _AMQPConsumer):
-            logger.error(f"The type {_amqp_consumer} is not subclass of _AMQPConsumer")
-            raise CommandError("Cannot start the consumer due to an implementation error")
-
-        worker = AMQPClient(
-            _amqp_consumer,
-            queue_name=options["queue"],
-            exchange_name=options["exchange"],
-            amqp_host=connection["amqp_host"],
-            amqp_port=connection["amqp_port"],
-            amqp_vhost=connection["amqp_vhost"],
-        )
-
-        # prepate the io loop
-        loop = asyncio.get_event_loop()
-
-        def ask_exit(signame):
-            logger.info(f"Received signal {signame}. Shutting down now.")
-            loop.stop()
-            sys.exit(0)
-
-        for signame in ("SIGINT", "SIGTERM"):
-            loop.add_signal_handler(getattr(signal, signame), functools.partial(ask_exit, signame))
-        end_time = time.time()
-        time_elapsed = end_time - start_time
-        StartupTimeMetric.set(time_elapsed)
-        worker.run(options["reconnect"])
+        return connection

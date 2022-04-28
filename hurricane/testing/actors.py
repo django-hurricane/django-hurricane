@@ -8,8 +8,6 @@ import tornado.web
 
 from hurricane.kubernetes import K8sServerMetricsHandler
 
-logging.basicConfig(level=logging.INFO)
-
 
 class HTTPClient(object):
     class Response(dict):
@@ -49,9 +47,12 @@ class TestPublisher(object):
         self.channel.basic_publish(exchange=exchange, routing_key=queue, body=message)
 
 
-class WebhookTestHandler(tornado.web.RequestHandler):
+class LoggingServer:
+    logging.basicConfig(level=logging.INFO)
     logger = logging.getLogger()
 
+
+class WebhookTestHandler(tornado.web.RequestHandler, LoggingServer):
     def post(self):
         data = json.loads(self.request.body.decode("utf-8"))
         self.logger.info(data.get("status", "No status received"))
@@ -59,11 +60,11 @@ class WebhookTestHandler(tornado.web.RequestHandler):
         self.write("Received webhook")
 
 
-class WebhookReceiverServer:
+class WebhookReceiverServer(LoggingServer):
     def make_http_receiver_app(self):
         return tornado.web.Application([("/webhook", WebhookTestHandler)])
 
 
-class K8sServer:
+class K8sServer(LoggingServer):
     def make_http_receiver_app(self):
         return tornado.web.Application([("/k8s", K8sServerMetricsHandler)])
