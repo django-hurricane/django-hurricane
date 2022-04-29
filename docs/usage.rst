@@ -49,47 +49,48 @@ There is no need for any other application server.
 
 Command options for *serve*-command:
 
-+--------------------+-------------------------------------------------------------------------------------+
-| **Option**         | **Description**                                                                     |
-+--------------------+-------------------------------------------------------------------------------------+
-| --static           | Serve collected static files                                                        |
-+--------------------+-------------------------------------------------------------------------------------+
-| --media            | Serve media files                                                                   |
-+--------------------+-------------------------------------------------------------------------------------+
-| --autoreload       | Reload code on change                                                               |
-+--------------------+-------------------------------------------------------------------------------------+
-| --debug            | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
-+--------------------+-------------------------------------------------------------------------------------+
-| --port             | The port for Tornado to listen on (default is port 8000)                            |
-+--------------------+-------------------------------------------------------------------------------------+
-| --interface        | Set a host name for probe server                                                    |
-+--------------------+-------------------------------------------------------------------------------------+
-| --startup-probe    | The exposed path (default is /startup) for probes to check startup                  |
-+--------------------+-------------------------------------------------------------------------------------+
-| --readiness-probe  | The exposed path (default is /ready) for probes to check readiness                  |
-+--------------------+-------------------------------------------------------------------------------------+
-| --liveness-probe   | The exposed path (default is /alive) for probes to check liveness                   |
-+--------------------+-------------------------------------------------------------------------------------+
-| --probe-port       | The port for Tornado probe routes to listen on (default is the next port of --port) |
-+--------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len    | Threshold of queue length of request, which is considered for readiness probe,      |
-|                    | default value is 10                                                                 |
-+--------------------+-------------------------------------------------------------------------------------+
-| --no-probe         | Disable probe endpoint                                                              |
-+--------------------+-------------------------------------------------------------------------------------+
-| --no-metrics       | Disable metrics collection                                                          |
-+--------------------+-------------------------------------------------------------------------------------+
-| --command          | Repetitive command for adding execution of management commands before serving       |
-+--------------------+-------------------------------------------------------------------------------------+
-| --check-migrations | Check if all migrations were applied before starting application                    |
-+--------------------+-------------------------------------------------------------------------------------+
-| --webhook-url      | If specified, webhooks will be sent to this url                                     |
-+--------------------+-------------------------------------------------------------------------------------+
-| --pycharm-host     | The host of the pycharm debug server                                                |
-+--------------------+-------------------------------------------------------------------------------------+
-| --pycharm-port     | The port of the pycharm debug server. This is only used in combination              |
-|                    | with the '--pycharm-host' option                                                    |
-+--------------------+-------------------------------------------------------------------------------------+
++----------------------------+-------------------------------------------------------------------------------+
+| **Serve Command Option**   | **Description**                                                               |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--static``               | Serve collected static files                                                  |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--media``                | Serve media files                                                             |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--autoreload``           | Reload code on change                                                         |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--debug``                | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)             |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--port``                 | The port for Tornado to listen on (default is port 8000)                      |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--interface``            | Set a host name for probe server                                              |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--startup-probe``        | The exposed path (default is /startup) for probes to check startup            |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--readiness-probe``      | The exposed path (default is /ready) for probes to check readiness            |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--liveness-probe``       | The exposed path (default is /alive) for probes to check liveness             |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--probe-port``           | The port for Tornado probe routes to listen on (default is the next port      |
+|                            | of --port)                                                                    |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--req-queue-len``        | Threshold of queue length of request, which is considered for readiness probe,|
+|                            | default value is 10                                                           |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--no-probe``             | Disable probe endpoint                                                        |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--no-metrics``           | Disable metrics collection                                                    |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--command``              | Repetitive command for adding execution of management commands before serving |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--check-migrations``     | Check if all migrations were applied before starting application              |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--webhook-url``          | If specified, webhooks will be sent to this url                               |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--pycharm-host``         | The host of the pycharm debug server                                          |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--pycharm-port``         | The port of the pycharm debug server. This is only used in combination        |
+|                            | with the '--pycharm-host' option                                              |
++----------------------------+-------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of the
 asynchronous tasks' queue will exceed 10, readiness probe will return the status 400 until the length of the queue
@@ -325,46 +326,46 @@ The precedence is: 1. command line option (if available), 2. Django settings, 3.
 
 Command options for *consume*-command:
 
-+------------------+-------------------------------------------------------------------------------------+
-| **Option**       | **Description**                                                                     |
-+------------------+-------------------------------------------------------------------------------------+
-| --queue          | The queue name this consumer declares and binds to                                  |
-+------------------+-------------------------------------------------------------------------------------+
-| --exchange       | The exchange name this consumer declares                                            |
-+------------------+-------------------------------------------------------------------------------------+
-| --amqp-port      | The broker service port                                                             |
-+------------------+-------------------------------------------------------------------------------------+
-| --amqp-host      | The broker host name in the cluster                                                 |
-+------------------+-------------------------------------------------------------------------------------+
-| --amqp-vhost     | The consumer's virtual host to use                                                  |
-+------------------+-------------------------------------------------------------------------------------+
-| --handler        | the Hurricane AMQP handler class (dotted path)                                      |
-+------------------+-------------------------------------------------------------------------------------+
-| --startup-probe  | The exposed path (default is /startup) for probes to check startup                  |
-+------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len  | Threshold of queue length of request, which is considered for readiness probe,      |
-|                  | default value is 10                                                                 |
-+------------------+-------------------------------------------------------------------------------------+
-| --liveness-probe | The exposed path (default is /alive) for probes to check liveness                   |
-+------------------+-------------------------------------------------------------------------------------+
-| --interface      | Set a host name for probe server                                                    |
-+------------------+-------------------------------------------------------------------------------------+
-| --probe-port     | The port for Tornado probe routes to listen on (default is the next port of --port) |
-+------------------+-------------------------------------------------------------------------------------+
-| --req-queue-len  | Threshold of queue length of request, which is considered for readiness probe       |
-+------------------+-------------------------------------------------------------------------------------+
-| --no-probe       | Disable probe endpoint                                                              |
-+------------------+-------------------------------------------------------------------------------------+
-| --no-metrics     | Disable metrics collection                                                          |
-+------------------+-------------------------------------------------------------------------------------+
-| --autoreload     | Reload code on change                                                               |
-+------------------+-------------------------------------------------------------------------------------+
-| --debug          | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
-+------------------+-------------------------------------------------------------------------------------+
-| --reconnect      | Reconnect the consumer if the broker connection is lost (not recommended)           |
-+------------------+-------------------------------------------------------------------------------------+
-| --webhook-url    | If specified, webhooks will be sent to this url                                     |
-+------------------+-------------------------------------------------------------------------------------+
++---------------------------+-------------------------------------------------------------------------------------+
+| **Consume Command Option**| **Description**                                                                     |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--queue``               | The queue name this consumer declares and binds to                                  |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--exchange``            | The exchange name this consumer declares                                            |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--amqp-port``           | The broker service port                                                             |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--amqp-host``           | The broker host name in the cluster                                                 |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--amqp-vhost``          | The consumer's virtual host to use                                                  |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--handler``             | the Hurricane AMQP handler class (dotted path)                                      |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--startup-probe``       | The exposed path (default is /startup) for probes to check startup                  |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--req-queue-len``       | Threshold of queue length of request, which is considered for readiness probe,      |
+|                           | default value is 10                                                                 |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--liveness-probe``      | The exposed path (default is /alive) for probes to check liveness                   |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--interface``           | Set a host name for probe server                                                    |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--probe-port``          | The port for Tornado probe routes to listen on (default is the next port of --port) |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--req-queue-len``       | Threshold of queue length of request, which is considered for readiness probe       |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--no-probe``            | Disable probe endpoint                                                              |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--no-metrics``          | Disable metrics collection                                                          |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--autoreload``          | Reload code on change                                                               |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--debug``               | Set Tornado's Debug flag (don't confuse with Django's DEBUG=True)                   |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--reconnect``           | Reconnect the consumer if the broker connection is lost (not recommended)           |
++---------------------------+-------------------------------------------------------------------------------------+
+| ``--webhook-url``         | If specified, webhooks will be sent to this url                                     |
++---------------------------+-------------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of
 asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
@@ -422,24 +423,33 @@ common IDEs use different approaches to remote debugging:
 Both approaches would usually require the application to contain code that is specific to the IDE/protocol used by the
 developer. Django-hurricane supports these two approaches without the need for changes to your django project:
 
-1. For the Debug Adapter Protocol (Visual Studio Code, Eclipse, ...)
+**For the Debug Adapter Protocol (Visual Studio Code, Eclipse, ...)**
+   1. Install Django-hurricane with the "debug" option:
 
-   1.1. Install Django-hurricane with the "debug" option: :code:`pip install django-hurricane[debug]`.
+      :code:`pip install django-hurricane[debug]`
 
-   1.2. Run it with the "--debugger" flag, e.g.: :code:`python manage.py serve --debugger`.
+   2. Run it with the "--debugger" flag, e.g.:
 
-   1.3. Optionally, provide a port (default: 5678), e.g.: :code:`python manage.py serve --debugger --debugger-port 1234`.
-Now you can connect your IDE's remote debug client (configure the appropriate host and port).
+      :code:`python manage.py serve --debugger`
 
-2. For working with the Pycharm debugger:
+   3. Optionally, provide a port (default: 5678), e.g.:
 
-   2.1. Install Django-hurricane with the "pycharm" option: :code:`pip install django-hurricane[pycharm]`.
+      :code:`python manage.py serve --debugger --debugger-port 1234`
 
-   2.2. Configure the remote debug server in Pycharm and start it.
+   4. Now you can connect your IDE's remote debug client (configure the appropriate host and port).
 
-   2.3. Run your app with the "--pycharm-host" and "--pycharm-port" flags, e.g.: :code:`python manage.py serve --pycharm-host 127.0.0.1 --pycharm-port 1234`.
+**For working with the Pycharm debugger:**
+   1. Install Django-hurricane with the "pycharm" option:
 
-Now the app should connect to the debug server. Upon connection, the execution will halt. You must resume it from Pycharm's debugger UI.
+      :code:`pip install django-hurricane[pycharm]`
+
+   2. Configure the remote debug server in Pycharm and start it.
+
+   3. Run your app with the "--pycharm-host" and "--pycharm-port" flags, e.g.
+
+      :code:`python manage.py serve --pycharm-host 127.0.0.1 --pycharm-port 1234`
+
+   4. Now the app should connect to the debug server. Upon connection, the execution will halt. You must resume it from Pycharm's debugger UI.
 
 For both approaches, you may have to configure path mappings in your IDE that map your local source code directories to
 the corresponding locations inside the running container (e.g. "/home/me/proj/src" -> "/app").
