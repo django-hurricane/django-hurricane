@@ -11,9 +11,9 @@
 .. automodule:: hurricane.webhooks.registry
    :members:
 
-:mod:`hurricane.webhooks.requests`
-----------------------------------
-.. automodule:: hurricane.webhooks.requests
+:mod:`hurricane.webhooks.webhook_types`
+---------------------------------------
+.. automodule:: hurricane.webhooks.webhook_types
    :members:
 
 :mod:`hurricane.webhooks.exceptions`

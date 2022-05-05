@@ -5,8 +5,8 @@ coverage>=5.3
 pika~=1.1.0
 docker~=4.1.0
 coveralls==2.2.0
-Sphinx==3.2.1
-sphinx-rtd-theme==0.5.0
+Sphinx==4.5.0
+sphinx-rtd-theme==1.0.0
 asgiref~=3.4.0
 debugpy==1.6.0
 pydevd_pycharm==221.4994.44
