@@ -91,6 +91,8 @@ Command options for *serve*-command:
 | ``--pycharm-port``         | The port of the pycharm debug server. This is only used in combination        |
 |                            | with the '--pycharm-host' option                                              |
 +----------------------------+-------------------------------------------------------------------------------+
+| ``--max-lifetime``         | If specified,  maximum requests after which pod is restarted                  |
++----------------------------+-------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of the
 asynchronous tasks' queue will exceed 10, readiness probe will return the status 400 until the length of the queue
@@ -366,6 +368,8 @@ Command options for *consume*-command:
 +---------------------------+-------------------------------------------------------------------------------------+
 | ``--webhook-url``         | If specified, webhooks will be sent to this url                                     |
 +---------------------------+-------------------------------------------------------------------------------------+
+| ``--max-lifetime``         | If specified,  maximum requests after which pod is restarted                  |
++----------------------------+-------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of
 asynchronous tasks queue will exceed 10, readiness probe will return status 400 until the length of tasks gets below the
