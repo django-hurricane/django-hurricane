@@ -11,6 +11,7 @@ from django.db import OperationalError, connection
 from hurricane.metrics import (
     HealthMetric,
     ReadinessMetric,
+    RequestCounterMetric,
     RequestQueueLengthMetric,
     ResponseTimeAverageMetric,
     StartupTimeMetric,
@@ -85,9 +86,10 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     This handler runs with every call to the probe endpoint which is supposed to be used
     """
 
-    def initialize(self, check_handler, webhook_url):
+    def initialize(self, check_handler, webhook_url, max_lifetime):
         self.check = check_handler
         self.liveness_webhook = webhook_url
+        self.max_lifetime = max_lifetime
 
     @sync_to_async
     def ensure_connection(self):
@@ -95,6 +97,9 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
     async def _check(self):
         if StartupTimeMetric.get():
+            if self.max_lifetime and RequestCounterMetric.get() > self.max_lifetime:
+                self.set_status(400)
+                return None
             got_exception = None
             try:
                 async_check = sync_to_async(self.check)

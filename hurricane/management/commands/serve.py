@@ -47,6 +47,7 @@ class Command(BaseCommand):
         - ``--command`` - repetitive command for adding execution of management commands before serving
         - ``--check-migrations`` - check if all migrations were applied before starting application
         - ``--webhook-url``- If specified, webhooks will be sent to this url
+        - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
     """
 
     help = "Start a Tornado-powered Django web server"
@@ -97,6 +98,10 @@ class Command(BaseCommand):
             type=str,
             help="Url for webhooks",
         )
+        parser.add_argument(
+            "--max-lifetime", type=int, default=None, help="Maximum requests after which pod is restarted"
+        )
+
         parser.add_argument("--pycharm-host", type=str, default=None, help="The host of the pycharm debug server")
         parser.add_argument("--pycharm-port", type=int, default=None, help="The port of the pycharm debug server")
 

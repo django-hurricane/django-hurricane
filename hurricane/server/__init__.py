@@ -51,7 +51,11 @@ def make_probe_server(options, check_func):
         (
             options["liveness_probe"],
             DjangoLivenessHandler,
-            {"check_handler": check_func, "webhook_url": options["webhook_url"]},
+            {
+                "check_handler": check_func,
+                "webhook_url": options["webhook_url"],
+                "max_lifetime": options["max_lifetime"],
+            },
         ),
         (
             options["readiness_probe"],
