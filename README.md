@@ -68,9 +68,26 @@ INSTALLED_APPS += (
     'hurricane',
 )
 ```
+You can start the Hurricane server with a following command:
+```python
+python manage.py serve --autoreload --static
+```
+Ouput of this command looks as following:
 
-Check out the [documentation](https://django-hurricane.readthedocs.io/en/latest/) for more information and a user's guide.
+```
+System check identified some issues:
+
+2022-05-04 02:19:07,521 INFO     hurricane.server.general Tornado-powered Django web server
+2022-05-04 02:19:07,521 INFO     hurricane.server.general Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup
+2022-05-04 02:19:07,523 INFO     hurricane.server.general Starting HTTP Server on port 8000
+2022-05-04 02:19:07,524 INFO     hurricane.server.general Startup time is 0.0026285648345947266 seconds
+```
+
+There are many options, that can be used in a combination with the serve command. Please, refer to the [documentation](https://django-hurricane.readthedocs.io/en/latest/usage.html) to learn more about the options.
+
+Django-hurricane works best in combination with Kubernetes, as it includes the inbuilt health-probes i.e. liveness, readiness and startup probes. Additionally, it is possible to implement custom checks on the liveness-probe. This checks will be executed after the standard django checks. Follow our guide, to learn more [how to write a custom check](https://django-hurricane.io/custom-checks/).
+
 
 ## Commercial Support
 Hurricane is developed and maintained by [Blueshoe](https://www.blueshoe.de). 
-If you need any help implementing with hurricane, please contact us: hurricane@blueshoe.de.
+If you need any help implementing with hurricane or you want to tell us about the use-case, how you use hurricane, please contact us: hurricane@blueshoe.de.
