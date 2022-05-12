@@ -427,6 +427,17 @@ class HurricanStartServerTests(HurricanServerTest):
         with self.assertRaises(SystemExit):
             signal_handler("signal", "frame")
 
+    @HurricanServerTest.cycle_server(args=["--max-lifetime", "2"])
+    def test_max_lifetime(self):
+        self.app_client.get("/")
+        self.app_client.get("/")
+        res = self.probe_client.get(self.alive_route)
+        self.assertEqual(res.status, 200)
+        self.app_client.get("/")
+        res = self.probe_client.get(self.alive_route)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertEqual(res.status, 400)
+
     @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_media"}, args=["--media"])
     def test_django_media(self):
         response = requests.get("http://localhost:8000/media/logo.png")
