@@ -97,37 +97,7 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
     async def _check(self):
         if StartupTimeMetric.get():
-            if self.max_lifetime and RequestCounterMetric.get() > self.max_lifetime:
-                self.set_status(400)
-                return None
-            got_exception = None
-            try:
-                async_check = sync_to_async(self.check)
-                await async_check(tags=["hurricane"], include_deployment_checks=True)
-                if settings.DATABASES:
-                    # once a connection has been established, this will be successful
-                    # (even if the connection is gone later on)
-                    await self.ensure_connection()
-            except SystemCheckError as e:
-                got_exception = traceback.format_exc()
-                self._write_error(msg="check error", e=e)
-            except OperationalError as e:
-                got_exception = traceback.format_exc()
-                self._write_error(msg="database error", e=e)
-            else:
-                if response_average_time := ResponseTimeAverageMetric.get():
-                    self.write(
-                        f"Average response time: {response_average_time:.2f}ms Request "
-                        f"queue size: {RequestQueueLengthMetric.get()} Rx"
-                    )
-                else:
-                    self.write("alive")
-                self._update_health_metric(self.liveness_webhook, got_exception)
-            finally:
-                if got_exception:
-                    self.set_status(500)
-                    self._update_health_metric(self.liveness_webhook, got_exception)
-
+            await self._check_liveness()
         else:
             self.set_status(400)
 
@@ -143,6 +113,38 @@ class DjangoLivenessHandler(DjangoProbeHandler):
             if liveness_webhook:
                 logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
                 LivenessWebhook().run(url=liveness_webhook, status=WebhookStatus.FAILED, error_trace=got_exception)
+
+    async def _check_liveness(self):
+        if self.max_lifetime and RequestCounterMetric.get() > self.max_lifetime:
+            self.set_status(400)
+            return None
+        got_exception = None
+        try:
+            async_check = sync_to_async(self.check)
+            await async_check(tags=["hurricane"], include_deployment_checks=True)
+            if settings.DATABASES:
+                # once a connection has been established, this will be successful
+                # (even if the connection is gone later on)
+                await self.ensure_connection()
+        except SystemCheckError as e:
+            got_exception = traceback.format_exc()
+            self._write_error(msg="check error", e=e)
+        except OperationalError as e:
+            got_exception = traceback.format_exc()
+            self._write_error(msg="database error", e=e)
+        else:
+            if response_average_time := ResponseTimeAverageMetric.get():
+                self.write(
+                    f"Average response time: {response_average_time:.2f}ms Request "
+                    f"queue size: {RequestQueueLengthMetric.get()} Rx"
+                )
+            else:
+                self.write("alive")
+            self._update_health_metric(self.liveness_webhook, got_exception)
+        finally:
+            if got_exception:
+                self.set_status(500)
+                self._update_health_metric(self.liveness_webhook, got_exception)
 
     def _write_error(self, msg, e=None):
         if settings.DEBUG:
