@@ -6,4 +6,4 @@ from .settings import *
 
 DEBUG = False
 
-register(utils.check_raise_operational_error, "hurricane")
+register(utils.check_raise_operational_error, "liveness")

@@ -1,8 +1,7 @@
-import asyncio
 import traceback
 
 import tornado.web
-from asgiref.sync import async_to_sync, sync_to_async
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
@@ -60,7 +59,24 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
         """
         self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
 
-    def _check(self):
+    async def _check(self):
+        """
+        Checking application on several errors. Catches SystemCheckErrors of django system check framework and
+        checks the connection to the database.
+        """
+        pass
+
+    async def _check_startup_wrapper(self):
+        """
+        Checking application on several errors. Catches SystemCheckErrors of django system check framework and
+        checks the connection to the database.
+        """
+        if StartupTimeMetric.get():
+            await self._check()
+        else:
+            self.set_status(400)
+
+    def _probe_check(self):
         """
         Checking application on several errors. Catches SystemCheckErrors of django system check framework and
         checks the connection to the database.
@@ -71,13 +87,65 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
         """
         Get method, which runs the check.
         """
-        await self._check()
+        await self._check_startup_wrapper()
 
     async def post(self):
         """
         Post method, which runs the check.
         """
-        await self._check()
+        await self._check_startup_wrapper()
+
+    @sync_to_async
+    def _ensure_connection(self):
+        connection.ensure_connection()
+
+    async def _custom_check_wrapper(self, tag, metric, webhook, webhook_url):
+        got_exception = None
+        try:
+            async_check = sync_to_async(self.check)
+            await async_check(tags=[tag], include_deployment_checks=True)
+            if settings.DATABASES:
+                # once a connection has been established, this will be successful
+                # (even if the connection is gone later on)
+                await self._ensure_connection()
+        except SystemCheckError as e:
+            got_exception = traceback.format_exc()
+            self._write_error(msg="check error", e=e)
+        except OperationalError as e:
+            got_exception = traceback.format_exc()
+            self._write_error(msg="database error", e=e)
+        else:
+            self._probe_check()
+            self._update_health_metric_no_exception(metric, webhook, webhook_url)
+        finally:
+            if got_exception:
+                self.set_status(500)
+                self._update_health_metric_exception(metric, webhook, webhook_url)
+
+    def _update_health_metric_no_exception(self, metric, webhook, webhook_url):
+        if not metric.get():
+            metric_change = True
+            metric.set(metric_change)
+            self._send_webhook(metric, webhook, webhook_url, WebhookStatus.SUCCEEDED, metric_change)
+
+    def _update_health_metric_exception(self, metric, webhook, webhook_url):
+        if metric.get() or metric.get() is None:
+            metric_change = False
+            metric.set(metric_change)
+            self._send_webhook(metric, webhook, webhook_url, WebhookStatus.FAILED, metric_change)
+
+    def _write_error(self, msg, e=None):
+        if settings.DEBUG:
+            self.write(f"django {msg}: " + str(e))
+        else:
+            self.write(f"{msg}")
+
+    def _send_webhook(self, metric, webhook, webhook_url, status, metric_change):
+        if webhook_url:
+            logger.info(
+                f"{metric.code.capitalize()} metric changed to {metric_change}. {webhook.code.capitalize()} webhook with status {status} triggered"
+            )
+            webhook().run(url=webhook_url, status=status)
 
 
 class DjangoLivenessHandler(DjangoProbeHandler):
@@ -87,63 +155,22 @@ class DjangoLivenessHandler(DjangoProbeHandler):
 
     def initialize(self, check_handler, webhook_url):
         self.check = check_handler
-        self.liveness_webhook = webhook_url
-
-    @sync_to_async
-    def ensure_connection(self):
-        connection.ensure_connection()
+        self.liveness_webhook_url = webhook_url
+        self.liveness_webhook = LivenessWebhook
+        self.metric = HealthMetric
+        self.tag = "liveness"
 
     async def _check(self):
-        if StartupTimeMetric.get():
-            got_exception = None
-            try:
-                async_check = sync_to_async(self.check)
-                await async_check(tags=["hurricane"], include_deployment_checks=True)
-                if settings.DATABASES:
-                    # once a connection has been established, this will be successful
-                    # (even if the connection is gone later on)
-                    await self.ensure_connection()
-            except SystemCheckError as e:
-                got_exception = traceback.format_exc()
-                self._write_error(msg="check error", e=e)
-            except OperationalError as e:
-                got_exception = traceback.format_exc()
-                self._write_error(msg="database error", e=e)
-            else:
-                if response_average_time := ResponseTimeAverageMetric.get():
-                    self.write(
-                        f"Average response time: {response_average_time:.2f}ms Request "
-                        f"queue size: {RequestQueueLengthMetric.get()} Rx"
-                    )
-                else:
-                    self.write("alive")
-                self._update_health_metric(self.liveness_webhook, got_exception)
-            finally:
-                if got_exception:
-                    self.set_status(500)
-                    self._update_health_metric(self.liveness_webhook, got_exception)
+        await self._custom_check_wrapper(self.tag, self.metric, self.liveness_webhook, self.liveness_webhook_url)
 
+    def _probe_check(self):
+        if response_average_time := ResponseTimeAverageMetric.get():
+            self.write(
+                f"Average response time: {response_average_time:.2f}ms Request "
+                f"queue size: {RequestQueueLengthMetric.get()} Rx"
+            )
         else:
-            self.set_status(400)
-
-    def _update_health_metric(self, liveness_webhook, got_exception):
-        if not got_exception:
-            if HealthMetric.get() is not True:
-                HealthMetric.set(True)
-                if liveness_webhook:
-                    logger.info("Health metric changed to True. Liveness webhook with status succeeded triggered")
-                    LivenessWebhook().run(url=liveness_webhook, status=WebhookStatus.SUCCEEDED)
-        elif HealthMetric.get() is not False:
-            HealthMetric.set(False)
-            if liveness_webhook:
-                logger.info("Health metric changed to False. Liveness webhook with status failed triggered")
-                LivenessWebhook().run(url=liveness_webhook, status=WebhookStatus.FAILED, error_trace=got_exception)
-
-    def _write_error(self, msg, e=None):
-        if settings.DEBUG:
-            self.write(f"django {msg}: " + str(e))
-        else:
-            self.write(f"{msg}")
+            self.write("alive")
 
 
 class DjangoReadinessHandler(DjangoProbeHandler):
@@ -153,27 +180,24 @@ class DjangoReadinessHandler(DjangoProbeHandler):
     can be used to determine the application's health state during its operation.
     """
 
-    def initialize(self, req_queue_len, webhook_url):
+    def initialize(self, check_handler, req_queue_len, webhook_url):
+        self.check = check_handler
         self.request_queue_length = req_queue_len
-        self.readiness_webhook = webhook_url
+        self.readiness_webhook_url = webhook_url
+        self.readiness_webhook = ReadinessWebhook
+        self.metric = ReadinessMetric
+        self.tag = "readiness"
 
     async def _check(self):
-        if StartupTimeMetric.get() and RequestQueueLengthMetric.get() > self.request_queue_length:
+        await self._custom_check_wrapper(self.tag, self.metric, self.readiness_webhook, self.readiness_webhook_url)
+
+    def _probe_check(self):
+        if RequestQueueLengthMetric.get() > self.request_queue_length:
             self.set_status(400)
-            if ReadinessMetric.get() is not False:
-                ReadinessMetric.set(False)
-                if self.readiness_webhook:
-                    logger.info("Readiness metric changed to False. Webhook with status failed triggered")
-                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.FAILED)
-        elif StartupTimeMetric.get() and RequestQueueLengthMetric.get() <= self.request_queue_length:
+            self._update_health_metric_exception(self.metric, self.readiness_webhook, self.readiness_webhook_url)
+        elif RequestQueueLengthMetric.get() <= self.request_queue_length:
             self.set_status(200)
-            if ReadinessMetric.get() is not True:
-                ReadinessMetric.set(True)
-                if self.readiness_webhook:
-                    logger.info("Readiness metric changed to True. Webhook with status succeeded triggered")
-                    ReadinessWebhook().run(url=self.readiness_webhook, status=WebhookStatus.SUCCEEDED)
-        else:
-            self.set_status(400)
+            self._update_health_metric_no_exception(self.metric, self.readiness_webhook, self.readiness_webhook_url)
 
 
 class DjangoStartupHandler(DjangoProbeHandler):
@@ -186,8 +210,8 @@ class DjangoStartupHandler(DjangoProbeHandler):
     """
 
     async def _check(self):
-        if StartupTimeMetric.get():
-            self.write(f"Startup was finished {StartupTimeMetric.get()}")
-            self.set_status(200)
-        else:
-            self.set_status(400)
+        await self._probe_check()
+
+    async def _probe_check(self):
+        self.write(f"Startup was finished {StartupTimeMetric.get()}")
+        self.set_status(200)
