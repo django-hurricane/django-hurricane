@@ -42,6 +42,7 @@ class Command(BaseCommand):
         - ``--autoreload`` - reload code on change
         - ``--debug`` - set Tornado's Debug flag
         - ``--reconnect`` - try to reconnect this client automatically as the broker is available again
+        - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
     """
 
     help = "Start a Tornado-powered Django AMQP 0-9-1 consumer"
@@ -108,6 +109,9 @@ class Command(BaseCommand):
             "--webhook-url",
             type=str,
             help="Url for webhooks",
+        )
+        parser.add_argument(
+            "--max-lifetime", type=int, default=None, help="Maximum requests after which pod is restarted"
         )
 
     def handle(self, *args, **options):
