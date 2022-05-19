@@ -154,17 +154,21 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     This handler runs with every call to the probe endpoint which is supposed to be used
     """
 
-    def initialize(self, check_handler, webhook_url):
+    def initialize(self, check_handler, webhook_url, max_lifetime):
         self.check = check_handler
         self.liveness_webhook_url = webhook_url
         self.liveness_webhook = LivenessWebhook
         self.metric = HealthMetric
         self.tag = "liveness"
+        self.max_lifetime = max_lifetime
 
     async def _check(self):
         await self._custom_check_wrapper(self.tag, self.metric, self.liveness_webhook, self.liveness_webhook_url)
 
     def _probe_check(self):
+        if self.max_lifetime and RequestCounterMetric.get() > self.max_lifetime:
+            self.set_status(400)
+            return None
         if response_average_time := ResponseTimeAverageMetric.get():
             self.write(
                 f"Average response time: {response_average_time:.2f}ms Request "
