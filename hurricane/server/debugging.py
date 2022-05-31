@@ -1,4 +1,12 @@
 from hurricane.server import logger
+from hurricane.server.exceptions import IncompatibleOptions
+
+
+def setup_debugging(options):
+    if options["autoreload"] and (options["pycharm_host"] or options["debugger"]):
+        raise IncompatibleOptions("Autoreload and debugger are not compatible")
+    setup_debugpy(options)
+    setup_pycharm(options)
 
 
 def setup_debugpy(options):
