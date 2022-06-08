@@ -60,7 +60,11 @@ def make_probe_server(options, check_func):
         (
             options["readiness_probe"],
             DjangoReadinessHandler,
-            {"req_queue_len": options["req_queue_len"], "webhook_url": options["webhook_url"]},
+            {
+                "check_handler": check_func,
+                "req_queue_len": options["req_queue_len"],
+                "webhook_url": options["webhook_url"],
+            },
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
@@ -79,7 +83,11 @@ def make_http_server(options, check_func, include_probe=False):
             (
                 options["readiness_probe"],
                 DjangoReadinessHandler,
-                {"req_queue_len": options["req_queue_len"], "webhook_url": options["webhook_url"]},
+                {
+                    "check_handler": check_func,
+                    "req_queue_len": options["req_queue_len"],
+                    "webhook_url": options["webhook_url"],
+                },
             ),
             (options["startup_probe"], DjangoStartupHandler),
         ]
