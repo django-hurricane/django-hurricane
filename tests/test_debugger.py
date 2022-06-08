@@ -2,7 +2,8 @@ import sys
 
 import mock
 
-from hurricane.server.debugging import setup_debugpy, setup_pycharm
+from hurricane.server.debugging import setup_debugging, setup_debugpy, setup_pycharm
+from hurricane.server.exceptions import IncompatibleOptions
 from hurricane.testing import HurricanServerTest
 
 
@@ -16,6 +17,10 @@ class HurricanDebuggerServerTest(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 200)
         self.assertIn("Listening for debug clients at port 5678", out)
+
+    def test_incompatible_debugger_and_autoreload(self):
+        with self.assertRaises(IncompatibleOptions):
+            setup_debugging({"autoreload": True, "debugger": True, "pycharm_host": True})
 
     def test_debugger_success_and_import_error(self):
         options = {"debugger": True, "debugger_port": 8071}

@@ -17,9 +17,7 @@ from hurricane.server import (
     make_probe_server,
     sanitize_probes,
 )
-from hurricane.server.debugging import setup_debugpy, setup_pycharm
-from hurricane.webhooks import StartupWebhook
-from hurricane.webhooks.base import WebhookStatus
+from hurricane.server.debugging import setup_debugging
 
 
 class Command(BaseCommand):
@@ -150,8 +148,7 @@ class Command(BaseCommand):
         else:
             logger.info("No probe application running")
 
-        setup_debugpy(options)
-        setup_pycharm(options)
+        setup_debugging(options)
 
         loop = asyncio.get_event_loop()
 
