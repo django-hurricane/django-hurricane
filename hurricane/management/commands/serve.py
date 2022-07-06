@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import os
 import signal
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -16,10 +17,9 @@ from hurricane.server import (
     make_http_server_and_listen,
     make_probe_server,
     sanitize_probes,
+    static_watch,
 )
 from hurricane.server.debugging import setup_debugpy, setup_pycharm
-from hurricane.webhooks import StartupWebhook
-from hurricane.webhooks.base import WebhookStatus
 
 
 class Command(BaseCommand):
@@ -48,6 +48,7 @@ class Command(BaseCommand):
         - ``--check-migrations`` - check if all migrations were applied before starting application
         - ``--webhook-url``- If specified, webhooks will be sent to this url
         - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
+        - ``--static-watch`` - If specified, static files will be watched for changes and recollected
     """
 
     help = "Start a Tornado-powered Django web server"
@@ -101,7 +102,9 @@ class Command(BaseCommand):
         parser.add_argument(
             "--max-lifetime", type=int, default=None, help="Maximum requests after which pod is restarted"
         )
-
+        parser.add_argument(
+            "--static-watch", action="store_true", help="Watch static files and collectstatics if changed"
+        )
         parser.add_argument("--pycharm-host", type=str, default=None, help="The host of the pycharm debug server")
         parser.add_argument("--pycharm-port", type=int, default=None, help="The port of the pycharm debug server")
 
@@ -115,6 +118,10 @@ class Command(BaseCommand):
 
         if options["autoreload"]:
             tornado.autoreload.start()
+            if options["static_watch"]:
+                logger.info("Watching static files for any changes")
+                tornado.autoreload.watch(os.path.abspath("static"))
+                tornado.autoreload.add_reload_hook(static_watch)
             logger.info("Autoreload was performed")
 
         # set the probe port
