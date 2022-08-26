@@ -103,7 +103,7 @@ class Command(BaseCommand):
             "--max-lifetime", type=int, default=None, help="Maximum requests after which pod is restarted"
         )
         parser.add_argument(
-            "--static-watch", action="store_true", help="Watch static files and collectstatics if changed"
+            "--static-watch", type=str, action="append", help="Watch files and run collectstatic if any file changed"
         )
         parser.add_argument("--pycharm-host", type=str, default=None, help="The host of the pycharm debug server")
         parser.add_argument("--pycharm-port", type=int, default=None, help="The port of the pycharm debug server")
@@ -118,9 +118,14 @@ class Command(BaseCommand):
 
         if options["autoreload"]:
             tornado.autoreload.start()
-            if options["static_watch"]:
+            if options["static_watch"] and len(options["static_watch"]):
                 logger.info("Watching static files for any changes")
-                tornado.autoreload.watch(os.path.abspath("static"))
+                for path in options["static_watch"]:
+                    if os.path.exists(path):
+                        logger.info("Watching path {}.".format(path))
+                        tornado.autoreload.watch(path)
+                    else:
+                        logger.error("Tried to watch {}, but it does not exist.".format(path))
                 tornado.autoreload.add_reload_hook(static_watch)
             logger.info("Autoreload was performed")
 

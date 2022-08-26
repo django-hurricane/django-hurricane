@@ -1,3 +1,4 @@
+import os
 import re
 
 import requests
@@ -468,14 +469,15 @@ class HurricanStartServerTests(HurricanServerTest):
             hurricane_server = HurricaneServerDriver()
             hurricane_server.start_server(args=["test_function"])
 
-    @HurricanServerTest.cycle_server(args=["--autoreload", "--static-watch"])
+    @HurricanServerTest.cycle_server(args=["--autoreload", "--static-watch=/static"])
     def test_static_watch_option(self):
+        os.makedirs("/static")
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn("Watching path /static", out)
 
     def test_static_watch(self):
-        import os
-
         if not os.path.exists("static"):
             os.makedirs("static")
             os.makedirs("static/new")
