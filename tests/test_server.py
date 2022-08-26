@@ -7,9 +7,8 @@ from hurricane.server import signal_handler, static_watch
 from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
-current_dir = os.getcwd()
-STATIC_PATH = f"{current_dir}/static"
-os.makedirs(STATIC_PATH)
+CURRENT_DIR = os.getcwd()
+STATIC_PATH = f"{CURRENT_DIR}/static"
 
 class HurricanStartServerTests(HurricanServerTest):
 
@@ -20,6 +19,16 @@ class HurricanStartServerTests(HurricanServerTest):
     starting_message = "Tornado-powered Django web server"
     starting_management_commands_message = "Starting execution of management commands"
     starting_http_message = "Starting HTTP Server on port 8000"
+
+    @classmethod
+    def setUpClass(cls):
+        os.makedirs(STATIC_PATH)
+        super().setUpClass()
+
+    @classmethod
+    def tearDownClass(cls):
+        super().tearDownClass()
+        os.rmdir(STATIC_PATH)
 
     @HurricanServerTest.cycle_server
     def test_default_startup(self):
@@ -478,6 +487,14 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(f"Watching path {STATIC_PATH}", out)
+
+    @HurricanServerTest.cycle_server(args=["--autoreload", "--static-watch=/does/not/exist"])
+    def test_invalid_static_watch_option(self):
+        res = self.probe_client.get(self.alive_route)
+        self.assertEqual(res.status, 200)
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(f"Tried to watch", out)
+        self.assertIn(f"but it does not exist", out)
 
     def test_static_watch(self):
         if not os.path.exists("static"):
