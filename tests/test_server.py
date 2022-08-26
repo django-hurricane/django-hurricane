@@ -7,6 +7,8 @@ from hurricane.server import signal_handler, static_watch
 from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
+current_dir = os.getcwd()
+STATIC_PATH = os.makedirs(f"{current_dir}/static")
 
 class HurricanStartServerTests(HurricanServerTest):
 
@@ -469,13 +471,12 @@ class HurricanStartServerTests(HurricanServerTest):
             hurricane_server = HurricaneServerDriver()
             hurricane_server.start_server(args=["test_function"])
 
-    @HurricanServerTest.cycle_server(args=["--autoreload", "--static-watch=/static"])
+    @HurricanServerTest.cycle_server(args=["--autoreload", f"--static-watch={STATIC_PATH}"])
     def test_static_watch_option(self):
-        os.makedirs("/static")
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Watching path /static", out)
+        self.assertIn(f"Watching path {STATIC_PATH}", out)
 
     def test_static_watch(self):
         if not os.path.exists("static"):
