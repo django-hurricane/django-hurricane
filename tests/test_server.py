@@ -8,7 +8,8 @@ from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
 current_dir = os.getcwd()
-STATIC_PATH = os.makedirs(f"{current_dir}/static")
+STATIC_PATH = f"{current_dir}/static"
+os.makedirs(STATIC_PATH)
 
 class HurricanStartServerTests(HurricanServerTest):
 
