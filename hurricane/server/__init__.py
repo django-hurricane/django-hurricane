@@ -247,14 +247,8 @@ def add_trailing_slash(options, probe_name):
 
 
 def static_watch():
-    all_files = glob.glob(os.path.abspath("static/*"))
-    for file in all_files:
-        diff = time.time() - os.stat(file).st_mtime
-        if diff < 10:
-            try:
-                logger.info("Collecting static as static file changed")
-                call_command("collectstatic", interactive=False, clear=True)
-            except Exception as e:
-                logger.error(e)
-                break
-            break
+    try:
+        logger.info("Collecting static as static file changed")
+        call_command("collectstatic", interactive=False, clear=True)
+    except Exception as e:
+        logger.error(e)
