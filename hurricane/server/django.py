@@ -3,10 +3,10 @@ import traceback
 import tornado.web
 from asgiref.sync import sync_to_async
 from django.conf import settings
+from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
-from django.contrib.staticfiles.handlers import StaticFilesHandler
 
 from hurricane.metrics import (
     HealthMetric,

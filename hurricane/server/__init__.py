@@ -14,8 +14,13 @@ from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
-from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler, \
-    DjangoStaticFilesHandler
+from hurricane.server.django import (
+    DjangoHandler,
+    DjangoLivenessHandler,
+    DjangoReadinessHandler,
+    DjangoStartupHandler,
+    DjangoStaticFilesHandler,
+)
 from hurricane.server.loggers import access_log, logger
 from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
