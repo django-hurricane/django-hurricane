@@ -6,6 +6,7 @@ from django.conf import settings
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
+from django.contrib.staticfiles.handlers import StaticFilesHandler
 
 from hurricane.metrics import (
     HealthMetric,
@@ -42,6 +43,18 @@ class DjangoHandler(tornado.web.RequestHandler):
         self._finished = True
         self._log()
         self.on_finish()
+
+
+class DjangoStaticFilesHandler(tornado.web.RequestHandler):
+    """
+    This handler transmits all static requests to django application. Currently it uses WSGI Container based on
+    tornado WSGI Container.
+    """
+    def initialize(self):
+        """
+        Initialization of Hurricane WSGI Container.
+        """
+        self.django = HurricaneWSGIContainer(self, StaticFilesHandler(get_wsgi_application()))
 
 
 class DjangoProbeHandler(tornado.web.RequestHandler):
