@@ -50,6 +50,7 @@ class DjangoStaticFilesHandler(tornado.web.RequestHandler):
     This handler transmits all static requests to django application. Currently it uses WSGI Container based on
     tornado WSGI Container.
     """
+
     def initialize(self):
         """
         Initialization of Hurricane WSGI Container.

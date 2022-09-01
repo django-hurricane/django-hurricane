@@ -10,6 +10,7 @@ from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 CURRENT_DIR = os.getcwd()
 STATIC_PATH = f"{CURRENT_DIR}/static"
 
+
 class HurricanStartServerTests(HurricanServerTest):
 
     probe_route = "/probe"
