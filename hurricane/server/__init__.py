@@ -14,7 +14,13 @@ from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
 
 from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
-from hurricane.server.django import DjangoHandler, DjangoLivenessHandler, DjangoReadinessHandler, DjangoStartupHandler
+from hurricane.server.django import (
+    DjangoHandler,
+    DjangoLivenessHandler,
+    DjangoReadinessHandler,
+    DjangoStartupHandler,
+    DjangoStaticFilesHandler,
+)
 from hurricane.server.loggers import access_log, logger
 from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
@@ -98,13 +104,21 @@ def make_http_server(options, check_func, include_probe=False):
     # if static file serving is enabled
     if options["static"]:
         logger.info(f"Serving static files under {settings.STATIC_URL} from {settings.STATIC_ROOT}")
-        handlers.append(
-            (
-                f"{settings.STATIC_URL}(.*)",
-                tornado.web.StaticFileHandler,
-                {"path": settings.STATIC_ROOT},
+        if settings.DEBUG and "django.contrib.staticfiles" in settings.INSTALLED_APPS:
+            handlers.append(
+                (
+                    f"{settings.STATIC_URL}(.*)",
+                    DjangoStaticFilesHandler,
+                )
             )
-        )
+        else:
+            handlers.append(
+                (
+                    f"{settings.STATIC_URL}(.*)",
+                    tornado.web.StaticFileHandler,
+                    {"path": settings.STATIC_ROOT},
+                )
+            )
     # if media file serving is enabled
     if options["media"]:
         logger.info(f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}")
