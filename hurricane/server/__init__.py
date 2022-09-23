@@ -53,6 +53,14 @@ class HurricaneApplication(tornado.web.Application):
             ResponseTimeAverageMetric.add_value(request_time)
 
 
+class HurricaneProbeApplication(HurricaneApplication):
+    def log_request(self, handler: DjangoHandler) -> None:
+        """Writes a completed HTTP probe request to the logs."""
+        if getattr(settings, "LOG_PROBES", False):
+            super(HurricaneProbeApplication, self).log_request(handler)
+        return
+
+
 def make_probe_server(options, check_func):
     """create probe route application"""
     handlers = [
@@ -76,7 +84,7 @@ def make_probe_server(options, check_func):
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
-    return HurricaneApplication(handlers, debug=options["debug"], metrics=False)
+    return HurricaneProbeApplication(handlers, debug=options["debug"], metrics=False)
 
 
 def make_http_server(options, check_func, include_probe=False):
