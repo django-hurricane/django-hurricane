@@ -291,6 +291,11 @@ Example:
    }
 
 
+.. note: Logging for probe endpoints is disabled by default.
+
+   To enable it, set :code:`LOG_PROBES` to true in your settings.
+
+
 AMQP Worker
 -----------
 
