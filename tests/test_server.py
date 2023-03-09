@@ -418,6 +418,13 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Database was checked successfully", out)
         self.assertIn("No pending migrations", out)
 
+    @HurricanServerTest.cycle_server(args=["--check-migrations-apply"])
+    def test_check_migrations_apply(self):
+        out, err = self.driver.get_output(read_all=True)
+        self.assertIn(self.starting_message, out)
+        self.assertIn("Database was checked successfully", out)
+        self.assertIn("No pending migrations", out)
+
     @HurricanServerTest.cycle_server(
         env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_db_and_migrations"}, args=["--check-migrations"]
     )
