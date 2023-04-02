@@ -194,15 +194,12 @@ class Command(BaseCommand):
             exec_list.append(management_commands_wrapper)
         if options["check_migrations"]:
             check_db_and_migrations_wrapper = functools.partial(
-                check_db_and_migrations, webhook_url=options["webhook_url"] or None, loop=loop
+                check_db_and_migrations,
+                webhook_url=options["webhook_url"] or None,
+                loop=loop,
+                apply_migrations=True if options["check_migrations_apply"] else False,
             )
             exec_list.append(check_db_and_migrations_wrapper)
-
-        if options["check_migrations_apply"]:
-            check_db_and_migrations_and_apply_wrapper = functools.partial(
-                check_db_and_migrations_and_apply, webhook_url=options["webhook_url"] or None, loop=loop
-            )
-            exec_list.append(check_db_and_migrations_and_apply_wrapper)
 
         def bundle_func(exec_list, loop, make_http_server_wrapper):
             # executes functions from exec_list sequentially

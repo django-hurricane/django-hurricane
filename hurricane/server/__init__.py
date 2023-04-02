@@ -220,7 +220,9 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None):
+def check_db_and_migrations(
+    webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None, apply_migration: bool = False
+):
     try:
         while check_databases():
             number_of_migrations = count_migrations()
@@ -230,28 +232,9 @@ def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.S
                 logger.info("No pending migrations")
                 break
 
-    except Exception as e:
-        error_trace = traceback.format_exc()
-        logger.info("Webhook with a status warning has been initiated")
-
-        StartupWebhook().run(
-            url=webhook_url or None, error_trace=error_trace, close_loop=True, status=WebhookStatus.WARNING, loop=loop
-        )
-        raise e
-
-
-def check_db_and_migrations_and_apply(webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None):
-    try:
-        while check_databases():
-            number_of_migrations = count_migrations()
-
-            logger.info(f"There are {number_of_migrations} pending migrations")
-            if number_of_migrations == 0:
-                logger.info("No pending migrations")
-                break
-
-            logger.info("Applying pending migrations")
-            call_command("migrate")
+            if apply_migration:
+                logger.info("Applying migrations")
+                call_command("migrate")
 
     except Exception as e:
         error_trace = traceback.format_exc()
