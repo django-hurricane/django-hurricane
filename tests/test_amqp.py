@@ -4,7 +4,6 @@ from hurricane.testing import HurricaneAMQPTest
 
 
 class HurricaneStartAMQPTests(HurricaneAMQPTest):
-
     starting_amqp_message = "Starting a Tornado-powered Django AMQP consumer"
 
     def _wait_for_queue(self, queue_name="test"):

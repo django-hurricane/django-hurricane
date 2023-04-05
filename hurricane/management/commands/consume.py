@@ -48,7 +48,6 @@ class Command(BaseCommand):
     help = "Start a Tornado-powered Django AMQP 0-9-1 consumer"
 
     def add_arguments(self, parser):
-
         """
         Defines arguments, that can be accepted with ``consume`` command.
         """
@@ -115,7 +114,6 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args, **options):
-
         """
         Defines functionalities for different arguments. After all arguments were processed, it starts the async event
         loop.

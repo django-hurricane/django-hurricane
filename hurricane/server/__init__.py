@@ -158,7 +158,6 @@ def make_http_server_and_listen(start_time: float, options: dict, check: Callabl
 def command_task(commands: list, webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None) -> None:
     logger.info("Starting execution of management commands")
     for command in commands:
-
         # split a command string to get command options
         command_split = command[0].split()
         logger.info(f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}")
@@ -247,7 +246,6 @@ def check_db_and_migrations(
 
 
 def sanitize_probes(options):
-
     # sanitize probe paths
     options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}".replace(" ", "")
     options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}".replace(" ", "")

@@ -8,7 +8,6 @@ from hurricane.testing import HurricanServerTest
 
 
 class HurricanDebuggerServerTest(HurricanServerTest):
-
     alive_route = "/alive"
 
     @HurricanServerTest.cycle_server(args=["--debugger"])
