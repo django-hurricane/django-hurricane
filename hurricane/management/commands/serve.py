@@ -12,6 +12,7 @@ from django.core.management.base import BaseCommand
 
 from hurricane.server import (
     check_db_and_migrations,
+    check_db_and_migrations_and_apply,
     command_task,
     logger,
     make_http_server_and_listen,
@@ -46,6 +47,7 @@ class Command(BaseCommand):
         - ``--no-metrics`` - disable metrics collection
         - ``--command`` - repetitive command for adding execution of management commands before serving
         - ``--check-migrations`` - check if all migrations were applied before starting application
+        - ``--check-migrations-apply`` - same as --check-migrations but also applies them if needed
         - ``--webhook-url``- If specified, webhooks will be sent to this url
         - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
         - ``--static-watch`` - If specified, static files will be watched for changes and recollected
@@ -90,6 +92,11 @@ class Command(BaseCommand):
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
         parser.add_argument("--check-migrations", action="store_true", help="Check if migrations were applied")
+        parser.add_argument(
+            "--check-migrations-apply",
+            action="store_true",
+            help="Check if migrations were applied and apply them if needed",
+        )
         parser.add_argument(
             "--debugger", action="store_true", help="Open a debugger port according to the Debug Adapter Protocol"
         )
@@ -187,7 +194,10 @@ class Command(BaseCommand):
             exec_list.append(management_commands_wrapper)
         if options["check_migrations"]:
             check_db_and_migrations_wrapper = functools.partial(
-                check_db_and_migrations, webhook_url=options["webhook_url"] or None, loop=loop
+                check_db_and_migrations,
+                webhook_url=options["webhook_url"] or None,
+                loop=loop,
+                apply_migrations=True if options["check_migrations_apply"] else False,
             )
             exec_list.append(check_db_and_migrations_wrapper)
 

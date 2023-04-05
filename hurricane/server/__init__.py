@@ -220,7 +220,9 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None):
+def check_db_and_migrations(
+    webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None, apply_migration: bool = False
+):
     try:
         while check_databases():
             number_of_migrations = count_migrations()
@@ -229,6 +231,10 @@ def check_db_and_migrations(webhook_url: str = None, loop: asyncio.unix_events.S
             if number_of_migrations == 0:
                 logger.info("No pending migrations")
                 break
+
+            if apply_migration:
+                logger.info("Applying migrations")
+                call_command("migrate")
 
     except Exception as e:
         error_trace = traceback.format_exc()
