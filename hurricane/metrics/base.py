@@ -14,7 +14,6 @@ class StoredMetric:
 
     @classmethod
     def get_from_registry(cls):
-
         """
         Getting metric from registry using metric code.
         """
@@ -25,7 +24,6 @@ class StoredMetric:
 
     @classmethod
     def set(cls, value):
-
         """
         Setting new value for metric.
         """
@@ -35,7 +33,6 @@ class StoredMetric:
 
     @classmethod
     def get(cls):
-
         """
         Getting value of metric from registry.
         """
@@ -53,7 +50,6 @@ class CalculatedMetric:
 
     @classmethod
     def get_from_registry(cls):
-
         """
         Getting metric from registry using metric code.
         """
@@ -64,7 +60,6 @@ class CalculatedMetric:
 
     @classmethod
     def get(cls):
-
         """
         Getting value of metric from registry.
         """
@@ -86,7 +81,6 @@ class CounterMetric(StoredMetric):
 
     @classmethod
     def increment(cls):
-
         """
         Increment value to the metric.
         """
@@ -95,7 +89,6 @@ class CounterMetric(StoredMetric):
 
     @classmethod
     def decrement(cls):
-
         """
         Decrement value from the metric.
         """
@@ -114,7 +107,6 @@ class AverageMetric(StoredMetric):
 
     @classmethod
     def add_value(cls, value):
-
         """
         Implements the running (online) average of a metric.
         """

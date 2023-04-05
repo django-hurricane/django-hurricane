@@ -7,7 +7,6 @@ from tests.test_utils import BasicProperties, Channel, Connection, Deliver
 
 
 class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
-
     starting_amqp_message = "Starting a Tornado-powered Django AMQP consumer"
 
     def _wait_for_queue(self, queue_name="test"):
@@ -157,7 +156,6 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
         self.amqp_consumer.stop()
 
     def test_run_keyboard_interrupt(self):
-
         self.amqp_client._consumer._connection = Connection()
         import mock
 

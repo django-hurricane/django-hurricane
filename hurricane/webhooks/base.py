@@ -33,7 +33,6 @@ class Webhook:
 
     @classmethod
     def get_from_registry(cls):
-
         """
         Getting webhook from registry using the code.
         """
@@ -43,7 +42,6 @@ class Webhook:
         return webhook_registry.get(cls.code)
 
     def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False, loop=None):
-
         """
         Initiates the sending of webhook in an asynchronous manner. Also specifies the callback of the async process,
         which handles the feedback and either logs success or failure of a webhook sending process.

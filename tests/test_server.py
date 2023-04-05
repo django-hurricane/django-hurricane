@@ -12,7 +12,6 @@ STATIC_PATH = f"{CURRENT_DIR}/static"
 
 
 class HurricanStartServerTests(HurricanServerTest):
-
     probe_route = "/probe"
     alive_route = "/alive"
     startup_route = "/startup"
@@ -386,7 +385,6 @@ class HurricanStartServerTests(HurricanServerTest):
 
     @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"})
     def test_django_operational_error(self):
-
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
@@ -394,7 +392,6 @@ class HurricanStartServerTests(HurricanServerTest):
 
     @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"})
     def test_django_systemcheck_error(self):
-
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
@@ -405,7 +402,6 @@ class HurricanStartServerTests(HurricanServerTest):
         args=["--webhook-url", "http://localhost:8074/webhook"],
     )
     def test_django_operational_error_webhook(self):
-
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
@@ -501,8 +497,8 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(f"Tried to watch", out)
-        self.assertIn(f"but it does not exist", out)
+        self.assertIn("Tried to watch", out)
+        self.assertIn("but it does not exist", out)
 
     def test_static_watch(self):
         if not os.path.exists("static"):

@@ -6,7 +6,6 @@ SYSTEM_COUNT = 0
 
 
 def check_raise_operational_error(app_configs, **kwargs):
-
     global CHECK_COUNT
 
     if CHECK_COUNT > 0:
@@ -17,7 +16,6 @@ def check_raise_operational_error(app_configs, **kwargs):
 
 
 def check_raise_systemcheck_error(app_configs, **kwargs):
-
     global SYSTEM_COUNT
 
     if SYSTEM_COUNT > 0:

@@ -52,7 +52,6 @@ class _AMQPConsumer:
         self._prefetch_count = 1
 
     def connect(self) -> TornadoConnection:
-
         """
         This method connects to the broker, returning the connection handle.
         """
@@ -93,7 +92,6 @@ class _AMQPConsumer:
             self._connection.close()
 
     def on_connection_open(self, _unused_connection: pika.SelectConnection):
-
         """
         This method is called by pika once the connection to the broker has
         been established.
@@ -103,7 +101,6 @@ class _AMQPConsumer:
         self.open_channel()
 
     def on_connection_open_error(self, _unused_connection: pika.SelectConnection, err: Exception):
-
         """
         This method is called by pika if the connection to the broker
         can't be established.
@@ -115,7 +112,6 @@ class _AMQPConsumer:
         self.reconnect()
 
     def on_connection_closed(self, _unused_connection: pika.SelectConnection, reason: Exception):
-
         """
         This method is invoked by pika when the connection to the broker is
         closed unexpectedly. Since it is unexpected, we will reconnect to
@@ -130,7 +126,6 @@ class _AMQPConsumer:
             self.reconnect()
 
     def reconnect(self):
-
         """
         Will be invoked if the connection can't be opened or is
         closed. Indicates that a reconnect is necessary then stops the
@@ -141,7 +136,6 @@ class _AMQPConsumer:
         self.stop()
 
     def open_channel(self):
-
         """
         Open a new channel with the broker by issuing the Channel.Open RPC
         command. When the broker responds that the channel is open, the
@@ -152,7 +146,6 @@ class _AMQPConsumer:
         self._connection.channel(on_open_callback=self.on_channel_open)
 
     def on_channel_open(self, channel: pika.channel.Channel):
-
         """
         This method is invoked by pika when the channel has been opened.
         The channel object is passed in so we can make use of it.
@@ -165,7 +158,6 @@ class _AMQPConsumer:
         self.setup_exchange(self._exchange_name)
 
     def add_on_channel_close_callback(self):
-
         """
         This method tells pika to call the on_channel_closed method if
         the broker unexpectedly closes the channel.
@@ -175,7 +167,6 @@ class _AMQPConsumer:
         self._channel.add_on_close_callback(self.on_channel_closed)
 
     def on_channel_closed(self, channel: pika.channel.Channel, reason: Exception):
-
         """
         Invoked by pika when the broker unexpectedly closes the channel.
         Channels are usually closed if you attempt to do something that
@@ -188,7 +179,6 @@ class _AMQPConsumer:
         self.close_connection()
 
     def setup_exchange(self, exchange_name: str) -> None:
-
         """
         Setup the exchange on the broker by invoking the Exchange.Declare RPC
         command. When it is complete, the on_exchange_declareok method will
@@ -202,7 +192,6 @@ class _AMQPConsumer:
         self._channel.exchange_declare(exchange=exchange_name, exchange_type=self.EXCHANGE_TYPE, callback=cb)
 
     def on_exchange_declareok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
-
         """
         Invoked by pika when the broker has finished the Exchange.Declare RPC
         command.
@@ -212,7 +201,6 @@ class _AMQPConsumer:
         self.setup_queue(self._queue_name)
 
     def setup_queue(self, queue_name: str) -> None:
-
         """
         Setup the queue on the broker by invoking the Queue.Declare RPC
         command. When it is complete, the on_queue_declareok method will
@@ -225,7 +213,6 @@ class _AMQPConsumer:
         self._channel.queue_declare(queue=queue_name, callback=cb)
 
     def get_routing_keys(self, queue_name: str) -> List[str]:
-
         """
         Generate a list of binding keys for this queue. This method will
         be called from on_queue_declareok in order to bind the declared queue
@@ -235,7 +222,6 @@ class _AMQPConsumer:
         return []
 
     def on_queue_declareok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
-
         """
         Method invoked by pika when the Queue.Declare RPC call made in
         setup_queue has completed. In this method we will bind the queue
@@ -257,7 +243,6 @@ class _AMQPConsumer:
                 self._channel.queue_bind(queue_name, routing_key=routing_key, exchange=self._exchange_name, callback=cb)
 
     def on_bindok(self, _unused_frame: pika.frame.Method, queue_name: str, routing_key: str = None):
-
         """
         Invoked by pika when the Queue.Bind method has completed. At this
         point we will set the prefetch count for the channel.
@@ -270,7 +255,6 @@ class _AMQPConsumer:
         self.set_qos()
 
     def set_qos(self) -> None:
-
         """
         This method sets up the consumer prefetch to only be delivered
         one message at a time. The consumer must acknowledge this message
@@ -281,7 +265,6 @@ class _AMQPConsumer:
         self._channel.basic_qos(prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok)
 
     def on_basic_qos_ok(self, _unused_frame) -> None:
-
         """
         Invoked by pika when the Basic.QoS method has completed. At this
         point we will start consuming messages by calling start_consuming
@@ -293,7 +276,6 @@ class _AMQPConsumer:
         self.start_consuming()
 
     def start_consuming(self) -> None:
-
         """
         This method sets up the consumer by first calling
         add_on_cancel_callback so that the object is notified if the broker
@@ -307,7 +289,6 @@ class _AMQPConsumer:
         self._consuming = True
 
     def add_on_cancel_callback(self) -> None:
-
         """
         Add a callback that will be invoked if the broker cancels the consumer
         for some reason. If the broker does cancel the consumer,
@@ -318,7 +299,6 @@ class _AMQPConsumer:
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
 
     def on_consumer_cancelled(self, method_frame: pika.frame.Method) -> None:
-
         """
         Invoked by pika when the broker sends a Basic.Cancel for a consumer
         receiving messages.
@@ -335,7 +315,6 @@ class _AMQPConsumer:
         properties: pika.spec.BasicProperties,
         body: str,
     ) -> None:
-
         """
         Invoked by pika when a message is delivered from the broker.
         """
@@ -349,7 +328,6 @@ class _AMQPConsumer:
         raise NotImplementedError("The on_message method must be implemented by a handler class")
 
     def acknowledge_message(self, delivery_tag) -> None:
-
         """
         Acknowledge the message delivery from the broker by sending a
         Basic.Ack RPC method for the delivery tag.
@@ -360,7 +338,6 @@ class _AMQPConsumer:
         self._channel.basic_ack(delivery_tag)
 
     def reject_message(self, delivery_tag, requeue: bool = False) -> None:
-
         """
         Reject the message delivery from the broker.
         """
@@ -369,7 +346,6 @@ class _AMQPConsumer:
         self._channel.basic_nack(delivery_tag, requeue=requeue)
 
     def stop_consuming(self) -> None:
-
         """
         Tell the broker that you would like to stop consuming by sending the
         Basic.Cancel RPC command.
@@ -381,7 +357,6 @@ class _AMQPConsumer:
             self._channel.basic_cancel(self._consumer_tag, cb)
 
     def on_cancelok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
-
         """
         This method is invoked by pika when the broker acknowledges the
         cancellation of a consumer. At this point we will close the channel.
@@ -394,7 +369,6 @@ class _AMQPConsumer:
         self.close_channel()
 
     def close_channel(self) -> None:
-
         """
         Call to close the channel cleanly by issuing the
         Channel.Close RPC command.
@@ -404,7 +378,6 @@ class _AMQPConsumer:
         self._channel.close()
 
     def run(self) -> None:
-
         """
         Run the consumer by connecting to the broker and then
         starting the IOLoop to block and allow the SelectConnection to operate.
@@ -414,7 +387,6 @@ class _AMQPConsumer:
         self._connection.ioloop.start()
 
     def stop(self) -> None:
-
         """
         Cleanly shutdown the connection by stopping the consumer.
         """
