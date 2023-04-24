@@ -6,6 +6,7 @@ from django.conf import settings
 from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
+from django.urls.resolvers import RoutePattern
 from django.db import OperationalError, connection
 
 from hurricane.metrics import (
@@ -39,7 +40,14 @@ class DjangoHandler(tornado.web.RequestHandler):
         """
         Transmitting incoming request to django application via WSGI Container.
         """
-        await self.django(self.request)
+        if routes := getattr(settings, "HURRICANE_SYNC_ROUTES"):
+            path = self.request.path
+            if any([RoutePattern(sync_route).match(path) for sync_route in routes]):
+                sync_to_async(self.django(self.request))
+            else:
+                await self.django(self.request)
+        else:
+            await self.django(self.request)
         self._finished = True
         self._log()
         self.on_finish()
