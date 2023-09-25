@@ -1,6 +1,13 @@
 import http
 import json
-import logging
+try:
+    import structlog
+
+    logger = structlog.get_logger(__name__)
+except ImportError:
+    import logging
+
+    logger = logging.getLogger(__name__)
 
 import pika
 import tornado.ioloop

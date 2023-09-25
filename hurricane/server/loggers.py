@@ -1,4 +1,11 @@
-import logging
+try:
+    import structlog
+
+    logger = structlog.get_logger(__name__)
+except ImportError:
+    import logging
+
+    logger = logging.getLogger(__name__)
 
 access_log = logging.getLogger("hurricane.server.access")
 app_log = logging.getLogger("hurricane.server.application")
