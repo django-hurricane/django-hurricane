@@ -7,7 +7,7 @@ docker~=4.1.0
 coveralls==2.2.0
 Sphinx==4.5.0
 sphinx-rtd-theme==1.0.0
-asgiref~=3.4.0
+asgiref~=3.6.0
 debugpy==1.6.0
 pydevd_pycharm==221.4994.44
 mock==4.0.3
