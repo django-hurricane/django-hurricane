@@ -12,7 +12,6 @@ from django.core.management.base import BaseCommand
 
 from hurricane.server import (
     check_db_and_migrations,
-    check_db_and_migrations_and_apply,
     command_task,
     logger,
     make_http_server_and_listen,
