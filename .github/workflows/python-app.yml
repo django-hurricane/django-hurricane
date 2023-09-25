@@ -32,7 +32,7 @@ jobs:
     - name: Lint with black
       run: |
         pip install black
-        black --check --line-length=120 hurricane/
+        black --check hurricane/
     - name: Test with django tests
       run: |
         coverage run manage.py test
