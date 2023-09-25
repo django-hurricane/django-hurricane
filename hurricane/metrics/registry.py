@@ -12,7 +12,9 @@ class MetricsRegistry:
 
     def register(self, metric_cls):
         if metric_cls.code in self.metrics:
-            raise MetricIdAlreadyRegistered(f"Metric ID ({metric_cls.code}) is already registered.")
+            raise MetricIdAlreadyRegistered(
+                f"Metric ID ({metric_cls.code}) is already registered."
+            )
         self.metrics[metric_cls.code] = metric_cls()
 
     def unregister(self, metric_cls):

@@ -19,7 +19,13 @@ setup(
     long_description=long_description,
     long_description_content_type="text/markdown",
     version=VERSION,
-    install_requires=["tornado~=6.1", "Django>=2.2", "asgiref~=3.4.0", "pika~=1.1.0", "requests~=2.25"],
+    install_requires=[
+        "tornado~=6.1",
+        "Django>=2.2",
+        "asgiref~=3.4.0",
+        "pika~=1.1.0",
+        "requests~=2.25",
+    ],
     extras_require={
         "debug": ["debugpy~=1.5"],
         "pycharm": ["pydevd-pycharm~=213.5605.23"],

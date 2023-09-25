@@ -33,7 +33,6 @@ class Webhook:
 
     @classmethod
     def get_from_registry(cls):
-
         """
         Getting webhook from registry using the code.
         """
@@ -42,8 +41,14 @@ class Webhook:
 
         return webhook_registry.get(cls.code)
 
-    def run(self, url: str, status: WebhookStatus, error_trace: str = None, close_loop: bool = False, loop=None):
-
+    def run(
+        self,
+        url: str,
+        status: WebhookStatus,
+        error_trace: str = None,
+        close_loop: bool = False,
+        loop=None,
+    ):
         """
         Initiates the sending of webhook in an asynchronous manner. Also specifies the callback of the async process,
         which handles the feedback and either logs success or failure of a webhook sending process.
@@ -65,15 +70,22 @@ class Webhook:
             self.set_version()
             current_loop = loop or asyncio.get_event_loop()
             executor = ThreadPoolExecutor(max_workers=1)
-            fut = current_loop.run_in_executor(executor, self._send_webhook, self.get_message(), url, close_loop)
+            fut = current_loop.run_in_executor(
+                executor, self._send_webhook, self.get_message(), url, close_loop
+            )
             # callback runs after run_in_executor is done
             callback_wrapper = functools.partial(
-                self._callback_webhook_exception_check, url=url, close_loop=close_loop, loop=loop
+                self._callback_webhook_exception_check,
+                url=url,
+                close_loop=close_loop,
+                loop=loop,
             )
             fut.add_done_callback(callback_wrapper)
         if not url and close_loop:
             logger.warning("No webhook can be sent, as no url is specified")
-            self._callback_webhook_exception_check(future=None, url="", close_loop=True, loop=loop)
+            self._callback_webhook_exception_check(
+                future=None, url="", close_loop=True, loop=loop
+            )
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url
@@ -105,7 +117,10 @@ class Webhook:
 
     @staticmethod
     def _callback_webhook_exception_check(
-        future: typing.Union[asyncio.Future, None], url: str, close_loop: bool, loop=None
+        future: typing.Union[asyncio.Future, None],
+        url: str,
+        close_loop: bool,
+        loop=None,
     ):
         # checks if sending webhook had any failures, it indicates, that command was successfully executed
         # but sending webhook has failed

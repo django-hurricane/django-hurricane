@@ -4,7 +4,6 @@ from hurricane.testing import HurricaneAMQPTest
 
 
 class HurricaneStartAMQPTests(HurricaneAMQPTest):
-
     starting_amqp_message = "Starting a Tornado-powered Django AMQP consumer"
 
     def _wait_for_queue(self, queue_name="test"):
@@ -18,7 +17,13 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
             self.fail("AMQP consumer did not bind to test queue")
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+        ]
     )
     def test_default_startup(self):
         out, err = self.driver.get_output(read_all=True)
@@ -30,7 +35,13 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         self.assertEqual(res.status, 200)
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"],
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+        ],
         coverage=True,
     )
     def test_default_startup_coverage_kwarg(self):
@@ -63,21 +74,36 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         self.assertEqual(res.status, 200)
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test", "--no-probe"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+            "--no-probe",
+        ]
     )
     def test_no_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_amqp_message, out)
         self.assertIn("No probe application running", out)
 
-    @HurricaneAMQPTest.cycle_consumer(args=["tests.testapp.consumer.MyTestHandler", "--autoreload"])
+    @HurricaneAMQPTest.cycle_consumer(
+        args=["tests.testapp.consumer.MyTestHandler", "--autoreload"]
+    )
     def test_autoreload(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_amqp_message, out)
         self.assertIn("Autoreload was performed", out)
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+        ]
     )
     def test_receive_message(self):
         testmessage = "This is a simple test message"
@@ -87,7 +113,13 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         self.assertIn(testmessage, out)
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+        ]
     )
     def test_connection_lost(self):
         # first connect successfully
@@ -97,13 +129,23 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         # stop the broker
         self.driver.stop_amqp()
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("WARNING  hurricane.amqp.general Channel 1 was closed: Transport indicated EOF", out)
+        self.assertIn(
+            "WARNING  hurricane.amqp.general Channel 1 was closed: Transport indicated EOF",
+            out,
+        )
         # this must terminate immediately
         self.driver.proc.wait(5)
         self.assertIsNotNone(self.driver.proc.returncode)
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test", "--reconnect"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+            "--reconnect",
+        ]
     )
     def test_reconnect_on_lost(self):
         # first connect successfully
@@ -113,20 +155,35 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
         # stop the broker
         self.driver.halt_amqp()
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("WARNING  hurricane.amqp.general Channel 1 was closed: Transport indicated EOF", out)
+        self.assertIn(
+            "WARNING  hurricane.amqp.general Channel 1 was closed: Transport indicated EOF",
+            out,
+        )
         self.assertIn("WARNING  hurricane.amqp.general Reconnecting after 1 ", out)
         self.driver.start_amqp()
         self._wait_for_queue()
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+        ]
     )
     def test_disconnect(self):
         self._wait_for_queue()
         self.driver.stop_consumer()
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.BindTestHandler", "--queue", "topic.read.consumer1", "--exchange", "test"]
+        args=[
+            "tests.testapp.consumer.BindTestHandler",
+            "--queue",
+            "topic.read.consumer1",
+            "--exchange",
+            "test",
+        ]
     )
     def test_topic_publish_receive(self):
         self._wait_for_queue("topic.read")

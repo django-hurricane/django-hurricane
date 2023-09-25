@@ -48,13 +48,19 @@ class Command(BaseCommand):
     help = "Start a Tornado-powered Django AMQP 0-9-1 consumer"
 
     def add_arguments(self, parser):
-
         """
         Defines arguments, that can be accepted with ``consume`` command.
         """
 
-        parser.add_argument("--queue", type=str, default="", help="The AMQP 0-9-1 queue to consume from")
-        parser.add_argument("--exchange", type=str, default="", help="The AMQP 0-9-1 exchange to declare")
+        parser.add_argument(
+            "--queue", type=str, default="", help="The AMQP 0-9-1 queue to consume from"
+        )
+        parser.add_argument(
+            "--exchange",
+            type=str,
+            default="",
+            help="The AMQP 0-9-1 exchange to declare",
+        )
         parser.add_argument(
             "--amqp-port",
             type=int,
@@ -70,7 +76,9 @@ class Command(BaseCommand):
             type=str,
             help="The virtual host of the message broker to use with this consumer",
         )
-        parser.add_argument("handler", type=str, help="The Hurricane AMQP handler class (dotted path)")
+        parser.add_argument(
+            "handler", type=str, help="The Hurricane AMQP handler class (dotted path)"
+        )
         parser.add_argument(
             "--liveness-probe",
             type=str,
@@ -95,11 +103,21 @@ class Command(BaseCommand):
             default=8001,
             help="The port for Tornado probe route to listen on",
         )
-        parser.add_argument("--req-queue-len", type=int, default=10, help="Length of the request queue")
-        parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
-        parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
-        parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
-        parser.add_argument("--debug", action="store_true", help="Set Tornado's Debug flag")
+        parser.add_argument(
+            "--req-queue-len", type=int, default=10, help="Length of the request queue"
+        )
+        parser.add_argument(
+            "--no-probe", action="store_true", help="Disable probe endpoint"
+        )
+        parser.add_argument(
+            "--no-metrics", action="store_true", help="Disable metrics collection"
+        )
+        parser.add_argument(
+            "--autoreload", action="store_true", help="Reload code on change"
+        )
+        parser.add_argument(
+            "--debug", action="store_true", help="Set Tornado's Debug flag"
+        )
         parser.add_argument(
             "--reconnect",
             action="store_true",
@@ -111,11 +129,13 @@ class Command(BaseCommand):
             help="Url for webhooks",
         )
         parser.add_argument(
-            "--max-lifetime", type=int, default=None, help="Maximum requests after which pod is restarted"
+            "--max-lifetime",
+            type=int,
+            default=None,
+            help="Maximum requests after which pod is restarted",
         )
 
     def handle(self, *args, **options):
-
         """
         Defines functionalities for different arguments. After all arguments were processed, it starts the async event
         loop.
@@ -144,7 +164,9 @@ class Command(BaseCommand):
         _amqp_consumer = import_string(options["handler"])
         if not issubclass(_amqp_consumer, _AMQPConsumer):
             logger.error(f"The type {_amqp_consumer} is not subclass of _AMQPConsumer")
-            raise CommandError("Cannot start the consumer due to an implementation error")
+            raise CommandError(
+                "Cannot start the consumer due to an implementation error"
+            )
 
         worker = AMQPClient(
             _amqp_consumer,
@@ -164,7 +186,9 @@ class Command(BaseCommand):
             sys.exit(0)
 
         for signame in ("SIGINT", "SIGTERM"):
-            loop.add_signal_handler(getattr(signal, signame), functools.partial(ask_exit, signame))
+            loop.add_signal_handler(
+                getattr(signal, signame), functools.partial(ask_exit, signame)
+            )
         end_time = time.time()
         time_elapsed = end_time - start_time
         StartupTimeMetric.set(time_elapsed)

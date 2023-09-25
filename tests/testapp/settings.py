@@ -22,7 +22,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__fil
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
-    "formatters": {"console": {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}},
+    "formatters": {
+        "console": {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}
+    },
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",

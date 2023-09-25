@@ -7,7 +7,6 @@ from tests.test_utils import BasicProperties, Channel, Connection, Deliver
 
 
 class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
-
     starting_amqp_message = "Starting a Tornado-powered Django AMQP consumer"
 
     def _wait_for_queue(self, queue_name="test"):
@@ -21,7 +20,14 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
             self.fail("AMQP consumer did not bind to test queue")
 
     @HurricaneAMQPTest.cycle_consumer(
-        args=["tests.testapp.consumer.MyTestHandler", "--queue", "test", "--exchange", "test", "--no_host_port"]
+        args=[
+            "tests.testapp.consumer.MyTestHandler",
+            "--queue",
+            "test",
+            "--exchange",
+            "test",
+            "--no_host_port",
+        ]
     )
     def test_empty_host(self):
         out, err = self.driver.get_output(read_all=True)
@@ -118,14 +124,20 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_amqp_message, out)
         self.assertIn(
-            "The type <class 'tests.testapp.consumer.IncorrectHandler'> is not subclass of _AMQPConsumer", out
+            "The type <class 'tests.testapp.consumer.IncorrectHandler'> is not subclass of _AMQPConsumer",
+            out,
         )
-        self.assertIn("CommandError: Cannot start the consumer due to an implementation error", out)
+        self.assertIn(
+            "CommandError: Cannot start the consumer due to an implementation error",
+            out,
+        )
 
     from hurricane.amqp.basehandler import _AMQPConsumer
     from hurricane.amqp.worker import AMQPClient
 
-    amqp_consumer = _AMQPConsumer(queue_name="test", exchange_name="test", host="localhost", port=8075)
+    amqp_consumer = _AMQPConsumer(
+        queue_name="test", exchange_name="test", host="localhost", port=8075
+    )
     amqp_client = AMQPClient(type(amqp_consumer), "test", "test", "test", 8083, "test")
     amqp_consumer._channel = Channel()
 
@@ -157,7 +169,6 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
         self.amqp_consumer.stop()
 
     def test_run_keyboard_interrupt(self):
-
         self.amqp_client._consumer._connection = Connection()
         import mock
 

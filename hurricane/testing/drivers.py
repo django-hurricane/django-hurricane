@@ -34,7 +34,9 @@ class HurricaneBaseDriver(object):
                 except OSError:
                     raise BusyPortException(f"Port {port} already in use.")
 
-    def get_server_host_port(self, probe_port=False) -> Union[Tuple[str, int], Tuple[None, None]]:
+    def get_server_host_port(
+        self, probe_port=False
+    ) -> Union[Tuple[str, int], Tuple[None, None]]:
         port = self.probe_port if probe_port else self.port
         if self.proc:
             return "localhost", port
@@ -82,7 +84,12 @@ class HurricaneBaseDriver(object):
         base_command = base_command + params
         self.set_ports(params)
 
-        self.proc = subprocess.Popen(base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self._get_env())
+        self.proc = subprocess.Popen(
+            base_command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self._get_env(),
+        )
         self.q = Queue()
         self.t_stderr = Thread(target=enqueue_stderr, args=(self.proc, self.q))
         self.t_stdout = Thread(target=enqueue_stdout, args=(self.proc, self.q))
@@ -133,7 +140,9 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+    def start_server(
+        self, params: dict = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
 
@@ -159,7 +168,9 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+    def start_server(
+        self, params: dict = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
 
@@ -185,7 +196,9 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+    def start_server(
+        self, params: dict = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env
         self._start(params, coverage)
 
@@ -230,18 +243,26 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         self.container = client.containers.get(c.id)
         # busy wait for rabbitmq to come up (timeout 20 seconds)
         for _ in range(40):
-            if "Ready to start client connection listeners" in self.container.logs().decode("utf-8"):
+            if (
+                "Ready to start client connection listeners"
+                in self.container.logs().decode("utf-8")
+            ):
                 break
             else:
                 sleep(0.5)
-        if "Ready to start client connection listeners" not in self.container.logs().decode("utf-8"):
+        if (
+            "Ready to start client connection listeners"
+            not in self.container.logs().decode("utf-8")
+        ):
             raise Exception("Could not successfully start AMQP broker")  # NOSONAR
 
     def get_test_publisher(self, vhost="/"):
         host, port = self.get_amqp_host_port()
         return TestPublisher(host, port, vhost)
 
-    def start_consumer(self, params: List[str] = None, coverage: bool = True, env: dict = None) -> None:
+    def start_consumer(
+        self, params: List[str] = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env
         self._start(params, coverage)
 
@@ -268,7 +289,9 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
 
     def _get_port(self):
         if hasattr(self, "container") and self.container:
-            self._temp_port = self.container.attrs["NetworkSettings"]["Ports"]["5672/tcp"][0]["HostPort"]
+            self._temp_port = self.container.attrs["NetworkSettings"]["Ports"][
+                "5672/tcp"
+            ][0]["HostPort"]
             return self._temp_port
         return None
 

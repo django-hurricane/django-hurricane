@@ -55,7 +55,9 @@ class DjangoStaticFilesHandler(DjangoHandler):
         """
         Initialization of Hurricane WSGI Container.
         """
-        self.django = HurricaneWSGIContainer(self, StaticFilesHandler(get_wsgi_application()))
+        self.django = HurricaneWSGIContainer(
+            self, StaticFilesHandler(get_wsgi_application())
+        )
 
 
 class DjangoProbeHandler(tornado.web.RequestHandler):
@@ -72,7 +74,9 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
         Setting of extra headers for cache-control, namely: no-store, no-cache, must-revalidate and max-age=0. It
         means that information on requests and responses will not be stored.
         """
-        self.set_header("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0")
+        self.set_header(
+            "Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"
+        )
 
     async def _check(self):
         """
@@ -141,13 +145,17 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
         if not metric.get():
             metric_change = True
             metric.set(metric_change)
-            self._send_webhook(metric, webhook, webhook_url, WebhookStatus.SUCCEEDED, metric_change)
+            self._send_webhook(
+                metric, webhook, webhook_url, WebhookStatus.SUCCEEDED, metric_change
+            )
 
     def _update_health_metric_exception(self, metric, webhook, webhook_url):
         if metric.get() or metric.get() is None:
             metric_change = False
             metric.set(metric_change)
-            self._send_webhook(metric, webhook, webhook_url, WebhookStatus.FAILED, metric_change)
+            self._send_webhook(
+                metric, webhook, webhook_url, WebhookStatus.FAILED, metric_change
+            )
 
     def _write_error(self, msg, e=None):
         if settings.DEBUG:
@@ -177,7 +185,9 @@ class DjangoLivenessHandler(DjangoProbeHandler):
         self.max_lifetime = max_lifetime
 
     async def _check(self):
-        await self._custom_check_wrapper(self.tag, self.metric, self.liveness_webhook, self.liveness_webhook_url)
+        await self._custom_check_wrapper(
+            self.tag, self.metric, self.liveness_webhook, self.liveness_webhook_url
+        )
 
     def _probe_check(self):
         if self.max_lifetime and RequestCounterMetric.get() > self.max_lifetime:
@@ -208,15 +218,21 @@ class DjangoReadinessHandler(DjangoProbeHandler):
         self.tag = "readiness"
 
     async def _check(self):
-        await self._custom_check_wrapper(self.tag, self.metric, self.readiness_webhook, self.readiness_webhook_url)
+        await self._custom_check_wrapper(
+            self.tag, self.metric, self.readiness_webhook, self.readiness_webhook_url
+        )
 
     def _probe_check(self):
         if RequestQueueLengthMetric.get() > self.request_queue_length:
             self.set_status(400)
-            self._update_health_metric_exception(self.metric, self.readiness_webhook, self.readiness_webhook_url)
+            self._update_health_metric_exception(
+                self.metric, self.readiness_webhook, self.readiness_webhook_url
+            )
         elif RequestQueueLengthMetric.get() <= self.request_queue_length:
             self.set_status(200)
-            self._update_health_metric_no_exception(self.metric, self.readiness_webhook, self.readiness_webhook_url)
+            self._update_health_metric_no_exception(
+                self.metric, self.readiness_webhook, self.readiness_webhook_url
+            )
 
 
 class DjangoStartupHandler(DjangoProbeHandler):
