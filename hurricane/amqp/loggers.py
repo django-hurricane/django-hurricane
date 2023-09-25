@@ -1,11 +1,10 @@
 try:
     import structlog
 
-    logger = structlog.get_logger(__name__)
+    logger = structlog.get_logger("hurricane.amqp.general")
+    metrics_log = logging.get_logger("hurricane.amqp.metrics")
 except ImportError:
     import logging
 
-    logger = logging.getLogger(__name__)
-
-logger = logging.getLogger("hurricane.amqp.general")
-metrics_log = logging.getLogger("hurricane.amqp.metrics")
+    logger = logging.getLogger("hurricane.amqp.general")
+    metrics_log = logging.getLogger("hurricane.amqp.metrics")

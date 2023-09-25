@@ -1,20 +1,9 @@
 import asyncio
-try:
-    import structlog
-
-    logger = structlog.get_logger(__name__)
-except ImportError:
-    import logging
-
-    logger = logging.getLogger(__name__)
-
 import tornado.web
 
 
 class K8sServerMetricsHandler(tornado.web.RequestHandler):
     """This handler reports current usage statistics to Kubernetes"""
-
-    logger = logging.getLogger()
 
     def get(self):
         # write custom metrics to MetricsAPI in the future
