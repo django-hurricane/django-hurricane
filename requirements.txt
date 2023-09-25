@@ -1,9 +1,9 @@
 django>2.2
-tornado~=6.1
+tornado>6.1
 locust>=1.4
 coverage>=5.3
-pika~=1.1.0
-docker~=4.1.0
+pika>1.1.0
+docker>4.1.0
 coveralls==2.2.0
 Sphinx==4.5.0
 sphinx-rtd-theme==1.0.0
