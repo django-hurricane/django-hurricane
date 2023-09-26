@@ -242,7 +242,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
             )
         self.container = client.containers.get(c.id)
         # busy wait for rabbitmq to come up (timeout 20 seconds)
-        for _ in range(40):
+        for _ in range(120):
             if (
                 "Ready to start client connection listeners"
                 in self.container.logs().decode("utf-8")
