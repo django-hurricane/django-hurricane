@@ -236,12 +236,12 @@ class Command(BaseCommand):
                 loop=loop,
             )
             exec_list.append(management_commands_wrapper)
-        if options["check_migrations"]:
+        if options["check_migrations"] or options["check_migrations_apply"]:
             check_db_and_migrations_wrapper = functools.partial(
                 check_db_and_migrations,
                 webhook_url=options["webhook_url"] or None,
                 loop=loop,
-                apply_migrations=True if options["check_migrations_apply"] else False,
+                apply_migration=True if options["check_migrations_apply"] else False,
             )
             exec_list.append(check_db_and_migrations_wrapper)
 

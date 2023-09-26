@@ -473,6 +473,7 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_check_databases_error(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+        print(out)
         self.assertIn(
             "Database command execution has failed with Fake cursor execute exception",
             out,
