@@ -11,8 +11,8 @@ jobs:
     concurrency: ci-${{ github.ref }}
     runs-on: ubuntu-latest
     strategy:
-      matrix:
-        max-parallel: 4
+      max-parallel: 4
+      matrix:  
         python-version: [ "3.8", "3.9", "3.10", "3.11" ]
     steps:
     - uses: actions/checkout@v3
