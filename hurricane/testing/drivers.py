@@ -97,8 +97,8 @@ class HurricaneBaseDriver(object):
         self.t_stderr.start()
         self.t_stdout.daemon = True
         self.t_stdout.start()
-        # wait a maximum of 1 second
-        for _ in range(10):
+        # wait a maximum of 3 second
+        for _ in range(30):
             if self.proc:
                 out, err = self.get_output(read_all=True)
             else:

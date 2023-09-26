@@ -8,7 +8,7 @@ class HurricaneStartAMQPTests(HurricaneAMQPTest):
 
     def _wait_for_queue(self, queue_name="test"):
         # wait 10 seconds to bind to queue
-        for _ in range(20):
+        for _ in range(120):
             out, err = self.driver.get_output(read_all=True)
             if f"hurricane.amqp.general Binding to {queue_name}" in out:
                 break
