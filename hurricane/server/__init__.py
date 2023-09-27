@@ -1,6 +1,4 @@
 import asyncio
-import glob
-import os
 import signal
 import sys
 import time
@@ -13,7 +11,11 @@ from django.core.management import call_command
 from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
 
-from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
+from hurricane.metrics import (
+    RequestCounterMetric,
+    ResponseTimeAverageMetric,
+    StartupTimeMetric,
+)
 from hurricane.server.django import (
     DjangoHandler,
     DjangoLivenessHandler,
@@ -111,7 +113,9 @@ def make_http_server(options, check_func, include_probe=False):
         handlers = []
     # if static file serving is enabled
     if options["static"]:
-        logger.info(f"Serving static files under {settings.STATIC_URL} from {settings.STATIC_ROOT}")
+        logger.info(
+            f"Serving static files under {settings.STATIC_URL} from {settings.STATIC_ROOT}"
+        )
         if settings.DEBUG and "django.contrib.staticfiles" in settings.INSTALLED_APPS:
             handlers.append(
                 (
@@ -129,7 +133,9 @@ def make_http_server(options, check_func, include_probe=False):
             )
     # if media file serving is enabled
     if options["media"]:
-        logger.info(f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}")
+        logger.info(
+            f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}"
+        )
         handlers.append(
             (
                 f"{settings.MEDIA_URL}(.*)",
@@ -140,14 +146,20 @@ def make_http_server(options, check_func, include_probe=False):
 
     # append the django routing system
     handlers.append((".*", DjangoHandler))
-    return HurricaneApplication(handlers, debug=options["debug"], metrics=not options["no_metrics"])
+    return HurricaneApplication(
+        handlers, debug=options["debug"], metrics=not options["no_metrics"]
+    )
 
 
-def make_http_server_and_listen(start_time: float, options: dict, check: Callable, include_probe: bool) -> None:
+def make_http_server_and_listen(
+    start_time: float, options: dict, check: Callable, include_probe: bool
+) -> None:
     logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
     django_application.listen(options["port"])
-    StartupWebhook().run(url=options["webhook_url"] or None, status=WebhookStatus.SUCCEEDED)
+    StartupWebhook().run(
+        url=options["webhook_url"] or None, status=WebhookStatus.SUCCEEDED
+    )
     end_time = time.time()
     time_elapsed = end_time - start_time
     # if startup time metric value is set - startup process is finished
@@ -155,13 +167,18 @@ def make_http_server_and_listen(start_time: float, options: dict, check: Callabl
     logger.info(f"Startup time is {time_elapsed} seconds")
 
 
-def command_task(commands: list, webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None) -> None:
+def command_task(
+    commands: list,
+    webhook_url: str = None,
+    loop: asyncio.unix_events.SelectorEventLoop = None,
+) -> None:
     logger.info("Starting execution of management commands")
     for command in commands:
-
         # split a command string to get command options
         command_split = command[0].split()
-        logger.info(f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}")
+        logger.info(
+            f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}"
+        )
         start_time_command = time.time()
         # call management command
         try:
@@ -182,7 +199,9 @@ def command_task(commands: list, webhook_url: str = None, loop: asyncio.unix_eve
 
         end_time_command = time.time()
 
-        logger.info(f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds")
+        logger.info(
+            f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds"
+        )
 
 
 def check_databases():
@@ -221,7 +240,9 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def check_db_and_migrations(
-    webhook_url: str = None, loop: asyncio.unix_events.SelectorEventLoop = None, apply_migration: bool = False
+    webhook_url: str = None,
+    loop: asyncio.unix_events.SelectorEventLoop = None,
+    apply_migration: bool = False,
 ):
     try:
         while check_databases():
@@ -241,17 +262,26 @@ def check_db_and_migrations(
         logger.info("Webhook with a status warning has been initiated")
 
         StartupWebhook().run(
-            url=webhook_url or None, error_trace=error_trace, close_loop=True, status=WebhookStatus.WARNING, loop=loop
+            url=webhook_url or None,
+            error_trace=error_trace,
+            close_loop=True,
+            status=WebhookStatus.WARNING,
+            loop=loop,
         )
         raise e
 
 
 def sanitize_probes(options):
-
     # sanitize probe paths
-    options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}".replace(" ", "")
-    options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}".replace(" ", "")
-    options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}".replace(" ", "")
+    options["liveness_probe"] = f"/{options['liveness_probe'].lstrip('/')}".replace(
+        " ", ""
+    )
+    options["readiness_probe"] = f"/{options['readiness_probe'].lstrip('/')}".replace(
+        " ", ""
+    )
+    options["startup_probe"] = f"/{options['startup_probe'].lstrip('/')}".replace(
+        " ", ""
+    )
 
     representations = {
         "liveness_probe": options["liveness_probe"],

@@ -41,12 +41,19 @@ class AMQPClient(object):
         else:
             password = None
 
-        self._consumer_args = (queue_name, exchange_name, amqp_host, amqp_port, amqp_vhost, user, password)
+        self._consumer_args = (
+            queue_name,
+            exchange_name,
+            amqp_host,
+            amqp_port,
+            amqp_vhost,
+            user,
+            password,
+        )
         self._consumer_klass = consumer_klass
         self._consumer = self._consumer_klass(*self._consumer_args)
 
     def run(self, reconnect: bool = False) -> None:
-
         """
         If reconnect is True, AMQP consumer is running in auto-connect mode.
         In this case consumer will be executed. If any exception occurs, consumer will be disconnected and after some

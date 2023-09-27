@@ -1,7 +1,5 @@
 import http
 import json
-import logging
-
 import pika
 import tornado.ioloop
 import tornado.web
@@ -48,8 +46,15 @@ class TestPublisher(object):
 
 
 class LoggingServer:
-    logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger()
+    try:
+        import structlog
+
+        logger = structlog.get_logger(__name__)
+    except ImportError:
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logging.basicConfig(level=logging.INFO)
 
 
 class WebhookTestHandler(tornado.web.RequestHandler, LoggingServer):

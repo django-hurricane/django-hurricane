@@ -34,7 +34,9 @@ class HurricaneBaseDriver(object):
                 except OSError:
                     raise BusyPortException(f"Port {port} already in use.")
 
-    def get_server_host_port(self, probe_port=False) -> Union[Tuple[str, int], Tuple[None, None]]:
+    def get_server_host_port(
+        self, probe_port=False
+    ) -> Union[Tuple[str, int], Tuple[None, None]]:
         port = self.probe_port if probe_port else self.port
         if self.proc:
             return "localhost", port
@@ -82,7 +84,12 @@ class HurricaneBaseDriver(object):
         base_command = base_command + params
         self.set_ports(params)
 
-        self.proc = subprocess.Popen(base_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=self._get_env())
+        self.proc = subprocess.Popen(
+            base_command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=self._get_env(),
+        )
         self.q = Queue()
         self.t_stderr = Thread(target=enqueue_stderr, args=(self.proc, self.q))
         self.t_stdout = Thread(target=enqueue_stdout, args=(self.proc, self.q))
@@ -90,8 +97,8 @@ class HurricaneBaseDriver(object):
         self.t_stderr.start()
         self.t_stdout.daemon = True
         self.t_stdout.start()
-        # wait a maximum of 1 second
-        for _ in range(10):
+        # wait a maximum of 3 second
+        for _ in range(30):
             if self.proc:
                 out, err = self.get_output(read_all=True)
             else:
@@ -133,7 +140,9 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+    def start_server(
+        self, params: dict = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
 
@@ -159,7 +168,9 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+    def start_server(
+        self, params: dict = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
 
@@ -185,7 +196,9 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
         env.update(self._env)
         return env
 
-    def start_server(self, params: dict = None, coverage: bool = True, env: dict = None) -> None:
+    def start_server(
+        self, params: dict = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env
         self._start(params, coverage)
 
@@ -218,30 +231,38 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
                 "quay.io/blueshoe/rabbitmq3.8-alpine",
                 auto_remove=True,
                 detach=True,
-                ports={"5672": ("127.0.0.1", self._temp_port)},
+                ports={"5672": self._temp_port},
             )
         else:
             c = client.containers.run(
                 "quay.io/blueshoe/rabbitmq3.8-alpine",
                 auto_remove=True,
                 detach=True,
-                ports={"5672": ("127.0.0.1", None)},
+                ports={"5672": None},
             )
         self.container = client.containers.get(c.id)
         # busy wait for rabbitmq to come up (timeout 20 seconds)
-        for _ in range(40):
-            if "Ready to start client connection listeners" in self.container.logs().decode("utf-8"):
+        for _ in range(120):
+            if (
+                "Ready to start client connection listeners"
+                in self.container.logs().decode("utf-8")
+            ):
                 break
             else:
                 sleep(0.5)
-        if "Ready to start client connection listeners" not in self.container.logs().decode("utf-8"):
+        if (
+            "Ready to start client connection listeners"
+            not in self.container.logs().decode("utf-8")
+        ):
             raise Exception("Could not successfully start AMQP broker")  # NOSONAR
 
     def get_test_publisher(self, vhost="/"):
         host, port = self.get_amqp_host_port()
         return TestPublisher(host, port, vhost)
 
-    def start_consumer(self, params: List[str] = None, coverage: bool = True, env: dict = None) -> None:
+    def start_consumer(
+        self, params: List[str] = None, coverage: bool = True, env: dict = None
+    ) -> None:
         self._env = env
         self._start(params, coverage)
 
@@ -268,7 +289,11 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
 
     def _get_port(self):
         if hasattr(self, "container") and self.container:
-            self._temp_port = self.container.attrs["NetworkSettings"]["Ports"]["5672/tcp"][0]["HostPort"]
+            client = docker.from_env()
+            self.container = client.containers.get(self.container.id)
+            self._temp_port = self.container.attrs["NetworkSettings"]["Ports"][
+                "5672/tcp"
+            ][0]["HostPort"]
             return self._temp_port
         return None
 

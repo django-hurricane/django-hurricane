@@ -27,7 +27,9 @@ class HeavyHurricaneWebsiteUser(HurricaneWebsiteUser):
 @events.quitting.add_listener
 def _(environment, **kw):
     logging.info(f"Average response time: {environment.stats.total.avg_response_time}")
-    logging.info(f"95th percentile response time: {environment.stats.total.get_response_time_percentile(0.95)}")
+    logging.info(
+        f"95th percentile response time: {environment.stats.total.get_response_time_percentile(0.95)}"
+    )
     if environment.stats.total.fail_ratio > 0.025:
         logging.error("Test failed due to failure ratio > 2.5%")
         environment.process_exit_code = 1
