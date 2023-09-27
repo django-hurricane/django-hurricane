@@ -1,6 +1,6 @@
 -r ../requirements.txt
 Sphinx==4.5.0
-Pygments==2.7.4
+Pygments==2.15.0
 sphinx-rtd-theme==1.0.0
 Jinja2==2.11.3
 MarkupSafe==2.0.1
