@@ -43,11 +43,11 @@ jobs:
       run: poetry install --no-interaction
     - name: Test with django tests
       run: |
-        coverage run manage.py test
+        poetry run coverage run manage.py test
 
     - name: Combine coverage
       run: |
-        coverage combine
+        poetry run coverage combine
 
     - name: Upload coverage data to coveralls.io
       # https://coveralls-python.readthedocs.io/en/latest/usage/configuration.html#configuration
@@ -57,7 +57,7 @@ jobs:
         COVERALLS_FLAG_NAME: ${{ matrix.python-version }}
         COVERALLS_PARALLEL: true
       run: |
-        coveralls --service=github
+        poetry run coveralls --service=github
 
   coveralls:
     name: Indicate completion to coveralls.io
