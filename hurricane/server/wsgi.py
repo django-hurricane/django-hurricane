@@ -1,10 +1,7 @@
-from io import BytesIO
-import sys
 from types import TracebackType
-from typing import Any, Callable, Dict, List, Optional, Text, Tuple, Type
+from typing import Any, Callable, List, Optional, Tuple, Type
 
 import tornado.wsgi
-from tornado.concurrent import dummy_executor
 from asgiref.sync import sync_to_async
 from tornado import escape, httputil
 

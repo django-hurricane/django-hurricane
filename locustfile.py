@@ -1,6 +1,6 @@
 import logging
 
-from locust import HttpUser, between, events, task
+from locust import between, events, task
 from locust.contrib.fasthttp import FastHttpUser
 
 

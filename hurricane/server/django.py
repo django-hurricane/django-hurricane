@@ -166,7 +166,8 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
     def _send_webhook(self, metric, webhook, webhook_url, status, metric_change):
         if webhook_url:
             logger.info(
-                f"{metric.code.capitalize()} metric changed to {metric_change}. {webhook.code.capitalize()} webhook with status {status} triggered"
+                f"{metric.code.capitalize()} metric changed to {metric_change}. "
+                f"{webhook.code.capitalize()} webhook with status {status} triggered"
             )
             webhook().run(url=webhook_url, status=status)
 

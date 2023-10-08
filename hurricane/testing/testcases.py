@@ -1,4 +1,3 @@
-import tornado.web
 from django.test import SimpleTestCase
 
 from hurricane.kubernetes import K8sServerMetricsHandler

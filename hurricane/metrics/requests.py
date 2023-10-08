@@ -1,11 +1,6 @@
 import asyncio
 
-from hurricane.metrics.base import (
-    AverageMetric,
-    CalculatedMetric,
-    CounterMetric,
-    StoredMetric,
-)
+from hurricane.metrics.base import AverageMetric, CalculatedMetric, CounterMetric, StoredMetric
 
 
 class RequestCounterMetric(CounterMetric):
