@@ -4,7 +4,7 @@ import subprocess
 from queue import Empty, Queue
 from threading import Thread
 from time import sleep
-from typing import List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 import docker
 
@@ -19,9 +19,9 @@ class BusyPortException(Exception):
 
 class HurricaneBaseDriver(object):
     proc = None
-    log_lines = []
-    base_command = []
-    coverage_base_command = []
+    log_lines: List[str] = []
+    base_command: List[str] = []
+    coverage_base_command: List[str] = []
     test_string = ""
     ports = [8000, 8001]
     source = "--source=hurricane/"
@@ -43,7 +43,7 @@ class HurricaneBaseDriver(object):
         else:
             return None, None
 
-    def get_output(self, read_all=False) -> Tuple[str, str]:
+    def get_output(self, read_all=False) -> Optional[Tuple[str, str]]:
         if read_all:
             while True:
                 try:
@@ -57,13 +57,14 @@ class HurricaneBaseDriver(object):
                 line = self.q.get(timeout=1)
                 if line:
                     return line, ""
+                return "", ""
             except Empty:
-                pass
+                return None
 
     def _get_env(self):
         return os.environ.copy()
 
-    def _start(self, params: List[str] = None, coverage: bool = True) -> None:
+    def _start(self, params: Optional[List[str]] = None, coverage: bool = True) -> None:
         self.log_lines = []
         base_command = self.coverage_base_command if coverage else self.base_command
 
@@ -84,13 +85,13 @@ class HurricaneBaseDriver(object):
         base_command = base_command + params
         self.set_ports(params)
 
-        self.proc = subprocess.Popen(
+        self.proc = subprocess.Popen(  # type: ignore
             base_command,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             env=self._get_env(),
         )
-        self.q = Queue()
+        self.q = Queue()  # type: Queue
         self.t_stderr = Thread(target=enqueue_stderr, args=(self.proc, self.q))
         self.t_stdout = Thread(target=enqueue_stdout, args=(self.proc, self.q))
         self.t_stderr.daemon = True
@@ -100,7 +101,7 @@ class HurricaneBaseDriver(object):
         # wait a maximum of 3 second
         for _ in range(30):
             if self.proc:
-                out, err = self.get_output(read_all=True)
+                out, err = self.get_output(read_all=True)  # type: ignore
             else:
                 out = ""
             if self.test_string in out:
@@ -133,7 +134,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", MANAGE_FILE, "serve"]
     test_string = "Tornado-powered Django web server"
-    _env = {}
+    _env: Optional[Dict] = {}
 
     def _get_env(self):
         env = super(HurricaneServerDriver, self)._get_env()
@@ -141,7 +142,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         return env
 
     def start_server(
-        self, params: dict = None, coverage: bool = True, env: dict = None
+        self, params: Optional[List[str]] = None, coverage: bool = True, env: Optional[Dict] = None
     ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
@@ -161,7 +162,7 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
     test_string = "Started webhook receiver server"
-    _env = {}
+    _env : Optional[Dict] = {}
 
     def _get_env(self):
         env = super(HurricaneWebhookServerDriver, self)._get_env()
@@ -169,7 +170,7 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         return env
 
     def start_server(
-        self, params: dict = None, coverage: bool = True, env: dict = None
+        self, params: Optional[List[str]] = None, coverage: bool = True, env: Optional[Dict] = None
     ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
@@ -189,7 +190,7 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", "-m", "hurricane.testing.start_k8s_server"]
     test_string = "Started K8s server"
-    _env = {}
+    _env: Optional[Dict] = {}
 
     def _get_env(self):
         env = super(HurricaneK8sServerDriver, self)._get_env()
@@ -197,9 +198,10 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
         return env
 
     def start_server(
-        self, params: dict = None, coverage: bool = True, env: dict = None
+        self, params: Optional[List] = None, coverage: bool = True, env: Optional[Dict] = None
     ) -> None:
-        self._env = env
+        if env:
+            self._env = env
         self._start(params, coverage)
 
     def stop_server(self) -> None:
@@ -217,7 +219,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     base_command = ["python", MANAGE_FILE, "consume"]
     test_string = "Starting a Tornado-powered Django AMQP consumer"
     ports = [5672, 8000, 8001]
-    _env = {}
+    _env: Dict = {}
 
     def _get_env(self):
         env = super(HurricaneAMQPDriver, self)._get_env()
@@ -226,7 +228,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
 
     def start_amqp(self) -> None:
         client = docker.from_env()
-        if hasattr(self, "container") and self.container:
+        if hasattr(self, "container") and self.container:  # type: ignore
             c = client.containers.run(
                 "quay.io/blueshoe/rabbitmq3.8-alpine",
                 auto_remove=True,
@@ -261,7 +263,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         return TestPublisher(host, port, vhost)
 
     def start_consumer(
-        self, params: List[str] = None, coverage: bool = True, env: dict = None
+        self, params: Optional[List[str]] = None, coverage: bool = True, env: Dict = {}
     ) -> None:
         self._env = env
         self._start(params, coverage)
@@ -278,7 +280,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     def halt_amqp(self) -> None:
         if hasattr(self, "container") and self.container:
             try:
-                _, self._temp_port = self.get_amqp_host_port()
+                _, self._temp_port = self.get_amqp_host_port()  # type: Tuple[Optional[str], Optional[int]]
                 self.container.kill()
             except Exception:
                 # this container is potentially already stopped
@@ -287,7 +289,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     def stop_consumer(self) -> None:
         self._stop()
 
-    def _get_port(self):
+    def _get_port(self) -> Optional[int]:
         if hasattr(self, "container") and self.container:
             client = docker.from_env()
             self.container = client.containers.get(self.container.id)
@@ -297,7 +299,7 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
             return self._temp_port
         return None
 
-    def get_amqp_host_port(self) -> Union[Tuple[str, int], Tuple[None, None]]:
+    def get_amqp_host_port(self) -> Tuple[Optional[str], Optional[int]]:
         if port := self._get_port():
             return "127.0.0.1", port
         else:

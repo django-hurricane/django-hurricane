@@ -1,10 +1,13 @@
+from typing import Any
+
+
 class StoredMetric:
     """
     Base class for storing metrics in registry.
     """
 
-    code = None
-    value = None
+    code: str
+    value: Any
 
     def __init__(self, code=None, initial=None):
         if code:
@@ -42,7 +45,7 @@ class StoredMetric:
 
 
 class CalculatedMetric:
-    code = None
+    code: str
 
     def __init__(self, code=None):
         if code:

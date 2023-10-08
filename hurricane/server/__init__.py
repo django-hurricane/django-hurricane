@@ -3,7 +3,7 @@ import signal
 import sys
 import time
 import traceback
-from typing import Callable
+from typing import Callable, Optional
 
 import tornado
 from django.conf import settings
@@ -11,7 +11,11 @@ from django.core.management import call_command
 from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
 
-from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
+from hurricane.metrics import (
+    RequestCounterMetric,
+    ResponseTimeAverageMetric,
+    StartupTimeMetric,
+)
 from hurricane.server.django import (
     DjangoHandler,
     DjangoLivenessHandler,
@@ -31,7 +35,7 @@ class HurricaneApplication(tornado.web.Application):
             self.collect_metrics = kwargs["metrics"]
         super(HurricaneApplication, self).__init__(*args, **kwargs)
 
-    def log_request(self, handler: DjangoHandler) -> None:
+    def log_request(self, handler: tornado.web.RequestHandler) -> None:
         """Writes a completed HTTP request to the logs."""
         if handler.get_status() < 400:
             log_method = access_log.info
@@ -52,10 +56,10 @@ class HurricaneApplication(tornado.web.Application):
 
 
 class HurricaneProbeApplication(HurricaneApplication):
-    def log_request(self, handler: DjangoHandler) -> None:
+    def log_request(self, handler: tornado.web.RequestHandler) -> None:
         """Writes a completed HTTP probe request to the logs."""
         if getattr(settings, "LOG_PROBES", False):
-            super(HurricaneProbeApplication, self).log_request(handler)
+            super(HurricaneProbeApplication, self).log_request(handler)  # type: ignore
         return
 
 
@@ -165,8 +169,8 @@ def make_http_server_and_listen(
 
 def command_task(
     commands: list,
-    webhook_url: str = None,
-    loop: asyncio.unix_events.SelectorEventLoop = None,
+    webhook_url: Optional[str] = None,
+    loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
 ) -> None:
     logger.info("Starting execution of management commands")
     for command in commands:
@@ -236,8 +240,8 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def check_db_and_migrations(
-    webhook_url: str = None,
-    loop: asyncio.unix_events.SelectorEventLoop = None,
+    webhook_url: Optional[str] = None,
+    loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
     apply_migration: bool = False,
 ):
     try:

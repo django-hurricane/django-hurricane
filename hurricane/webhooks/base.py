@@ -24,8 +24,8 @@ class Webhook:
     Base class for webhooks in the registry. Run function initiates sending of webhook to the specified url.
     """
 
-    code = None
-    data = {}
+    code: str
+    data: typing.Dict = {}
 
     def __init__(self, code=None):
         if code:
@@ -43,9 +43,9 @@ class Webhook:
 
     def run(
         self,
-        url: str,
+        url: typing.Optional[str],
         status: WebhookStatus,
-        error_trace: str = None,
+        error_trace: typing.Optional[str] = None,
         close_loop: bool = False,
         loop=None,
     ):
@@ -63,7 +63,8 @@ class Webhook:
         """
 
         if url:
-            self.set_traceback(error_trace)
+            if error_trace:
+                self.set_traceback(error_trace)
             self.set_status(status)
             self.set_timestamp()
             self.set_podname()

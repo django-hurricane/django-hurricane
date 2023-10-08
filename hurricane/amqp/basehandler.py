@@ -1,5 +1,5 @@
 import functools
-from typing import List
+from typing import List, Optional
 
 import pika
 from pika.adapters.tornado_connection import TornadoConnection
@@ -16,7 +16,7 @@ class _AMQPConsumer:
     that reconnection is necessary.
     """
 
-    EXCHANGE_TYPE = None
+    EXCHANGE_TYPE: str
 
     def __init__(
         self,
@@ -24,9 +24,9 @@ class _AMQPConsumer:
         exchange_name: str,
         host: str,
         port: int,
-        vhost: str = None,
-        username: str = None,
-        password: str = None,
+        vhost: Optional[str] = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
     ):
         """
         Create a new instance of the consumer class, passing in the AMQP
@@ -43,8 +43,8 @@ class _AMQPConsumer:
         self._username = username
         self._password = password
 
-        self._connection = None
-        self._channel = None
+        self._connection: TornadoConnection
+        self._channel: Optional[pika.channel.Channel] = None
         self._closing = False
         self._consumer_tag = None
         self._consuming = False
@@ -192,9 +192,10 @@ class _AMQPConsumer:
         # Note: using functools.partial is not required, it is demonstrating
         # how arbitrary data can be passed to the callback when it is called
         cb = functools.partial(self.on_exchange_declareok, userdata=exchange_name)
-        self._channel.exchange_declare(
-            exchange=exchange_name, exchange_type=self.EXCHANGE_TYPE, callback=cb
-        )
+        if self._channel:
+            self._channel.exchange_declare(
+                exchange=exchange_name, exchange_type=self.EXCHANGE_TYPE, callback=cb
+            )
 
     def on_exchange_declareok(
         self, _unused_frame: pika.frame.Method, userdata: str
@@ -216,8 +217,8 @@ class _AMQPConsumer:
         """
 
         logger.info(f"Declaring queue {queue_name}")
-        cb = functools.partial(self.on_queue_declareok, userdata=queue_name)
-        self._channel.queue_declare(queue=queue_name, callback=cb)
+        cb = functools.partial(self.on_queue_declareok, userdata=queue_name)  # type: ignore
+        self._channel.queue_declare(queue=queue_name, callback=cb)  # type: ignore
 
     def get_routing_keys(self, queue_name: str) -> List[str]:
         """
@@ -245,23 +246,25 @@ class _AMQPConsumer:
         if len(routing_keys) == 0:
             # no routing key applicable
             cb = functools.partial(self.on_bindok, queue_name=queue_name)
-            self._channel.queue_bind(
-                queue_name, exchange=self._exchange_name, callback=cb
-            )
+            if self._channel:
+                self._channel.queue_bind(
+                    queue_name, exchange=self._exchange_name, callback=cb
+                )
         else:
             for routing_key in routing_keys:
                 cb = functools.partial(
                     self.on_bindok, queue_name=queue_name, routing_key=routing_key
                 )
-                self._channel.queue_bind(
-                    queue_name,
-                    routing_key=routing_key,
-                    exchange=self._exchange_name,
-                    callback=cb,
-                )
+                if self._channel:
+                    self._channel.queue_bind(
+                        queue_name,
+                        routing_key=routing_key,
+                        exchange=self._exchange_name,
+                        callback=cb,
+                    )
 
     def on_bindok(
-        self, _unused_frame: pika.frame.Method, queue_name: str, routing_key: str = None
+        self, _unused_frame: pika.frame.Method, queue_name: str, routing_key: Optional[str] = None
     ):
         """
         Invoked by pika when the Queue.Bind method has completed. At this
@@ -281,10 +284,10 @@ class _AMQPConsumer:
         before the broker will deliver another one. You should experiment
         with different prefetch values to achieve desired performance.
         """
-
-        self._channel.basic_qos(
-            prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok
-        )
+        if self._channel:
+            self._channel.basic_qos(
+                prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok
+            )
 
     def on_basic_qos_ok(self, _unused_frame) -> None:
         """
@@ -306,11 +309,12 @@ class _AMQPConsumer:
 
         logger.info("Issuing consumer")
         self.add_on_cancel_callback()
-        self._consumer_tag = self._channel.basic_consume(
-            self._queue_name, self.on_message
-        )
-        self.was_consuming = True
-        self._consuming = True
+        if self._channel:
+            self._consumer_tag = self._channel.basic_consume(
+                self._queue_name, self.on_message
+            )
+            self.was_consuming = True
+            self._consuming = True
 
     def add_on_cancel_callback(self) -> None:
         """
@@ -320,7 +324,8 @@ class _AMQPConsumer:
         """
 
         logger.info("Adding consumer cancellation callback")
-        self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
+        if self._channel:
+            self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
 
     def on_consumer_cancelled(self, method_frame: pika.frame.Method) -> None:
         """
@@ -361,7 +366,8 @@ class _AMQPConsumer:
         """
 
         logger.info("Acknowledging message %s", delivery_tag)
-        self._channel.basic_ack(delivery_tag)
+        if self._channel:
+            self._channel.basic_ack(delivery_tag)
 
     def reject_message(self, delivery_tag, requeue: bool = False) -> None:
         """
@@ -369,7 +375,8 @@ class _AMQPConsumer:
         """
 
         logger.info("Rejecting message %s", delivery_tag)
-        self._channel.basic_nack(delivery_tag, requeue=requeue)
+        if self._channel:
+            self._channel.basic_nack(delivery_tag, requeue=requeue)
 
     def stop_consuming(self) -> None:
         """
@@ -403,7 +410,8 @@ class _AMQPConsumer:
         """
 
         logger.info("Closing the channel")
-        self._channel.close()
+        if self._channel:
+            self._channel.close()
 
     def run(self) -> None:
         """
@@ -425,9 +433,11 @@ class _AMQPConsumer:
             if self._consuming:
                 self.stop_consuming()
                 logger.info("Start called")
-                self._connection.ioloop.stop()
+                if self._connection:
+                    self._connection.ioloop.stop()
             else:
-                self._connection.ioloop.stop()
+                if self._connection:
+                    self._connection.ioloop.stop()
             logger.info("Stopped consuming")
 
 

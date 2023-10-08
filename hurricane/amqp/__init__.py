@@ -1,1 +1,1 @@
-from hurricane.amqp.loggers import logger  # noqa: E401
+from hurricane.amqp.loggers import logger  # noqa: F401
