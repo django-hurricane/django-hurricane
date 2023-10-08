@@ -142,7 +142,10 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         return env
 
     def start_server(
-        self, params: Optional[List[str]] = None, coverage: bool = True, env: Optional[Dict] = None
+        self,
+        params: Optional[List[str]] = None,
+        coverage: bool = True,
+        env: Optional[Dict] = None,
     ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
@@ -162,7 +165,7 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", "-m", "hurricane.testing.start_webhook_receiver"]
     test_string = "Started webhook receiver server"
-    _env : Optional[Dict] = {}
+    _env: Optional[Dict] = {}
 
     def _get_env(self):
         env = super(HurricaneWebhookServerDriver, self)._get_env()
@@ -170,7 +173,10 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         return env
 
     def start_server(
-        self, params: Optional[List[str]] = None, coverage: bool = True, env: Optional[Dict] = None
+        self,
+        params: Optional[List[str]] = None,
+        coverage: bool = True,
+        env: Optional[Dict] = None,
     ) -> None:
         self._env = env or dict()
         self._start(params, coverage)
@@ -198,7 +204,10 @@ class HurricaneK8sServerDriver(HurricaneBaseDriver):
         return env
 
     def start_server(
-        self, params: Optional[List] = None, coverage: bool = True, env: Optional[Dict] = None
+        self,
+        params: Optional[List] = None,
+        coverage: bool = True,
+        env: Optional[Dict] = None,
     ) -> None:
         if env:
             self._env = env
@@ -280,7 +289,12 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
     def halt_amqp(self) -> None:
         if hasattr(self, "container") and self.container:
             try:
-                _, self._temp_port = self.get_amqp_host_port()  # type: Tuple[Optional[str], Optional[int]]
+                (
+                    _,
+                    self._temp_port,
+                ) = (
+                    self.get_amqp_host_port()
+                )  # type: Tuple[Optional[str], Optional[int]]
                 self.container.kill()
             except Exception:
                 # this container is potentially already stopped

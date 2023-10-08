@@ -1,5 +1,5 @@
 from types import TracebackType
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Callable, List, Optional, Tuple, Type
 
 import tornado.wsgi
 from asgiref.sync import sync_to_async

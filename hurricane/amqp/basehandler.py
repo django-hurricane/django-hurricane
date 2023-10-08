@@ -264,7 +264,10 @@ class _AMQPConsumer:
                     )
 
     def on_bindok(
-        self, _unused_frame: pika.frame.Method, queue_name: str, routing_key: Optional[str] = None
+        self,
+        _unused_frame: pika.frame.Method,
+        queue_name: str,
+        routing_key: Optional[str] = None,
     ):
         """
         Invoked by pika when the Queue.Bind method has completed. At this

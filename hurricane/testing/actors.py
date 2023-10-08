@@ -32,7 +32,7 @@ class HTTPClient(object):
     def post(self, path: str, data: dict) -> Response:
         self.conn.request("POST", path, json.dumps(data).encode())
         res = self.conn.getresponse()
-        datas = res.read()  #  type: bytes
+        datas = res.read()  # type: bytes
         return self.Response({"status": res.status, "text": datas.decode("utf-8")})
 
 
