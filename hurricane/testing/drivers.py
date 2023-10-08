@@ -101,7 +101,7 @@ class HurricaneBaseDriver(object):
         # wait a maximum of 3 second
         for _ in range(30):
             if self.proc:
-                out, err = self.get_output(read_all=True)  # type: ignore
+                out, _ = self.get_output(read_all=True)  # type: ignore
             else:
                 out = ""
             if self.test_string in out:
@@ -134,7 +134,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
     ]
     base_command = ["python", MANAGE_FILE, "serve"]
     test_string = "Tornado-powered Django web server"
-    _env: Optional[Dict] = {}
+    _env: Dict = {}
 
     def _get_env(self):
         env = super(HurricaneServerDriver, self)._get_env()
