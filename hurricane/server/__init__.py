@@ -11,7 +11,11 @@ from django.core.management import call_command
 from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
 
-from hurricane.metrics import RequestCounterMetric, ResponseTimeAverageMetric, StartupTimeMetric
+from hurricane.metrics import (
+    RequestCounterMetric,
+    ResponseTimeAverageMetric,
+    StartupTimeMetric,
+)
 from hurricane.server.django import (
     DjangoHandler,
     DjangoLivenessHandler,

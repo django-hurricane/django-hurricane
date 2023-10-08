@@ -57,6 +57,9 @@ django-stubs = {extras = ["compatible-mypy"], version = "^4.2.4"}
 isort = "^5.12.0"
 types-requests = "^2.31.0.8"
 
+[tool.isort]
+profile = "black"
+
 [tool.mypy]
 exclude = ["tests", "docs"]
 ignore_missing_imports = true
