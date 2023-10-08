@@ -396,7 +396,7 @@ class HurricanStartServerTests(HurricanServerTest):
         webhook_registry.register(StartupWebhook)
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-    
+
     # does not work on GH yet
     # @HurricanServerTest.cycle_server
     # def test_busy_port(self):
