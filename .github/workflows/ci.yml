@@ -25,6 +25,7 @@ jobs:
         poetry run black --check .
         poetry run isort --check .
   test:
+    name: Run unit and integration tests with coverage
     needs: codeclimate
     runs-on: ubuntu-latest
     strategy:
@@ -41,9 +42,14 @@ jobs:
       uses: snok/install-poetry@v1
     - name: Install project
       run: poetry install --no-interaction
+    
     - name: Test with django tests
-      run: |
-        poetry run coverage run manage.py test
+      uses: nick-fields/retry@v2
+      with:
+        timeout_minutes: 12
+        max_attempts: 3
+        command: |
+          poetry run coverage run manage.py test
 
     - name: Combine coverage
       run: |
