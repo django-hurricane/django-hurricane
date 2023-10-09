@@ -48,7 +48,7 @@ We will collect best-practices and opinions about how to run Django in Kubernete
 
 ### Application Server
 Why another app server instead of *uwsgi*, *gunicorn* or *mod_wsgi*? We need a cloud-native app server which is
-much more tidily coupled to the Django application itself. Think of special url routes for Kubernetes probes! Building a
+much more tidily coupled to the Django application itself. Think of special URL routes for Kubernetes probes! Building a
 special View in each and every Django application is not an appropriate solution. What about the Kubernetes Metrics API?
 That's all something we **don't** want to take care of in our Django code.  
 Those traditional app servers (i.e. uwsgi et.al.) have a highly optimized process model for bare-server deployments with

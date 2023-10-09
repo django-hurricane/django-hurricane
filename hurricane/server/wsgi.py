@@ -24,9 +24,9 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
     def _log(self, status_code: int, request: httputil.HTTPServerRequest) -> None:
         self.handler._status_code = status_code
 
-    async def __call__(self, request: httputil.HTTPServerRequest) -> None:
-        data = {}  # type: Dict[str, Any]
-        response = []  # type: List[bytes]
+    async def __call__(self, request: httputil.HTTPServerRequest) -> None:  # type: ignore
+        data: Dict[str, Any] = {}
+        response: List[bytes] = []
 
         def start_response(
             status: str,
@@ -68,7 +68,7 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
         if request.method != "HEAD":
             body = escape.utf8(body)
         else:
-            body = ""
+            body = bytes()
         if status_code != 304:
             if "content-length" not in header_set:
                 headers.append(("Content-Length", str(len(body))))

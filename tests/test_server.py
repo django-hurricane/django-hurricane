@@ -396,7 +396,7 @@ class HurricanStartServerTests(HurricanServerTest):
         webhook_registry.register(StartupWebhook)
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-    
+
     # does not work on GH yet
     # @HurricanServerTest.cycle_server
     # def test_busy_port(self):
@@ -550,8 +550,8 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(f"Tried to watch", out)
-        self.assertIn(f"but it does not exist", out)
+        self.assertIn("Tried to watch", out)
+        self.assertIn("but it does not exist", out)
 
     def test_static_watch(self):
         if not os.path.exists("static"):

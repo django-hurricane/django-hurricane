@@ -1,4 +1,5 @@
-import tornado.web
+from typing import Any
+
 from django.test import SimpleTestCase
 
 from hurricane.kubernetes import K8sServerMetricsHandler
@@ -12,7 +13,7 @@ from hurricane.testing.drivers import (
 
 
 class HurricanBaseTest(SimpleTestCase):
-    driver = None
+    driver: Any = None
 
     @property
     def probe_client(self):
@@ -74,7 +75,7 @@ class HurricanServerTest(HurricanBaseTest):
 
 
 class HurricaneWebhookServerTest(HurricanServerTest):
-    driver = HurricaneWebhookServerDriver
+    driver = HurricaneWebhookServerDriver  # type: ignore
 
     @property
     def probe(self):
@@ -82,7 +83,7 @@ class HurricaneWebhookServerTest(HurricanServerTest):
 
 
 class HurricaneK8sServerTest(HurricanServerTest):
-    driver = HurricaneK8sServerDriver
+    driver = HurricaneK8sServerDriver  # type: ignore
 
     @property
     def probe(self):

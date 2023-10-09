@@ -1,5 +1,6 @@
 import http
 import json
+
 import pika
 import tornado.ioloop
 import tornado.web
@@ -31,8 +32,8 @@ class HTTPClient(object):
     def post(self, path: str, data: dict) -> Response:
         self.conn.request("POST", path, json.dumps(data).encode())
         res = self.conn.getresponse()
-        data = res.read()
-        return self.Response({"status": res.status, "text": data.decode("utf-8")})
+        datas = res.read()  # type: bytes
+        return self.Response({"status": res.status, "text": datas.decode("utf-8")})
 
 
 class TestPublisher(object):
