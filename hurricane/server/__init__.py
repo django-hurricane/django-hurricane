@@ -1,4 +1,5 @@
 import asyncio
+import concurrent.futures
 import signal
 import sys
 import time
@@ -27,12 +28,18 @@ from hurricane.server.loggers import access_log, logger
 from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
 
+EXECUTOR = None
+
 
 class HurricaneApplication(tornado.web.Application):
     def __init__(self, *args, **kwargs):
         self.collect_metrics = True
         if "metrics" in kwargs:
             self.collect_metrics = kwargs["metrics"]
+        global EXECUTOR
+        if EXECUTOR is None:
+            EXECUTOR = concurrent.futures.ThreadPoolExecutor()
+        self.executor = EXECUTOR
         super(HurricaneApplication, self).__init__(*args, **kwargs)
 
     def log_request(self, handler: tornado.web.RequestHandler) -> None:
