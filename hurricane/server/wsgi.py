@@ -25,6 +25,7 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
 
     def _log(self, status_code: int, request: httputil.HTTPServerRequest) -> None:
         self.handler._status_code = status_code
+        self.handler.application.log_request(self.handler)
 
     def __call__(self, request: httputil.HTTPServerRequest) -> None:
         IOLoop.current().spawn_callback(self.handle_request, request)
@@ -96,68 +97,9 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
         for key, value in headers:
             header_obj.add(key, value)
         assert request.connection is not None
-        request.connection.write_headers(start_line, header_obj, chunk=body)
+        if request.method == "HEAD":
+            request.connection.write_headers(start_line, header_obj)
+        else:
+            request.connection.write_headers(start_line, header_obj, chunk=body)
         request.connection.finish()
         self._log(status_code, request)
-
-    # def __call__(self, request: httputil.HTTPServerRequest) -> None:  # type: ignore
-    #     data: Dict[str, Any] = {}
-    #     response: List[bytes] = []
-
-    #     def start_response(
-    #         status: str,
-    #         headers: List[Tuple[str, str]],
-    #         exc_info: Optional[
-    #             Tuple[
-    #                 "Optional[Type[BaseException]]",
-    #                 Optional[BaseException],
-    #                 Optional[TracebackType],
-    #             ]
-    #         ] = None,
-    #     ) -> Callable[[bytes], Any]:
-    #         data["status"] = status
-    #         data["headers"] = headers
-    #         return response.append
-
-    #     app_response = start_response(self.environ(request))
-
-    #     try:
-    #         response.extend(app_response)
-    #         body = b"".join(response)
-    #     finally:
-    #         if hasattr(app_response, "close"):
-    #             app_response.close()  # type: ignore
-    #     if not data:
-    #         raise HurricaneWSGIException("WSGI app did not call start_response")
-
-    #     status_code_str, reason = data["status"].split(" ", 1)
-    #     status_code = int(status_code_str)
-    #     headers = data["headers"]  # type: List[Tuple[str, str]]
-    #     header_set = set(k.lower() for (k, v) in headers)
-    #     # handle WSGI's protocol assumption the web server to strip content from HEAD requests
-    #     # and leave content length header as is.
-    #     # - from Django documentation:
-    #     # Web servers should automatically strip the content of responses to HEAD requests while leaving the headers
-    #     # unchanged, so you may handle HEAD requests exactly like GET requests in your views. Since some software,
-    #     # such as link checkers, rely on HEAD requests, you might prefer using require_safe instead of require_GET.
-    #     if request.method != "HEAD":
-    #         body = escape.utf8(body)
-    #     else:
-    #         body = bytes()
-    #     if status_code != 304:
-    #         if "content-length" not in header_set:
-    #             headers.append(("Content-Length", str(len(body))))
-    #         if "content-type" not in header_set:
-    #             headers.append(("Content-Type", "text/html; charset=UTF-8"))
-    #     if "server" not in header_set:
-    #         headers.append(("Server", "TornadoServer/%s" % tornado.version))
-
-    #     start_line = httputil.ResponseStartLine("HTTP/1.1", status_code, reason)
-    #     header_obj = httputil.HTTPHeaders()
-    #     for key, value in headers:
-    #         header_obj.add(key, value)
-    #     if request.connection is None:
-    #         raise ValueError("No connection")
-    #     request.connection.write_headers(start_line, header_obj, chunk=body)
-    #     request.connection.finish()
-    #     self._log(status_code, request)

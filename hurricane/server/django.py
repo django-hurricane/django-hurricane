@@ -58,7 +58,6 @@ class DjangoHandler(tornado.web.RequestHandler):
         """
         self.django(self.request)
         self._finished = True
-        self._log()
         self.on_finish()
 
 
