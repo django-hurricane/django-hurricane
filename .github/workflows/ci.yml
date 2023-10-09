@@ -64,8 +64,9 @@ jobs:
     # need secrets.GITHUB_TOKEN
     needs: test
     runs-on: ubuntu-latest
-    container: python:3-slim
     steps:
+    - name: Set up Python
+      uses: actions/setup-python@v4
     - name: Finished
       run: |
         pip3 install --upgrade coveralls
