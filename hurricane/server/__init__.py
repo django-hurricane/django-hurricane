@@ -41,7 +41,7 @@ class HurricaneApplication(tornado.web.Application):
             self.collect_metrics = kwargs["metrics"]
         global EXECUTOR
         if EXECUTOR is None:
-            EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2)
+            EXECUTOR = concurrent.futures.ThreadPoolExecutor()
         self.executor = EXECUTOR
         super(HurricaneApplication, self).__init__(*args, **kwargs)
 
