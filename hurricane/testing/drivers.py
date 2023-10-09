@@ -272,9 +272,15 @@ class HurricaneAMQPDriver(HurricaneBaseDriver):
         return TestPublisher(host, port, vhost)
 
     def start_consumer(
-        self, params: Optional[List[str]] = None, coverage: bool = True, env: Dict = {}
+        self,
+        params: Optional[List[str]] = None,
+        coverage: bool = True,
+        env: Optional[Dict] = None,
     ) -> None:
-        self._env = env
+        if env:
+            self._env = env
+        else:
+            self._env = {}
         self._start(params, coverage)
 
     def stop_amqp(self) -> None:
