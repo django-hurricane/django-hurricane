@@ -1,4 +1,5 @@
 import traceback
+from typing import Any
 
 import tornado.web
 from asgiref.sync import sync_to_async
@@ -7,6 +8,8 @@ from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
+from tornado import httputil
+from tornado.web import Application
 
 from hurricane.metrics import (
     HealthMetric,
@@ -29,19 +32,32 @@ class DjangoHandler(tornado.web.RequestHandler):
     tornado WSGI Container.
     """
 
+    def __init__(
+        self,
+        application: Application,
+        request: httputil.HTTPServerRequest,
+        **kwargs: Any,
+    ) -> None:
+        if hasattr(application, "executor"):
+            self._executor = application.executor
+        else:
+            self._executor = None
+        super().__init__(application, request, **kwargs)
+
     def initialize(self):
         """
         Initialization of Hurricane WSGI Container.
         """
-        self.django = HurricaneWSGIContainer(self, get_wsgi_application())
+        self.django = HurricaneWSGIContainer(
+            self, get_wsgi_application(), executor=self._executor
+        )
 
     async def prepare(self) -> None:
         """
         Transmitting incoming request to django application via WSGI Container.
         """
-        await self.django(self.request)
+        self.django(self.request)
         self._finished = True
-        self._log()
         self.on_finish()
 
 
