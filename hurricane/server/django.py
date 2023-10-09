@@ -8,6 +8,7 @@ from django.contrib.staticfiles.handlers import StaticFilesHandler
 from django.core.management.base import SystemCheckError
 from django.core.wsgi import get_wsgi_application
 from django.db import OperationalError, connection
+from prometheus_client import make_wsgi_app
 from tornado import httputil
 from tornado.web import Application
 
@@ -18,6 +19,7 @@ from hurricane.metrics import (
     RequestQueueLengthMetric,
     ResponseTimeAverageMetric,
     StartupTimeMetric,
+    registry,
 )
 from hurricane.server.loggers import logger
 from hurricane.server.wsgi import HurricaneWSGIContainer
@@ -26,7 +28,6 @@ from hurricane.webhooks.base import WebhookStatus
 
 
 class DjangoHandler(tornado.web.RequestHandler):
-
     """
     This handler transmits all standard requests to django application. Currently it uses WSGI Container based on
     tornado WSGI Container.
@@ -49,7 +50,10 @@ class DjangoHandler(tornado.web.RequestHandler):
         Initialization of Hurricane WSGI Container.
         """
         self.django = HurricaneWSGIContainer(
-            self, get_wsgi_application(), executor=self._executor
+            self,
+            get_wsgi_application(),
+            executor=self._executor,
+            observe=self.application.collect_metrics,
         )
 
     async def prepare(self) -> None:
@@ -267,3 +271,24 @@ class DjangoStartupHandler(DjangoProbeHandler):
     async def _probe_check(self):
         self.write(f"Startup was finished {StartupTimeMetric.get()}")
         self.set_status(200)
+
+
+class PrometheusHandler(tornado.web.RequestHandler):
+    def initialize(self):
+        """
+        Initialization of Hurricane WSGI Container.
+        """
+        self.prometheus = HurricaneWSGIContainer(
+            self, make_wsgi_app(disable_compression=True), observe=False
+        )
+
+    async def prepare(self) -> None:
+        """
+        Transmitting incoming request to the Prometheus application via WSGI Container.
+        """
+        for _, metric in registry.metrics.items():
+            metric.get()
+
+        self.prometheus(self.request)
+        self._finished = True
+        self.on_finish()

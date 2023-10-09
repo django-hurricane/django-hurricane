@@ -5,6 +5,7 @@ import signal
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
 
+import pkg_resources  # type: ignore
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
@@ -70,6 +71,13 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--port", type=int, default=8000, help="The port for Tornado to listen on"
+        )
+        parser.add_argument(
+            "--metrics",
+            type=str,
+            dest="metrics_path",
+            default="/metrics",
+            help="The exposed path (default is /metrics) to export Prometheus metrics",
         )
         parser.add_argument(
             "--liveness-probe",
@@ -161,7 +169,12 @@ class Command(BaseCommand):
         loop.
         """
         start_time = time.time()
-        logger.info("Tornado-powered Django web server")
+        hurricane_dist_version = pkg_resources.get_distribution(
+            "django-hurricane"
+        ).version
+        logger.info(
+            f"Tornado-powered Django web server. Version: {hurricane_dist_version}"
+        )
 
         if options["autoreload"]:
             tornado.autoreload.start()

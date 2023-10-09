@@ -6,6 +6,7 @@ import time
 import traceback
 from typing import Callable, Optional
 
+import pkg_resources  # type: ignore
 import tornado
 from django.conf import settings
 from django.core.management import call_command
@@ -16,6 +17,7 @@ from hurricane.metrics import (
     RequestCounterMetric,
     ResponseTimeAverageMetric,
     StartupTimeMetric,
+    registry,
 )
 from hurricane.server.django import (
     DjangoHandler,
@@ -23,6 +25,7 @@ from hurricane.server.django import (
     DjangoReadinessHandler,
     DjangoStartupHandler,
     DjangoStaticFilesHandler,
+    PrometheusHandler,
 )
 from hurricane.server.loggers import access_log, logger
 from hurricane.webhooks import StartupWebhook
@@ -38,7 +41,7 @@ class HurricaneApplication(tornado.web.Application):
             self.collect_metrics = kwargs["metrics"]
         global EXECUTOR
         if EXECUTOR is None:
-            EXECUTOR = concurrent.futures.ThreadPoolExecutor()
+            EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=2)
         self.executor = EXECUTOR
         super(HurricaneApplication, self).__init__(*args, **kwargs)
 
@@ -93,6 +96,8 @@ def make_probe_server(options, check_func):
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
+    if "metrics" not in options:
+        handlers.append((options["metrics_path"], PrometheusHandler))
     return HurricaneProbeApplication(handlers, debug=options["debug"], metrics=False)
 
 
@@ -121,7 +126,7 @@ def make_http_server(options, check_func, include_probe=False):
     # if static file serving is enabled
     if options["static"]:
         logger.info(
-            f"Serving static files under {settings.STATIC_URL} from {settings.STATIC_ROOT}"
+            f"Serving static files under {settings.STATIC_URL} from {settings.STATIC_ROOT or '<STATIC_ROOT not set>'}"
         )
         if settings.DEBUG and "django.contrib.staticfiles" in settings.INSTALLED_APPS:
             handlers.append(
@@ -171,6 +176,25 @@ def make_http_server_and_listen(
     time_elapsed = end_time - start_time
     # if startup time metric value is set - startup process is finished
     StartupTimeMetric.set(time_elapsed)
+    if "metrics" not in options:
+        hurricane_dist_version = pkg_resources.get_distribution(
+            "django-hurricane"
+        ).version
+        registry.metrics["hurricane_info"].set(
+            {
+                "version": hurricane_dist_version,
+                "startup_time_seconds": str(round(time_elapsed, 5)),
+                "server_port": str(options["port"]),
+                "serve_static": str(options["static"]),
+                "serve_media": str(options["media"]),
+                "probe_port": str(options["probe_port"] or (options["port"] + 1)),
+                "commands": ",".join(
+                    [item for row in options.get("command", []) for item in row]
+                    if options.get("command")
+                    else ""
+                ),
+            }
+        )
     logger.info(f"Startup time is {time_elapsed} seconds")
 
 

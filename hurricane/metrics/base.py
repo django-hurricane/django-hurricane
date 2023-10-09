@@ -1,5 +1,7 @@
 from typing import Any, Optional
 
+from prometheus_client import Counter, Gauge, Histogram
+
 
 class StoredMetric:
     """
@@ -82,13 +84,15 @@ class CounterMetric(StoredMetric):
 
     code: str = ""
     value = 0
+    prometheus: Optional[Counter] = None
 
     @classmethod
     def increment(cls):
         """
         Increment value to the metric.
         """
-
+        if cls.prometheus:
+            cls.prometheus.inc()
         cls.set(cls.get() + 1)
 
     @classmethod
@@ -96,7 +100,7 @@ class CounterMetric(StoredMetric):
         """
         Decrement value from the metric.
         """
-
+        # not supported: cls.prometheus.dec()
         cls.set(cls.get() - 1)
 
 
@@ -108,6 +112,7 @@ class AverageMetric(StoredMetric):
 
     counter = 0
     value = 0
+    prometheus: Optional[Gauge] = None
 
     @classmethod
     def add_value(cls, value):
@@ -118,3 +123,22 @@ class AverageMetric(StoredMetric):
         metric = cls.get_from_registry()
         metric.counter += 1
         metric.value = metric.value + (value - metric.value) / metric.counter
+        if cls.prometheus:
+            cls.prometheus.set(metric.value)
+
+
+class ObservedMetric(StoredMetric):
+
+    """
+    Metric, that can be oberserved.
+    """
+
+    code: str = ""
+    value = 0
+    prometheus: Optional[Histogram] = None
+
+    @classmethod
+    def observe(cls, value):
+        if cls.prometheus:
+            cls.prometheus.observe(value)
+        cls.set(value)

@@ -5,6 +5,8 @@ import tornado.wsgi
 from tornado import escape, httputil
 from tornado.ioloop import IOLoop
 
+from hurricane.metrics import registry
+
 
 class HurricaneWSGIException(Exception):
     pass
@@ -17,8 +19,9 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
 
     """
 
-    def __init__(self, handler, wsgi_application, executor=None) -> None:
+    def __init__(self, handler, wsgi_application, observe=True, executor=None) -> None:
         self.handler = handler
+        self._observe = observe
         super(HurricaneWSGIContainer, self).__init__(
             wsgi_application, executor=executor
         )
@@ -26,6 +29,11 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
     def _log(self, status_code: int, request: httputil.HTTPServerRequest) -> None:
         self.handler._status_code = status_code
         self.handler.application.log_request(self.handler)
+        if self._observe:
+            registry.metrics["response_time_seconds"].observe(request.request_time())
+            registry.metrics["path_requests_total"].increment(
+                request.method, self.handler.request.path
+            )
 
     def __call__(self, request: httputil.HTTPServerRequest) -> None:
         IOLoop.current().spawn_callback(self.handle_request, request)
@@ -101,5 +109,7 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
             request.connection.write_headers(start_line, header_obj)
         else:
             request.connection.write_headers(start_line, header_obj, chunk=body)
+        if self._observe:
+            registry.metrics["response_size_bytes"].observe(len(body))
         request.connection.finish()
         self._log(status_code, request)
