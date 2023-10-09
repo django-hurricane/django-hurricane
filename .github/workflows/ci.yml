@@ -97,5 +97,5 @@ jobs:
       run: poetry install --no-interaction
     - name: Run hurricane test server & locust load testing
       run: |
-        nohup poetry run python manage.py serve > /dev/null 2>&1 & locust --headless -u 25 -r 5 --host http://localhost:8000 --run-time 2m
+        nohup poetry run python manage.py serve > /dev/null 2>&1 & poetry run locust --headless -u 25 -r 5 --host http://localhost:8000 --run-time 2m
       
