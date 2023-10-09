@@ -73,3 +73,25 @@ jobs:
         coveralls --finish
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+  load_test:
+    name: Run load test with Locust
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [ 3.9, 3.10, 3.11 ]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install Poetry
+      uses: snok/install-poetry@v1
+    - name: Install project
+      run: poetry install --no-interaction
+    - name: Run hurricane test server & locust load testing
+      run: |
+        nohup python manage.py serve > /dev/null 2>&1 & locust --headless -u 25 -r 5 --host http://localhost:8000 --run-time 2m
+      

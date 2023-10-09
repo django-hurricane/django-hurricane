@@ -1,4 +1,4 @@
-[![PyPI version](https://badge.fury.io/py/django-hurricane.svg)](https://badge.fury.io/py/django-hurricane) ![Build Status](https://github.com/django-hurricane/django-hurricane/actions/workflows/python-app.yml/badge.svg) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=django-hurricane_django-hurricane&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=django-hurricane_django-hurricane) [![Coverage Status](https://coveralls.io/repos/github/django-hurricane/django-hurricane/badge.svg?branch=main)](https://coveralls.io/github/django-hurricane/django-hurricane?branch=main) [![ReadTheDocs](https://readthedocs.org/projects/django-hurricane/badge/?version=latest)](https://django-hurricane.readthedocs.io/en/latest/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![PyPI version](https://badge.fury.io/py/django-hurricane.svg)](https://badge.fury.io/py/django-hurricane) ![Build Status](https://github.com/django-hurricane/django-hurricane/actions/workflows/ci.yml/badge.svg) [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=django-hurricane_django-hurricane&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=django-hurricane_django-hurricane) [![Coverage Status](https://coveralls.io/repos/github/django-hurricane/django-hurricane/badge.svg?branch=main)](https://coveralls.io/github/django-hurricane/django-hurricane?branch=main) [![ReadTheDocs](https://readthedocs.org/projects/django-hurricane/badge/?version=latest)](https://django-hurricane.readthedocs.io/en/latest/) [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT) [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 --------------------------------------------------------------------------------
 <br />
 <br />
@@ -72,7 +72,7 @@ You can start the Hurricane server with a following command:
 ```python
 python manage.py serve --autoreload --static
 ```
-Ouput of this command looks as following:
+The ouput of this command looks as following:
 
 ```
 System check identified some issues:
