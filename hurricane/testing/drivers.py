@@ -185,38 +185,6 @@ class HurricaneWebhookServerDriver(HurricaneBaseDriver):
         self._stop()
 
 
-class HurricaneK8sServerDriver(HurricaneBaseDriver):
-    ports = [8040, 8041]
-    coverage_base_command = [
-        "coverage",
-        "run",
-        "-m",
-        HurricaneBaseDriver.source,
-        "hurricane.testing.start_k8s_server",
-    ]
-    base_command = ["python", "-m", "hurricane.testing.start_k8s_server"]
-    test_string = "Started K8s server"
-    _env: Optional[Dict] = {}
-
-    def _get_env(self):
-        env = super(HurricaneK8sServerDriver, self)._get_env()
-        env.update(self._env)
-        return env
-
-    def start_server(
-        self,
-        params: Optional[List] = None,
-        coverage: bool = True,
-        env: Optional[Dict] = None,
-    ) -> None:
-        if env:
-            self._env = env
-        self._start(params, coverage)
-
-    def stop_server(self) -> None:
-        self._stop()
-
-
 class HurricaneAMQPDriver(HurricaneBaseDriver):
     coverage_base_command = [
         "coverage",
