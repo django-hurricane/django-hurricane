@@ -96,7 +96,7 @@ def make_probe_server(options, check_func):
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
-    if "metrics" not in options:
+    if "metrics" in options:
         handlers.append((options["metrics_path"], PrometheusHandler))
     return HurricaneProbeApplication(handlers, debug=options["debug"], metrics=False)
 
@@ -108,7 +108,11 @@ def make_http_server(options, check_func, include_probe=False):
             (
                 options["liveness_probe"],
                 DjangoLivenessHandler,
-                {"check_handler": check_func, "webhook_url": options["webhook_url"]},
+                {
+                    "check_handler": check_func,
+                    "webhook_url": options["webhook_url"],
+                    "max_lifetime": options["max_lifetime"],
+                },
             ),
             (
                 options["readiness_probe"],
@@ -121,6 +125,8 @@ def make_http_server(options, check_func, include_probe=False):
             ),
             (options["startup_probe"], DjangoStartupHandler),
         ]
+        if "metrics" in options:
+            handlers.append((options["metrics_path"], PrometheusHandler))
     else:
         handlers = []
     # if static file serving is enabled

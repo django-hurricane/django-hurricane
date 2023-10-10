@@ -32,6 +32,7 @@ class Command(BaseCommand):
         - ``--amqp-host`` - the host address of the message broker
         - ``--amqp-vhost`` - the virtual host of the message broker to use with this consumer
         - ``--handler`` - the Hurricane AMQP handler class (dotted path)
+        - ``--metrics`` - the exposed path (default is /metrics) to export Prometheus metrics
         - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
         - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
         - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
@@ -78,6 +79,13 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "handler", type=str, help="The Hurricane AMQP handler class (dotted path)"
+        )
+        parser.add_argument(
+            "--metrics",
+            type=str,
+            dest="metrics_path",
+            default="/metrics",
+            help="The exposed path (default is /metrics) to export Prometheus metrics",
         )
         parser.add_argument(
             "--liveness-probe",

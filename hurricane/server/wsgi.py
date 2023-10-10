@@ -30,8 +30,8 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
         self.handler._status_code = status_code
         self.handler.application.log_request(self.handler)
         if self._observe:
-            registry.metrics["response_time_seconds"].observe(request.request_time())
-            registry.metrics["path_requests_total"].increment(
+            registry.get("response_time_seconds").observe(request.request_time())
+            registry.get("path_requests_total").increment(
                 request.method, self.handler.request.path
             )
 

@@ -38,6 +38,7 @@ class Command(BaseCommand):
         - ``--autoreload`` - reload code on change
         - ``--debug`` - set Tornado's Debug flag
         - ``--port`` - the port for Tornado to listen on
+        - ``--metrics`` - the exposed path (default is /metrics) to export Prometheus metrics
         - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
         - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
         - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
@@ -211,6 +212,15 @@ class Command(BaseCommand):
                     f"readiness-probe: {probe_representations['readiness_probe']}, "
                     f"startup-probe: {probe_representations['startup_probe']}"
                 )
+                if "metrics" in options:
+                    logger.info(
+                        f"Starting Prometheus metrics exporter on port {probe_port} with "
+                        f"route {options['metrics_path']}"
+                    )
+                else:
+                    logger.info(
+                        "Running without Prometheus exporter, because --no-metrics flag was set"
+                    )
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
             else:
@@ -222,6 +232,15 @@ class Command(BaseCommand):
                     f"startup-probe: {probe_representations['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
+                if "metrics" in options:
+                    logger.info(
+                        f"Starting Prometheus metrics exporter on port {probe_port} with "
+                        f"route {options['metrics_path']}"
+                    )
+                else:
+                    logger.info(
+                        "Running without Prometheus exporter, because --no-metrics flag was set"
+                    )
 
         else:
             logger.info("No probe application running")

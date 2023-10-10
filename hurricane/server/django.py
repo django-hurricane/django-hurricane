@@ -244,12 +244,12 @@ class DjangoReadinessHandler(DjangoProbeHandler):
         )
 
     def _probe_check(self):
-        if RequestQueueLengthMetric.get() > self.request_queue_length:
+        if RequestQueueLengthMetric.get() >= self.request_queue_length:
             self.set_status(400)
             self._update_health_metric_exception(
                 self.metric, self.readiness_webhook, self.readiness_webhook_url
             )
-        elif RequestQueueLengthMetric.get() <= self.request_queue_length:
+        elif RequestQueueLengthMetric.get() < self.request_queue_length:
             self.set_status(200)
             self._update_health_metric_no_exception(
                 self.metric, self.readiness_webhook, self.readiness_webhook_url
