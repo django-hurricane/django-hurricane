@@ -124,3 +124,29 @@ class HurricanStartServerTests(HurricanServerTest):
         for family in families:
             if family.name == "path_requests":
                 self.assertEqual(len(family.samples), 2)
+
+    @HurricanServerTest.cycle_server()
+    def test_exporter_hurricane_ports_default(self):
+        res = self.probe_client.get(self.metrics_route)
+        families = text_string_to_metric_families(res.text)
+        for family in families:
+            if family.name == "hurricane_info":
+                self.assertEqual(len(family.samples), 1)
+                self.assertEqual(family.samples[0].labels["probe_port"], "8001")
+                self.assertEqual(family.samples[0].labels["server_port"], "8000")
+                self.assertEqual(family.samples[0].labels["serve_static"], "false")
+                self.assertEqual(family.samples[0].labels["serve_media"], "false")
+
+    @HurricanServerTest.cycle_server(
+        args=["--probe-port", "8090", "--port", "8010", "--static", "--media"]
+    )
+    def test_exporter_hurricane_ports_selected(self):
+        res = self.probe_client.get(self.metrics_route)
+        families = text_string_to_metric_families(res.text)
+        for family in families:
+            if family.name == "hurricane_info":
+                self.assertEqual(len(family.samples), 1)
+                self.assertEqual(family.samples[0].labels["probe_port"], "8090")
+                self.assertEqual(family.samples[0].labels["server_port"], "8010")
+                self.assertEqual(family.samples[0].labels["serve_static"], "true")
+                self.assertEqual(family.samples[0].labels["serve_media"], "true")

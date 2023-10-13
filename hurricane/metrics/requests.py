@@ -105,7 +105,7 @@ class InfoMetrics(StoredMetric):
     Python package info of Hurricane
     """
 
-    code = "hurricane_info"
+    code = "hurricane"
     prometheus = Info(code, __doc__.strip())
 
     @classmethod

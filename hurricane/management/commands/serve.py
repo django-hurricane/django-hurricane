@@ -197,6 +197,7 @@ class Command(BaseCommand):
         probe_port = (
             options["probe_port"] if options["probe_port"] else options["port"] + 1
         )
+        options["probe_port"] = probe_port
 
         # sanitize probes: returns regexps for probes in options and their representations for logging
         options, probe_representations = sanitize_probes(options)

@@ -190,14 +190,14 @@ def make_http_server_and_listen(
         hurricane_dist_version = pkg_resources.get_distribution(
             "django-hurricane"
         ).version
-        registry.metrics["hurricane_info"].set(
+        registry.metrics["hurricane"].set(
             {
                 "version": hurricane_dist_version,
                 "startup_time_seconds": str(round(time_elapsed, 5)),
                 "server_port": str(options["port"]),
-                "serve_static": str(options["static"]),
-                "serve_media": str(options["media"]),
-                "probe_port": str(options["probe_port"] or (options["port"] + 1)),
+                "serve_static": "true" if options["static"] else "false",
+                "serve_media": "true" if options["media"] else "false",
+                "probe_port": str(options["probe_port"]),
                 "commands": ",".join(
                     [item for row in options.get("command", []) for item in row]
                     if options.get("command")
