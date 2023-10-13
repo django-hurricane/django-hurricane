@@ -165,7 +165,7 @@ def make_http_server(options, check_func, include_probe=False):
     # append the django routing system
     handlers.append((".*", DjangoHandler))
     return HurricaneApplication(
-        handlers, debug=options["debug"], metrics=not options["no_metrics"]
+        handlers, debug=options["debug"], metrics=not options.get("no_metrics", False)
     )
 
 
