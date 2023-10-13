@@ -212,7 +212,7 @@ class Command(BaseCommand):
                     f"readiness-probe: {probe_representations['readiness_probe']}, "
                     f"startup-probe: {probe_representations['startup_probe']}"
                 )
-                if "metrics" in options:
+                if "no_metrics" not in options or not options["no_metrics"]:
                     logger.info(
                         f"Starting Prometheus metrics exporter on port {probe_port} with "
                         f"route {options['metrics_path']}"
@@ -232,7 +232,7 @@ class Command(BaseCommand):
                     f"startup-probe: {probe_representations['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
-                if "metrics" in options:
+                if "no_metrics" not in options or not options["no_metrics"]:
                     logger.info(
                         f"Starting Prometheus metrics exporter on port {probe_port} with "
                         f"route {options['metrics_path']}"
@@ -244,6 +244,10 @@ class Command(BaseCommand):
 
         else:
             logger.info("No probe application running")
+            logger.info(
+                "Running without Prometheus exporter, because --no-probe flag was set"
+            )
+            options["no_metrics"] = True
 
         setup_debugging(options)
 

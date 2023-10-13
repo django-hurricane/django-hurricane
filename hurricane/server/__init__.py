@@ -96,7 +96,7 @@ def make_probe_server(options, check_func):
         ),
         (options["startup_probe"], DjangoStartupHandler),
     ]
-    if "metrics" in options:
+    if "no_metrics" not in options or not options["no_metrics"]:
         handlers.append((options["metrics_path"], PrometheusHandler))
     return HurricaneProbeApplication(handlers, debug=options["debug"], metrics=False)
 
@@ -125,7 +125,7 @@ def make_http_server(options, check_func, include_probe=False):
             ),
             (options["startup_probe"], DjangoStartupHandler),
         ]
-        if "metrics" in options:
+        if "no_metrics" not in options or not options["no_metrics"]:
             handlers.append((options["metrics_path"], PrometheusHandler))
     else:
         handlers = []
@@ -182,7 +182,7 @@ def make_http_server_and_listen(
     time_elapsed = end_time - start_time
     # if startup time metric value is set - startup process is finished
     StartupTimeMetric.set(time_elapsed)
-    if "metrics" not in options:
+    if "no_metrics" not in options or not options["no_metrics"]:
         hurricane_dist_version = pkg_resources.get_distribution(
             "django-hurricane"
         ).version
