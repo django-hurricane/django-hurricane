@@ -1,4 +1,5 @@
 from time import sleep
+
 from prometheus_client.parser import text_string_to_metric_families
 
 from hurricane.testing.testcases import HurricanServerTest
