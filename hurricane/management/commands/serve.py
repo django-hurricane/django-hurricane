@@ -212,15 +212,7 @@ class Command(BaseCommand):
                     f"readiness-probe: {probe_representations['readiness_probe']}, "
                     f"startup-probe: {probe_representations['startup_probe']}"
                 )
-                if "no_metrics" not in options or not options["no_metrics"]:
-                    logger.info(
-                        f"Starting Prometheus metrics exporter on port {probe_port} with "
-                        f"route {options['metrics_path']}"
-                    )
-                else:
-                    logger.info(
-                        "Running without Prometheus exporter, because --no-metrics flag was set"
-                    )
+                self.log_prometheus(options, probe_port)
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
             else:
@@ -232,15 +224,7 @@ class Command(BaseCommand):
                     f"startup-probe: {probe_representations['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
-                if "no_metrics" not in options or not options["no_metrics"]:
-                    logger.info(
-                        f"Starting Prometheus metrics exporter on port {probe_port} with "
-                        f"route {options['metrics_path']}"
-                    )
-                else:
-                    logger.info(
-                        "Running without Prometheus exporter, because --no-metrics flag was set"
-                    )
+                self.log_prometheus(options, probe_port)
 
         else:
             logger.info("No probe application running")
@@ -306,3 +290,14 @@ class Command(BaseCommand):
             )
 
         loop.run_forever()
+
+    def log_prometheus(self, options, probe_port):
+        if "no_metrics" not in options or not options["no_metrics"]:
+            logger.info(
+                f"Starting Prometheus metrics exporter on port {probe_port} with "
+                f"route {options['metrics_path']}"
+            )
+        else:
+            logger.info(
+                "Running without Prometheus exporter, because --no-metrics flag was set"
+            )
