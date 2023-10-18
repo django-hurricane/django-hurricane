@@ -2,6 +2,8 @@ from typing import Any, Optional
 
 from prometheus_client import Counter, Gauge, Histogram
 
+CONTINUOUS_LOOP_TASKS = 5  # 5 is the number of tasks that are always running
+
 
 class StoredMetric:
     """

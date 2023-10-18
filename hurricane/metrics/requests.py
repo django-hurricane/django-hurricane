@@ -4,6 +4,7 @@ from typing import Any
 from prometheus_client import Counter, Gauge, Histogram, Info
 
 from hurricane.metrics.base import (
+    CONTINUOUS_LOOP_TASKS,
     AverageMetric,
     CalculatedMetric,
     CounterMetric,
@@ -45,9 +46,7 @@ class RequestQueueLengthMetric(CalculatedMetric):
         """
         Getting length of the asyncio queue of all tasks.
         """
-        _len = max(
-            0, len(asyncio.all_tasks()) - 5
-        )  # 5 is the number of tasks that are always running
+        _len = max(0, len(asyncio.all_tasks()) - CONTINUOUS_LOOP_TASKS)
         self.prometheus.set(_len)
         return _len
 
