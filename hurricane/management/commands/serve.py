@@ -5,6 +5,7 @@ import signal
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
 
+import pkg_resources  # type: ignore
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
@@ -37,6 +38,7 @@ class Command(BaseCommand):
         - ``--autoreload`` - reload code on change
         - ``--debug`` - set Tornado's Debug flag
         - ``--port`` - the port for Tornado to listen on
+        - ``--metrics`` - the exposed path (default is /metrics) to export Prometheus metrics
         - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
         - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
         - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
@@ -70,6 +72,13 @@ class Command(BaseCommand):
         )
         parser.add_argument(
             "--port", type=int, default=8000, help="The port for Tornado to listen on"
+        )
+        parser.add_argument(
+            "--metrics",
+            type=str,
+            dest="metrics_path",
+            default="/metrics",
+            help="The exposed path (default is /metrics) to export Prometheus metrics",
         )
         parser.add_argument(
             "--liveness-probe",
@@ -161,7 +170,12 @@ class Command(BaseCommand):
         loop.
         """
         start_time = time.time()
-        logger.info("Tornado-powered Django web server")
+        hurricane_dist_version = pkg_resources.get_distribution(
+            "django-hurricane"
+        ).version
+        logger.info(
+            f"Tornado-powered Django web server. Version: {hurricane_dist_version}"
+        )
 
         if options["autoreload"]:
             tornado.autoreload.start()
@@ -183,6 +197,7 @@ class Command(BaseCommand):
         probe_port = (
             options["probe_port"] if options["probe_port"] else options["port"] + 1
         )
+        options["probe_port"] = probe_port
 
         # sanitize probes: returns regexps for probes in options and their representations for logging
         options, probe_representations = sanitize_probes(options)
@@ -198,6 +213,7 @@ class Command(BaseCommand):
                     f"readiness-probe: {probe_representations['readiness_probe']}, "
                     f"startup-probe: {probe_representations['startup_probe']}"
                 )
+                self.log_prometheus(options, probe_port)
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
             else:
@@ -209,9 +225,14 @@ class Command(BaseCommand):
                     f"startup-probe: {probe_representations['startup_probe']} "
                     f"running integrated on port {probe_port}"
                 )
+                self.log_prometheus(options, probe_port)
 
         else:
             logger.info("No probe application running")
+            logger.info(
+                "Running without Prometheus exporter, because --no-probe flag was set"
+            )
+            options["no_metrics"] = True
 
         setup_debugging(options)
 
@@ -270,3 +291,14 @@ class Command(BaseCommand):
             )
 
         loop.run_forever()
+
+    def log_prometheus(self, options, probe_port):
+        if "no_metrics" not in options or not options["no_metrics"]:
+            logger.info(
+                f"Starting Prometheus metrics exporter on port {probe_port} with "
+                f"route {options['metrics_path']}"
+            )
+        else:
+            logger.info(
+                "Running without Prometheus exporter, because --no-metrics flag was set"
+            )

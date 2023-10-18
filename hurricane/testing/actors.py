@@ -5,8 +5,6 @@ import pika
 import tornado.ioloop
 import tornado.web
 
-from hurricane.kubernetes import K8sServerMetricsHandler
-
 
 class HTTPClient(object):
     class Response(dict):
@@ -69,8 +67,3 @@ class WebhookTestHandler(tornado.web.RequestHandler, LoggingServer):
 class WebhookReceiverServer(LoggingServer):
     def make_http_receiver_app(self):
         return tornado.web.Application([("/webhook", WebhookTestHandler)])
-
-
-class K8sServer(LoggingServer):
-    def make_http_receiver_app(self):
-        return tornado.web.Application([("/k8s", K8sServerMetricsHandler)])

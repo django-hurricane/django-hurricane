@@ -2,11 +2,9 @@ from typing import Any
 
 from django.test import SimpleTestCase
 
-from hurricane.kubernetes import K8sServerMetricsHandler
 from hurricane.testing.actors import HTTPClient, WebhookTestHandler
 from hurricane.testing.drivers import (
     HurricaneAMQPDriver,
-    HurricaneK8sServerDriver,
     HurricaneServerDriver,
     HurricaneWebhookServerDriver,
 )
@@ -80,14 +78,6 @@ class HurricaneWebhookServerTest(HurricanServerTest):
     @property
     def probe(self):
         return WebhookTestHandler()
-
-
-class HurricaneK8sServerTest(HurricanServerTest):
-    driver = HurricaneK8sServerDriver  # type: ignore
-
-    @property
-    def probe(self):
-        return K8sServerMetricsHandler()
 
 
 class HurricaneAMQPTest(HurricanBaseTest):
