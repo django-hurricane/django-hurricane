@@ -5,6 +5,7 @@ import tornado.wsgi
 from tornado import escape, httputil
 from tornado.ioloop import IOLoop
 
+from hurricane.management.commands import HURRICANE_DIST_VERSION
 from hurricane.metrics import registry
 
 
@@ -98,7 +99,7 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
             if "content-type" not in header_set:
                 headers.append(("Content-Type", "text/html; charset=UTF-8"))
         if "server" not in header_set:
-            headers.append(("Server", "TornadoServer/%s" % tornado.version))
+            headers.append(("Server", "Hurricane/%s" % HURRICANE_DIST_VERSION))
 
         start_line = httputil.ResponseStartLine("HTTP/1.1", status_code, reason)
         header_obj = httputil.HTTPHeaders()
