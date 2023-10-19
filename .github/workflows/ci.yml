@@ -94,7 +94,9 @@ jobs:
   coveralls:
     name: Indicate completion to coveralls.io
     # need secrets.GITHUB_TOKEN
-    needs: test
+    needs: 
+      - test
+      - test-structlog
     runs-on: ubuntu-latest
     steps:
     - name: Set up Python
@@ -108,7 +110,9 @@ jobs:
   
   load_test:
     name: Run load test with Locust
-    needs: test
+    needs: 
+      - test
+      - test-structlog
     runs-on: ubuntu-latest
     strategy:
       matrix:
