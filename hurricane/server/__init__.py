@@ -131,32 +131,44 @@ def with_metrics(options):
 def make_http_server(options, check_func, include_probe=False):
     """create all routes for this application"""
     if include_probe:
-        handlers = [
-            (
-                options["liveness_probe"],
-                DjangoLivenessHandler,
-                {
-                    "check_handler": check_func,
-                    "webhook_url": options["webhook_url"],
-                    "max_lifetime": options["max_lifetime"],
-                },
-            ),
-            (
-                options["readiness_probe"],
-                DjangoReadinessHandler,
-                {
-                    "check_handler": check_func,
-                    "req_queue_len": options["req_queue_len"],
-                    "webhook_url": options["webhook_url"],
-                },
-            ),
-            (options["startup_probe"], DjangoStartupHandler),
-        ]
-        if with_metrics(options):
-            handlers.append((options["metrics_path"], PrometheusHandler))
+        handlers = get_integrated_probe_handler(options, check_func)
     else:
         handlers = []
     # if static file serving is enabled
+    handlers = add_static_handler(options, handlers)
+    # if media file serving is enabled
+    handlers = add_media_handler(options, handlers)
+
+    # append the django routing system
+    handlers.append((".*", DjangoHandler))
+    return HurricaneApplication(
+        handlers, debug=options["debug"], metrics=not options.get("no_metrics", False)
+    )
+
+
+def add_media_handler(options, handlers):
+    if options["media"]:
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Serving media",
+                prefix=settings.MEDIA_URL,
+                root=settings.MEDIA_ROOT or "",
+            )
+        else:
+            logger.info(
+                f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}"
+            )
+        handlers.append(
+            (
+                f"{settings.MEDIA_URL}(.*)",
+                tornado.web.StaticFileHandler,
+                {"path": settings.MEDIA_ROOT},
+            )
+        )
+    return handlers
+
+
+def add_static_handler(options, handlers):
     if options["static"]:
         if STRUCTLOG_ENABLED:
             logger.info(
@@ -184,31 +196,34 @@ def make_http_server(options, check_func, include_probe=False):
                     {"path": settings.STATIC_ROOT},
                 )
             )
-    # if media file serving is enabled
-    if options["media"]:
-        if STRUCTLOG_ENABLED:
-            logger.info(
-                "Serving media",
-                prefix=settings.MEDIA_URL,
-                root=settings.MEDIA_ROOT or "",
-            )
-        else:
-            logger.info(
-                f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}"
-            )
-        handlers.append(
-            (
-                f"{settings.MEDIA_URL}(.*)",
-                tornado.web.StaticFileHandler,
-                {"path": settings.MEDIA_ROOT},
-            )
-        )
+    return handlers
 
-    # append the django routing system
-    handlers.append((".*", DjangoHandler))
-    return HurricaneApplication(
-        handlers, debug=options["debug"], metrics=not options.get("no_metrics", False)
-    )
+
+def get_integrated_probe_handler(options, check_func):
+    handlers = [
+        (
+            options["liveness_probe"],
+            DjangoLivenessHandler,
+            {
+                "check_handler": check_func,
+                "webhook_url": options["webhook_url"],
+                "max_lifetime": options["max_lifetime"],
+            },
+        ),
+        (
+            options["readiness_probe"],
+            DjangoReadinessHandler,
+            {
+                "check_handler": check_func,
+                "req_queue_len": options["req_queue_len"],
+                "webhook_url": options["webhook_url"],
+            },
+        ),
+        (options["startup_probe"], DjangoStartupHandler),
+    ]
+    if with_metrics(options):
+        handlers.append((options["metrics_path"], PrometheusHandler))
+    return handlers
 
 
 def make_http_server_and_listen(
