@@ -324,14 +324,14 @@ def check_databases():
         cursor = connection.cursor()
         try:
             cursor.execute("SELECT (1)")
-            if not STRUCTLOG_ENABLED:
+            if STRUCTLOG_ENABLED:
                 logger.info("Database check successful", database=db_name)
             else:
                 logger.info("Database was checked successfully")
             cursor.close()
             return True
         except Exception as e:
-            if not STRUCTLOG_ENABLED:
+            if STRUCTLOG_ENABLED:
                 logger.info("Database check unsuccessful", database=db_name)
             else:
                 logger.warning(f"Database command execution has failed with {e}")
@@ -379,7 +379,7 @@ def check_db_and_migrations(
 
     except Exception as e:
         error_trace = traceback.format_exc()
-        if not STRUCTLOG_ENABLED:
+        if STRUCTLOG_ENABLED:
             logger.info(
                 "Webhook",
                 url=webhook_url or None,

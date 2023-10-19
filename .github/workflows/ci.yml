@@ -23,7 +23,7 @@ jobs:
         poetry run black --check .
         poetry run isort --check .
   test:
-    name: Run unit and integration tests with coverage
+    name: Run unit (w/o Structlog) and integration tests with coverage
     needs: codeclimate
     runs-on: ubuntu-latest
     strategy:
@@ -50,7 +50,7 @@ jobs:
           poetry run coverage run manage.py test
 
   test-structlog:
-    name: Run unit and integration tests with coverage
+    name: Run unit (with Structlog) and integration tests with coverage
     needs: codeclimate
     runs-on: ubuntu-latest
     strategy:
