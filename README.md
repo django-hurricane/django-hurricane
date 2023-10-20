@@ -59,7 +59,7 @@ in a workload description manifest. This is no longer something we configure wit
 
 Hurricane can be installed from a Python Package Index:
 ```bash
-pip3 install hurricane
+pip3 install django-hurricane
 ```
 
 Add *"hurricane"* to your *INSTALLED_APPS*: 
