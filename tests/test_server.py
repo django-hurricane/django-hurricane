@@ -4,6 +4,7 @@ import re
 import requests
 
 from hurricane.server import signal_handler, static_watch
+from hurricane.server.loggers import STRUCTLOG_ENABLED
 from hurricane.testing import HurricanServerTest
 from hurricane.testing.drivers import BusyPortException, HurricaneServerDriver
 
@@ -18,7 +19,10 @@ class HurricanStartServerTests(HurricanServerTest):
     ready_route = "/ready"
     starting_message = "Tornado-powered Django web server"
     starting_management_commands_message = "Starting execution of management commands"
-    starting_http_message = "Starting HTTP Server on port 8000"
+    if STRUCTLOG_ENABLED:
+        starting_http_message = "HTTP configured"
+    else:
+        starting_http_message = "Starting HTTP Server on port 8000"
 
     @classmethod
     def setUpClass(cls):
@@ -34,8 +38,12 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_default_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured"
+        else:
+            assert_str = "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup"
         self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+            assert_str,
             out,
         )
         self.assertIn(self.starting_http_message, out)
@@ -44,8 +52,12 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_default_startup_coverage_kwarg(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured"
+        else:
+            assert_str = "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup"
         self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+            assert_str,
             out,
         )
         self.assertIn(self.starting_http_message, out)
@@ -54,8 +66,12 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_port_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured"
+        else:
+            assert_str = "Starting probe application running on port 8086 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup"
         self.assertIn(
-            "Starting probe application running on port 8086 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+            assert_str,
             out,
         )
 
@@ -63,7 +79,11 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_no_probe(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("No probe application running", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probes configured              active=False"
+        else:
+            assert_str = "No probe application running"
+        self.assertIn(assert_str, out)
 
     @HurricanServerTest.cycle_server(
         args=["--startup-probe", "probe", "--probe-port", "8090"]
@@ -71,7 +91,11 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Starting probe application running on port 8090 with route", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured               active=True integrated=False"
+        else:
+            assert_str = "Starting probe application running on port 8090 with route"
+        self.assertIn(assert_str, out)
         res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
         res = self.probe_client.post(self.probe_route, data=None)
@@ -87,7 +111,11 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_probe_startup_trail_slash(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Starting probe application running on port 8090 with route", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured               active=True integrated=False"
+        else:
+            assert_str = "Starting probe application running on port 8090 with route"
+        self.assertIn(assert_str, out)
         res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
         res = self.probe_client.get(self.probe_route + "/")
@@ -101,7 +129,11 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_probe_integrated_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("running integrated on port 8000", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("port=8000", out)
+            self.assertIn("integrated=True", out)
+        else:
+            self.assertIn("running integrated on port 8000", out)
         res = self.probe_client.get(self.probe_route)
         self.assertEqual(res.status, 200)
 
@@ -116,19 +148,27 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/")
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 200)
-        self.assertIn("200 GET / ", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("TX GET /", out)
+        else:
+            self.assertIn("200 GET /", out)
         self.assertIn("Hello world", res.text)
 
     @HurricanServerTest.cycle_server(args=["--static", "--media"])
     def test_serve_statics_and_media(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
-            out,
-        )
-        self.assertIn(" Serving static files under /static/", out)
-        self.assertIn("Serving media files under /media/", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured               active=True integrated=False"
+        else:
+            assert_str = "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup"
+        self.assertIn(assert_str, out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("Serving statics                prefix=/static/", out)
+            self.assertIn("Serving media                  prefix=/media/", out)
+        else:
+            self.assertIn(" Serving static files under /static/", out)
+            self.assertIn("Serving media files under /media/", out)
 
     @HurricanServerTest.cycle_server
     def test_metrics_request(self):
@@ -167,7 +207,10 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/doesnotexist")
         self.assertEqual(res.status, 404)
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(" 404 GET /doesnotexist", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("TX GET /doesnotexist", out)
+        else:
+            self.assertIn(" 404 GET /doesnotexist", out)
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
 
@@ -190,8 +233,13 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_startup_with_single_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Starting probe application running on port 8090", out)
-        self.assertIn(self.starting_management_commands_message, out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured               active=True integrated=False"
+        else:
+            assert_str = "Starting probe application running on port 8090"
+        self.assertIn(assert_str, out)
+        if not STRUCTLOG_ENABLED:
+            self.assertIn(self.starting_management_commands_message, out)
         self.assertIn(self.starting_http_message, out)
 
         res = self.probe_client.get(self.startup_route)
@@ -218,8 +266,11 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_startup_with_multiple_management_commands(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Starting probe application running on port 8090 with route", out)
-        self.assertIn(self.starting_management_commands_message, out)
+        if not STRUCTLOG_ENABLED:
+            self.assertIn(
+                "Starting probe application running on port 8090 with route", out
+            )
+            self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("No changes detected", out)
         self.assertIn(self.starting_http_message, out)
 
@@ -240,12 +291,18 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_startup_failing_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Probe configured               active=True integrated=False"
+        else:
+            assert_str = "Starting probe application running on port 8090 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup"
         self.assertIn(
-            "Starting probe application running on port 8090 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+            assert_str,
             out,
         )
-        self.assertIn(self.starting_management_commands_message, out)
-        self.assertIn("ERROR", out)
+        if not STRUCTLOG_ENABLED:
+            # this log does not exist in structlog
+            self.assertIn(self.starting_management_commands_message, out)
+            self.assertIn("ERROR", out)
 
     @HurricanServerTest.cycle_server(
         args=["--webhook-url", "http://localhost:8074/webhook"]
@@ -450,14 +507,22 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_check_migrations(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Database was checked successfully", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Database check successful"
+        else:
+            assert_str = "Database was checked successfully"
+        self.assertIn(assert_str, out)
         self.assertIn("No pending migrations", out)
 
     @HurricanServerTest.cycle_server(args=["--check-migrations-apply"])
     def test_check_migrations_apply(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Database was checked successfully", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Database check successful"
+        else:
+            assert_str = "Database was checked successfully"
+        self.assertIn(assert_str, out)
         self.assertIn("No pending migrations", out)
 
     @HurricanServerTest.cycle_server(
@@ -467,7 +532,11 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_db_and_migrations_error(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn("Webhook with a status warning has been initiated", out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Webhook"
+        else:
+            assert_str = "Webhook with a status warning has been initiated"
+        self.assertIn(assert_str, out)
 
     @HurricanServerTest.cycle_server(
         env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_check_databases"},
@@ -476,8 +545,12 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_check_databases_error(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
+        if STRUCTLOG_ENABLED:
+            assert_str = "Database check unsuccessful"
+        else:
+            assert_str = "Database command execution has failed with Fake cursor execute exception"
         self.assertIn(
-            "Database command execution has failed with Fake cursor execute exception",
+            assert_str,
             out,
         )
 
@@ -506,7 +579,7 @@ class HurricanStartServerTests(HurricanServerTest):
         response = requests.get("http://localhost:8000/media/logo.png")
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(response.status_code, 200)
-        self.assertIn("Serving media files", out)
+        self.assertIn("Serving media", out)
 
     @HurricanServerTest.cycle_server(
         args=["--pycharm-host", "127.0.0.1", "--pycharm-port", "1234"]

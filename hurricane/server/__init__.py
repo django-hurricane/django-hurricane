@@ -13,6 +13,7 @@ from django.core.management import call_command
 from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
 
+from hurricane.management.commands import HURRICANE_DIST_VERSION
 from hurricane.metrics import (
     RequestCounterMetric,
     ResponseTimeAverageMetric,
@@ -27,11 +28,16 @@ from hurricane.server.django import (
     DjangoStaticFilesHandler,
     PrometheusHandler,
 )
-from hurricane.server.loggers import access_log, logger
+from hurricane.server.loggers import STRUCTLOG_ENABLED, access_log, logger
+
+if STRUCTLOG_ENABLED:
+    from structlog.contextvars import bind_contextvars
+
 from hurricane.webhooks import StartupWebhook
 from hurricane.webhooks.base import WebhookStatus
 
 EXECUTOR = None
+HTTP_CONFIGURED_EVENT = "HTTP configured"
 
 
 class HurricaneApplication(tornado.web.Application):
@@ -54,12 +60,29 @@ class HurricaneApplication(tornado.web.Application):
         else:
             log_method = access_log.error
         request_time = 1000.0 * handler.request.request_time()
-        log_method(
-            "%d %s %.2fms",
-            handler.get_status(),
-            handler._request_summary(),
-            request_time,
-        )
+        if STRUCTLOG_ENABLED:
+            bind_contextvars(
+                hurricane=HURRICANE_DIST_VERSION,
+                protocol=handler.request.protocol,
+                method=handler.request.method,
+                path=handler.request.path,
+                status=handler.get_status(),
+                request_time=request_time,
+                remote_ip=handler.request.remote_ip,
+                id=handler.request.headers.get("X-Request-ID", "n/a"),
+                traceparent=handler.request.headers.get("traceparent", "n/a"),
+            )
+            print(handler)
+            log_method(
+                f"TX {handler.request.method} {handler.request.path} {round(request_time, 2)}ms"
+            )
+        else:
+            log_method(
+                "%d %s %.2fms",
+                handler.get_status(),
+                handler._request_summary(),
+                request_time,
+            )
         if self.collect_metrics:
             RequestCounterMetric.increment()
             ResponseTimeAverageMetric.add_value(request_time)
@@ -108,36 +131,56 @@ def with_metrics(options):
 def make_http_server(options, check_func, include_probe=False):
     """create all routes for this application"""
     if include_probe:
-        handlers = [
-            (
-                options["liveness_probe"],
-                DjangoLivenessHandler,
-                {
-                    "check_handler": check_func,
-                    "webhook_url": options["webhook_url"],
-                    "max_lifetime": options["max_lifetime"],
-                },
-            ),
-            (
-                options["readiness_probe"],
-                DjangoReadinessHandler,
-                {
-                    "check_handler": check_func,
-                    "req_queue_len": options["req_queue_len"],
-                    "webhook_url": options["webhook_url"],
-                },
-            ),
-            (options["startup_probe"], DjangoStartupHandler),
-        ]
-        if with_metrics(options):
-            handlers.append((options["metrics_path"], PrometheusHandler))
+        handlers = get_integrated_probe_handler(options, check_func)
     else:
         handlers = []
     # if static file serving is enabled
-    if options["static"]:
-        logger.info(
-            f"Serving static files under {settings.STATIC_URL} from {settings.STATIC_ROOT or '<STATIC_ROOT not set>'}"
+    handlers = add_static_handler(options, handlers)
+    # if media file serving is enabled
+    handlers = add_media_handler(options, handlers)
+
+    # append the django routing system
+    handlers.append((".*", DjangoHandler))
+    return HurricaneApplication(
+        handlers, debug=options["debug"], metrics=not options.get("no_metrics", False)
+    )
+
+
+def add_media_handler(options, handlers):
+    if options["media"]:
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Serving media",
+                prefix=settings.MEDIA_URL,
+                root=settings.MEDIA_ROOT or "",
+            )
+        else:
+            logger.info(
+                f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}"
+            )
+        handlers.append(
+            (
+                f"{settings.MEDIA_URL}(.*)",
+                tornado.web.StaticFileHandler,
+                {"path": settings.MEDIA_ROOT},
+            )
         )
+    return handlers
+
+
+def add_static_handler(options, handlers):
+    if options["static"]:
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Serving statics",
+                prefix=settings.STATIC_URL,
+                root=settings.STATIC_ROOT or "",
+            )
+        else:
+            logger.info(
+                f"Serving static files under {settings.STATIC_URL} from "
+                f"{settings.STATIC_ROOT or '<STATIC_ROOT not set>'}"
+            )
         if settings.DEBUG and "django.contrib.staticfiles" in settings.INSTALLED_APPS:
             handlers.append(
                 (
@@ -153,30 +196,41 @@ def make_http_server(options, check_func, include_probe=False):
                     {"path": settings.STATIC_ROOT},
                 )
             )
-    # if media file serving is enabled
-    if options["media"]:
-        logger.info(
-            f"Serving media files under {settings.MEDIA_URL} from {settings.MEDIA_ROOT}"
-        )
-        handlers.append(
-            (
-                f"{settings.MEDIA_URL}(.*)",
-                tornado.web.StaticFileHandler,
-                {"path": settings.MEDIA_ROOT},
-            )
-        )
+    return handlers
 
-    # append the django routing system
-    handlers.append((".*", DjangoHandler))
-    return HurricaneApplication(
-        handlers, debug=options["debug"], metrics=not options.get("no_metrics", False)
-    )
+
+def get_integrated_probe_handler(options, check_func):
+    handlers = [
+        (
+            options["liveness_probe"],
+            DjangoLivenessHandler,
+            {
+                "check_handler": check_func,
+                "webhook_url": options["webhook_url"],
+                "max_lifetime": options["max_lifetime"],
+            },
+        ),
+        (
+            options["readiness_probe"],
+            DjangoReadinessHandler,
+            {
+                "check_handler": check_func,
+                "req_queue_len": options["req_queue_len"],
+                "webhook_url": options["webhook_url"],
+            },
+        ),
+        (options["startup_probe"], DjangoStartupHandler),
+    ]
+    if with_metrics(options):
+        handlers.append((options["metrics_path"], PrometheusHandler))
+    return handlers
 
 
 def make_http_server_and_listen(
     start_time: float, options: dict, check: Callable, include_probe: bool
 ) -> None:
-    logger.info(f"Starting HTTP Server on port {options['port']}")
+    if not STRUCTLOG_ENABLED:
+        logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
     django_application.listen(options["port"])
     StartupWebhook().run(
@@ -205,7 +259,10 @@ def make_http_server_and_listen(
                 ),
             }
         )
-    logger.info(f"Startup time is {time_elapsed} seconds")
+    if STRUCTLOG_ENABLED:
+        logger.info(HTTP_CONFIGURED_EVENT, time=time_elapsed, port=options["port"])
+    else:
+        logger.info(f"Startup time is {time_elapsed} seconds")
 
 
 def command_task(
@@ -213,13 +270,15 @@ def command_task(
     webhook_url: Optional[str] = None,
     loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
 ) -> None:
-    logger.info("Starting execution of management commands")
+    if not STRUCTLOG_ENABLED:
+        logger.info("Starting execution of management commands")
     for command in commands:
         # split a command string to get command options
         command_split = command[0].split()
-        logger.info(
-            f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}"
-        )
+        if not STRUCTLOG_ENABLED:
+            logger.info(
+                f"Starting execution of command {command_split[0]} with arguments {command_split[1:]}"
+            )
         start_time_command = time.time()
         # call management command
         try:
@@ -227,7 +286,15 @@ def command_task(
         except Exception as e:
             logger.error(e)
             error_trace = traceback.format_exc()
-            logger.info("Webhook with a status failed has been initiated")
+            if STRUCTLOG_ENABLED:
+                logger.info(
+                    "Webhook",
+                    url=webhook_url or None,
+                    error_trace=error_trace,
+                    status=WebhookStatus.FAILED,
+                )
+            else:
+                logger.info("Webhook with a status failed has been initiated")
             # webhook is registered and run in a new thread, not blocking the process
             StartupWebhook().run(
                 url=webhook_url or None,
@@ -239,10 +306,16 @@ def command_task(
             raise e
 
         end_time_command = time.time()
-
-        logger.info(
-            f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds"
-        )
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Command executed",
+                command=command_split,
+                time=end_time_command - start_time_command,
+            )
+        else:
+            logger.info(
+                f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds"
+            )
 
 
 def check_databases():
@@ -251,11 +324,17 @@ def check_databases():
         cursor = connection.cursor()
         try:
             cursor.execute("SELECT (1)")
-            logger.info("Database was checked successfully")
+            if STRUCTLOG_ENABLED:
+                logger.info("Database check successful", database=db_name)
+            else:
+                logger.info("Database was checked successfully")
             cursor.close()
             return True
         except Exception as e:
-            logger.warning(f"Database command execution has failed with {e}")
+            if STRUCTLOG_ENABLED:
+                logger.info("Database check unsuccessful", database=db_name)
+            else:
+                logger.warning(f"Database command execution has failed with {e}")
             cursor.close()
             return False
 
@@ -300,7 +379,15 @@ def check_db_and_migrations(
 
     except Exception as e:
         error_trace = traceback.format_exc()
-        logger.info("Webhook with a status warning has been initiated")
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Webhook",
+                url=webhook_url or None,
+                error_trace=error_trace,
+                status=WebhookStatus.WARNING,
+            )
+        else:
+            logger.info("Webhook with a status warning has been initiated")
 
         StartupWebhook().run(
             url=webhook_url or None,

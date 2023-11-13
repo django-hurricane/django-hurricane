@@ -5,12 +5,12 @@ import signal
 import time
 from concurrent.futures.thread import ThreadPoolExecutor
 
-import pkg_resources  # type: ignore
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
 from django.core.management.base import BaseCommand
 
+from hurricane.management.commands import HURRICANE_DIST_VERSION
 from hurricane.server import (
     check_db_and_migrations,
     command_task,
@@ -21,6 +21,10 @@ from hurricane.server import (
     static_watch,
 )
 from hurricane.server.debugging import setup_debugging
+from hurricane.server.loggers import STRUCTLOG_ENABLED
+
+PROBE_CONFIGURED_EVENT = "Probe configured"
+PROMETHEUS_CONFIGURED_EVENT = "Prometheus configured"
 
 
 class Command(BaseCommand):
@@ -170,12 +174,15 @@ class Command(BaseCommand):
         loop.
         """
         start_time = time.time()
-        hurricane_dist_version = pkg_resources.get_distribution(
-            "django-hurricane"
-        ).version
-        logger.info(
-            f"Tornado-powered Django web server. Version: {hurricane_dist_version}"
-        )
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Tornado-powered Django web server.",
+                hurricane=HURRICANE_DIST_VERSION,
+            )
+        else:
+            logger.info(
+                f"Tornado-powered Django web server. Version: {HURRICANE_DIST_VERSION}"
+            )
 
         if options["autoreload"]:
             tornado.autoreload.start()
@@ -207,31 +214,45 @@ class Command(BaseCommand):
         include_probe = False
         if not options["no_probe"]:
             if probe_port != options["port"]:
-                logger.info(
-                    f"Starting probe application running on port {probe_port} with route liveness-probe: "
-                    f"{probe_representations['liveness_probe']}, "
-                    f"readiness-probe: {probe_representations['readiness_probe']}, "
-                    f"startup-probe: {probe_representations['startup_probe']}"
-                )
+                if STRUCTLOG_ENABLED:
+                    self.structlog_probe_configured(
+                        probe_port, probe_representations, options
+                    )
+                else:
+                    logger.info(
+                        f"Starting probe application running on port {probe_port} with route liveness-probe: "
+                        f"{probe_representations['liveness_probe']}, "
+                        f"readiness-probe: {probe_representations['readiness_probe']}, "
+                        f"startup-probe: {probe_representations['startup_probe']}"
+                    )
                 self.log_prometheus(options, probe_port)
                 probe_application = make_probe_server(options, self.check)
                 probe_application.listen(probe_port)
             else:
                 include_probe = True
-                logger.info(
-                    f"Starting probe application with routes "
-                    f"liveness-probe: {probe_representations['liveness_probe']}, "
-                    f"readiness-probe: {probe_representations['readiness_probe']}, "
-                    f"startup-probe: {probe_representations['startup_probe']} "
-                    f"running integrated on port {probe_port}"
-                )
-                self.log_prometheus(options, probe_port)
+                if STRUCTLOG_ENABLED:
+                    self.structlog_probe_configured(
+                        probe_port, probe_representations, options
+                    )
+                else:
+                    logger.info(
+                        f"Starting probe application with routes "
+                        f"liveness-probe: {probe_representations['liveness_probe']}, "
+                        f"readiness-probe: {probe_representations['readiness_probe']}, "
+                        f"startup-probe: {probe_representations['startup_probe']} "
+                        f"running integrated on port {probe_port}"
+                    )
+                    self.log_prometheus(options, probe_port)
 
         else:
-            logger.info("No probe application running")
-            logger.info(
-                "Running without Prometheus exporter, because --no-probe flag was set"
-            )
+            if STRUCTLOG_ENABLED:
+                logger.info("Probes configured", active=False)
+                logger.info(PROMETHEUS_CONFIGURED_EVENT, active=False)
+            else:
+                logger.info("No probe application running")
+                logger.info(
+                    "Running without Prometheus exporter, because --no-probe flag was set"
+                )
             options["no_metrics"] = True
 
         setup_debugging(options)
@@ -292,13 +313,35 @@ class Command(BaseCommand):
 
         loop.run_forever()
 
+    def structlog_probe_configured(self, probe_port, probe_representations, options):
+        logger.info(
+            PROBE_CONFIGURED_EVENT,
+            port=probe_port,
+            active=True,
+            liveness=probe_representations["liveness_probe"],
+            readiness=probe_representations["readiness_probe"],
+            startup=probe_representations["startup_probe"],
+            integrated=probe_port == options["port"],
+        )
+
     def log_prometheus(self, options, probe_port):
         if "no_metrics" not in options or not options["no_metrics"]:
-            logger.info(
-                f"Starting Prometheus metrics exporter on port {probe_port} with "
-                f"route {options['metrics_path']}"
-            )
+            if STRUCTLOG_ENABLED:
+                logger.info(
+                    PROMETHEUS_CONFIGURED_EVENT,
+                    port=probe_port,
+                    route=options["metrics_path"],
+                    active=True,
+                )
+            else:
+                logger.info(
+                    f"Starting Prometheus metrics exporter on port {probe_port} with "
+                    f"route {options['metrics_path']}"
+                )
         else:
-            logger.info(
-                "Running without Prometheus exporter, because --no-metrics flag was set"
-            )
+            if STRUCTLOG_ENABLED:
+                logger.info(PROMETHEUS_CONFIGURED_EVENT, active=False)
+            else:
+                logger.info(
+                    "Running without Prometheus exporter, because --no-metrics flag was set"
+                )
