@@ -23,8 +23,6 @@ from hurricane.metrics import (
 )
 from hurricane.server.loggers import logger
 from hurricane.server.wsgi import HurricaneWSGIContainer
-from hurricane.webhooks import LivenessWebhook, ReadinessWebhook
-from hurricane.webhooks.base import WebhookStatus
 
 
 class DjangoHandler(tornado.web.RequestHandler):
@@ -162,6 +160,8 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
                 self._update_health_metric_exception(metric, webhook, webhook_url)
 
     def _update_health_metric_no_exception(self, metric, webhook, webhook_url):
+        from hurricane.webhooks.base import WebhookStatus
+
         if not metric.get():
             metric_change = True
             metric.set(metric_change)
@@ -170,6 +170,8 @@ class DjangoProbeHandler(tornado.web.RequestHandler):
             )
 
     def _update_health_metric_exception(self, metric, webhook, webhook_url):
+        from hurricane.webhooks.base import WebhookStatus
+
         if metric.get() or metric.get() is None:
             metric_change = False
             metric.set(metric_change)
@@ -198,6 +200,8 @@ class DjangoLivenessHandler(DjangoProbeHandler):
     """
 
     def initialize(self, check_handler, webhook_url, max_lifetime):
+        from hurricane.webhooks import LivenessWebhook
+
         self.check = check_handler
         self.liveness_webhook_url = webhook_url
         self.liveness_webhook = LivenessWebhook
@@ -231,6 +235,8 @@ class DjangoReadinessHandler(DjangoProbeHandler):
     """
 
     def initialize(self, check_handler, req_queue_len, webhook_url):
+        from hurricane.webhooks import ReadinessWebhook
+
         self.check = check_handler
         self.request_queue_length = req_queue_len
         self.readiness_webhook_url = webhook_url

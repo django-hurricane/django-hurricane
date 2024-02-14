@@ -36,9 +36,6 @@ from hurricane.server.loggers import STRUCTLOG_ENABLED, access_log, logger
 if STRUCTLOG_ENABLED:
     from structlog.contextvars import bind_contextvars
 
-from hurricane.webhooks import StartupWebhook
-from hurricane.webhooks.base import WebhookStatus
-
 EXECUTOR = None
 HTTP_CONFIGURED_EVENT = "HTTP configured"
 
@@ -235,6 +232,9 @@ def get_integrated_probe_handler(options, check_func):
 def make_http_server_and_listen(
     start_time: float, options: dict, check: Callable, include_probe: bool
 ) -> None:
+    from hurricane.webhooks import StartupWebhook
+    from hurricane.webhooks.base import WebhookStatus
+
     if not STRUCTLOG_ENABLED:
         logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
@@ -282,6 +282,9 @@ def command_task(
     webhook_url: Optional[str] = None,
     loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
 ) -> None:
+    from hurricane.webhooks import StartupWebhook
+    from hurricane.webhooks.base import WebhookStatus
+
     if not STRUCTLOG_ENABLED:
         logger.info("Starting execution of management commands")
     for command in commands:
@@ -376,6 +379,9 @@ def check_db_and_migrations(
     loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
     apply_migration: bool = False,
 ):
+    from hurricane.webhooks import StartupWebhook
+    from hurricane.webhooks.base import WebhookStatus
+
     try:
         while check_databases():
             number_of_migrations = count_migrations()
@@ -453,21 +459,24 @@ def static_watch():
 
 
 async def check_mem_allocations(maximum_memory: int):
+    restarts = 0
     while True:
         current = psutil.Process().memory_info().rss / (1024 * 1024)
         logger.debug(f"Current virtual memory usage is {current}MB")
         current_mb = current
         if current_mb > maximum_memory:
+            restarts += 1
             if STRUCTLOG_ENABLED:
                 logger.warning(
                     "Memory (rss) usage is too high. Restarting",
                     current_mb=current_mb,
                     maximum_memory_mb=maximum_memory,
+                    restarts=restarts,
                 )
             else:
                 logger.warning(
                     f"Memory (rss) usage is too high. Restarting. Current memory usage is {current_mb}MB; "
-                    f"Maximum memory allowed is {maximum_memory}MB"
+                    f"Maximum memory allowed is {maximum_memory}MB (restart #{restarts})"
                 )
             _reload()
         await asyncio.sleep(10)

@@ -327,6 +327,11 @@ class Command(BaseCommand):
                     f"Starting memory allocation check with maximum memory set to {options['max_memory']} Mb"
                 )
             loop.create_task(check_mem_allocations(options["max_memory"]))
+        else:
+            if STRUCTLOG_ENABLED:
+                logger.warning("Memory allocation check", active=False)
+            else:
+                logger.warning("Starting without memory allocation check")
 
         def ask_exit(signame):
             logger.info(f"Received signal {signame}. Shutting down now.")

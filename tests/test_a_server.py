@@ -597,7 +597,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertIn(
             "No '--pycharm-port' was specified. The '--pycharm-host' option can "
-            "only be used in combination with the '--pycharm-port' option. ",
+            "only be used in combination with the '--pycharm-port' option.",
             out,
         )
 
