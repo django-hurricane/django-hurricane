@@ -19,7 +19,11 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
             )
 
         for _ in range(60):
-            self.app_client.get("/memory")
+            try:
+                self.app_client.get("/memory")
+            except ConnectionRefusedError:
+                sleep(0.5)
+                continue
             out, _ = self.driver.get_output(read_all=True)
             if STRUCTLOG_ENABLED:
                 if "Memory (rss) usage is too high. Restarting" in out:
@@ -53,7 +57,11 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
         #     )
 
         for _ in range(60):
-            self.app_client.get("/memory")
+            try:
+                self.app_client.get("/memory")
+            except ConnectionRefusedError:
+                # the process was probably killed by OOM already
+                break
             out, _ = self.driver.get_output(read_all=True)
             if STRUCTLOG_ENABLED:
                 if "Memory (rss) usage is too high. Restarting" in out:
