@@ -36,7 +36,7 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
 
     @HurricanServerTest.cycle_server
     def test_no_reload(self):
-        for _ in range(3):
+        for _ in range(10):
             out, _ = self.driver.get_output(read_all=True)
             if STRUCTLOG_ENABLED:
                 if "Memory allocation check        active=False" in out:
@@ -46,7 +46,7 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
                     break
             sleep(1)
         else:
-            raise AssertionError("No reload detected within 3 attempts")
+            raise AssertionError("Memory allocation check message not logged with 10 attempts")
 
         for _ in range(60):
             self.app_client.get("/memory")
