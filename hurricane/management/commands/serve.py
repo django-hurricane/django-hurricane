@@ -13,6 +13,7 @@ from django.core.management.base import BaseCommand
 from hurricane.management.commands import HURRICANE_DIST_VERSION
 from hurricane.server import (
     check_db_and_migrations,
+    check_mem_allocations,
     command_task,
     logger,
     make_http_server_and_listen,
@@ -55,6 +56,7 @@ class Command(BaseCommand):
         - ``--check-migrations-apply`` - same as --check-migrations but also applies them if needed
         - ``--webhook-url``- If specified, webhooks will be sent to this url
         - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
+        - ``--max-memory``- If specified, process reloads after exceeding maximum memory (RSS) usage (in Mb)
         - ``--static-watch`` - If specified, static files will be watched for changes and recollected
     """
 
@@ -147,7 +149,19 @@ class Command(BaseCommand):
             "--max-lifetime",
             type=int,
             default=None,
-            help="Maximum requests after which pod is restarted",
+            help="Maximum requests after which pod is restarted (default = None)",
+        )
+        parser.add_argument(
+            "--max-memory",
+            type=int,
+            default=None,
+            help="Maximum memory (Resident Set Size) in Mb before process reloads (default = None, no reload)",
+        )
+        parser.add_argument(
+            "--workers",
+            type=int,
+            default=None,
+            help="Number of thread workers to be used for the server (default = Number of CPUs + 4)",
         )
         parser.add_argument(
             "--static-watch",
@@ -301,6 +315,23 @@ class Command(BaseCommand):
         loop.run_in_executor(
             executor, bundle_func, exec_list, loop, make_http_server_wrapper
         )
+        if options["max_memory"]:
+            if STRUCTLOG_ENABLED:
+                logger.info(
+                    "Memory allocation check",
+                    max_memory_mb=options["max_memory"],
+                    active=True,
+                )
+            else:
+                logger.info(
+                    f"Starting memory allocation check with maximum memory set to {options['max_memory']} Mb"
+                )
+            loop.create_task(check_mem_allocations(options["max_memory"]))
+        else:
+            if STRUCTLOG_ENABLED:
+                logger.warning("Memory allocation check", active=False)
+            else:
+                logger.warning("Starting without memory allocation check")
 
         def ask_exit(signame):
             logger.info(f"Received signal {signame}. Shutting down now.")

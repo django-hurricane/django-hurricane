@@ -1,17 +1,20 @@
 import asyncio
 import concurrent.futures
+import os
 import signal
 import sys
 import time
 import traceback
 from typing import Callable, Optional
 
-import pkg_resources  # type: ignore
+import pkg_resources
+import psutil  # type: ignore
 import tornado
 from django.conf import settings
 from django.core.management import call_command
 from django.db import connections
 from django.db.migrations.executor import MigrationExecutor
+from tornado.autoreload import _reload
 
 from hurricane.management.commands import HURRICANE_DIST_VERSION
 from hurricane.metrics import (
@@ -33,9 +36,6 @@ from hurricane.server.loggers import STRUCTLOG_ENABLED, access_log, logger
 if STRUCTLOG_ENABLED:
     from structlog.contextvars import bind_contextvars
 
-from hurricane.webhooks import StartupWebhook
-from hurricane.webhooks.base import WebhookStatus
-
 EXECUTOR = None
 HTTP_CONFIGURED_EVENT = "HTTP configured"
 
@@ -47,7 +47,8 @@ class HurricaneApplication(tornado.web.Application):
             self.collect_metrics = kwargs["metrics"]
         global EXECUTOR
         if EXECUTOR is None:
-            EXECUTOR = concurrent.futures.ThreadPoolExecutor()
+            max_workers = kwargs.get("workers")
+            EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=max_workers)
         self.executor = EXECUTOR
         super(HurricaneApplication, self).__init__(*args, **kwargs)
 
@@ -72,7 +73,6 @@ class HurricaneApplication(tornado.web.Application):
                 id=handler.request.headers.get("X-Request-ID", "n/a"),
                 traceparent=handler.request.headers.get("traceparent", "n/a"),
             )
-            print(handler)
             log_method(
                 f"TX {handler.request.method} {handler.request.path} {round(request_time, 2)}ms"
             )
@@ -142,7 +142,10 @@ def make_http_server(options, check_func, include_probe=False):
     # append the django routing system
     handlers.append((".*", DjangoHandler))
     return HurricaneApplication(
-        handlers, debug=options["debug"], metrics=not options.get("no_metrics", False)
+        handlers,
+        debug=options["debug"],
+        metrics=not options.get("no_metrics", False),
+        workers=options.get("workers"),
     )
 
 
@@ -229,6 +232,9 @@ def get_integrated_probe_handler(options, check_func):
 def make_http_server_and_listen(
     start_time: float, options: dict, check: Callable, include_probe: bool
 ) -> None:
+    from hurricane.webhooks import StartupWebhook
+    from hurricane.webhooks.base import WebhookStatus
+
     if not STRUCTLOG_ENABLED:
         logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
@@ -260,7 +266,13 @@ def make_http_server_and_listen(
             }
         )
     if STRUCTLOG_ENABLED:
-        logger.info(HTTP_CONFIGURED_EVENT, time=time_elapsed, port=options["port"])
+        workers = options.get("workers") or min(32, (os.cpu_count() or 1) + 4)
+        logger.info(
+            HTTP_CONFIGURED_EVENT,
+            time=time_elapsed,
+            port=options["port"],
+            workers=workers,
+        )
     else:
         logger.info(f"Startup time is {time_elapsed} seconds")
 
@@ -270,6 +282,9 @@ def command_task(
     webhook_url: Optional[str] = None,
     loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
 ) -> None:
+    from hurricane.webhooks import StartupWebhook
+    from hurricane.webhooks.base import WebhookStatus
+
     if not STRUCTLOG_ENABLED:
         logger.info("Starting execution of management commands")
     for command in commands:
@@ -364,6 +379,9 @@ def check_db_and_migrations(
     loop: Optional[asyncio.unix_events.SelectorEventLoop] = None,
     apply_migration: bool = False,
 ):
+    from hurricane.webhooks import StartupWebhook
+    from hurricane.webhooks.base import WebhookStatus
+
     try:
         while check_databases():
             number_of_migrations = count_migrations()
@@ -372,6 +390,9 @@ def check_db_and_migrations(
             if number_of_migrations == 0:
                 logger.info("No pending migrations")
                 break
+            elif not apply_migration:
+                logger.info("Migrations are pending")
+                time.sleep(1)
 
             if apply_migration:
                 logger.info("Applying migrations")
@@ -438,3 +459,27 @@ def static_watch():
         call_command("collectstatic", interactive=False, clear=True)
     except Exception as e:
         logger.error(e)
+
+
+async def check_mem_allocations(maximum_memory: int):
+    restarts = 0
+    while True:
+        current = psutil.Process().memory_info().rss / (1024 * 1024)
+        logger.debug(f"Current virtual memory usage is {current}MB")
+        current_mb = current
+        if current_mb > maximum_memory:
+            restarts += 1
+            if STRUCTLOG_ENABLED:
+                logger.warning(
+                    "Memory (rss) usage is too high. Restarting",
+                    current_mb=current_mb,
+                    maximum_memory_mb=maximum_memory,
+                    restarts=restarts,
+                )
+            else:
+                logger.warning(
+                    f"Memory (rss) usage is too high. Restarting. Current memory usage is {current_mb}MB; "
+                    f"Maximum memory allowed is {maximum_memory}MB (restart #{restarts})"
+                )
+            _reload()
+        await asyncio.sleep(10)

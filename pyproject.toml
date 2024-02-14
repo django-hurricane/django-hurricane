@@ -37,6 +37,7 @@ django = ">=2.2"
 requests = ">=2.25"
 pika = "^1.3.2"
 prometheus-client = "^0.17.1"
+psutil = "^5.9.8"
 
 
 [tool.poetry.group.extras.dependencies]

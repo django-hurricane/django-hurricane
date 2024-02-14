@@ -29,9 +29,13 @@ class HurricaneBaseDriver(object):
     def __init__(self):
         for port in self.ports:
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                try:
-                    sock.bind(("127.0.0.1", port))
-                except OSError:
+                for _ in range(10):
+                    try:
+                        sock.bind(("127.0.0.1", port))
+                        break
+                    except OSError:
+                        sleep(0.1)
+                else:
                     raise BusyPortException(f"Port {port} already in use.")
 
     def get_server_host_port(

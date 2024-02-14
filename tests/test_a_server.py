@@ -504,7 +504,7 @@ class HurricanStartServerTests(HurricanServerTest):
         )
 
     @HurricanServerTest.cycle_server(args=["--check-migrations"])
-    def test_check_migrations(self):
+    def test_b_check_migrations(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         if STRUCTLOG_ENABLED:
@@ -515,7 +515,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("No pending migrations", out)
 
     @HurricanServerTest.cycle_server(args=["--check-migrations-apply"])
-    def test_check_migrations_apply(self):
+    def test_a_check_migrations_apply(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         if STRUCTLOG_ENABLED:
@@ -597,7 +597,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertIn(
             "No '--pycharm-port' was specified. The '--pycharm-host' option can "
-            "only be used in combination with the '--pycharm-port' option. ",
+            "only be used in combination with the '--pycharm-port' option.",
             out,
         )
 
