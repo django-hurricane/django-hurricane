@@ -390,6 +390,9 @@ def check_db_and_migrations(
             if number_of_migrations == 0:
                 logger.info("No pending migrations")
                 break
+            elif not apply_migration:
+                logger.info("Migrations are pending")
+                time.sleep(1)
 
             if apply_migration:
                 logger.info("Applying migrations")

@@ -93,6 +93,9 @@ Command options for *serve*-command:
 +----------------------------+-------------------------------------------------------------------------------+
 | ``--max-lifetime``         | If specified,  maximum requests after which pod is restarted                  |
 +----------------------------+-------------------------------------------------------------------------------+
+| ``--max-memory``           | If specified, process reloads after exceeding maximum memory                  |
+|                            | (RSS) usage (in Mb)                                                           | 
++----------------------------+-------------------------------------------------------------------------------+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of the
 asynchronous tasks' queue will exceed 10, readiness probe will return the status 400 until the length of the queue
@@ -241,7 +244,7 @@ cannot handle webhook properly, an error or a warning will be logged. Response o
 be 200 to indicate the success of receiving webhook.
 
 **Creating new webhook types**
-The new webhook types can be specified in an easy manner in the hurricane/webhooks/webhook_types.py file. They need to
+The new webhook types can be specified easily in the hurricane/webhooks/webhook_types.py file. They need to
 specify Webhook class as a parent class. After creating a new webhook class, you can specify a new argument of the
 management command to parametrize the url, to which webhook will be sent. Then, you can just create an object of webhook
 and run it at the place in code, where it should be executed. Run method should have several methods i.e. url (to which
