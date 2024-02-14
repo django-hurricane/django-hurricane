@@ -47,7 +47,7 @@ jobs:
         timeout_minutes: 12
         max_attempts: 3
         command: |
-          poetry run coverage run manage.py test
+          poetry run coverage run manage.py test -v 2
 
   test-structlog:
     name: Run unit (with Structlog) and integration tests with coverage
@@ -75,7 +75,7 @@ jobs:
         max_attempts: 3
         command: |
           pip install structlog
-          poetry run coverage run manage.py test
+          poetry run coverage run manage.py test -v 2
 
     - name: Combine coverage
       run: |
