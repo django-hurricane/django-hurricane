@@ -36,6 +36,7 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
 
     @HurricanServerTest.cycle_server
     def test_no_reload(self):
+        sleep(1)
         out, _ = self.driver.get_output(read_all=True)
         if STRUCTLOG_ENABLED:
             self.assertIn("Memory allocation check        active=False", out)
