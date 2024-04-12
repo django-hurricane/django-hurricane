@@ -86,8 +86,6 @@ DATABASES = {
     }
 }
 
-PORT = 6788
-
 # DATABASES = {
 #     "default": {
 #         "ENGINE": "django.db.backends.postgresql",
