@@ -13,6 +13,9 @@
             "args": [
                 "serve"
             ],
+            "env": {
+                "HURRICANE_PORT": "1234"
+            },
             "django": true,
             "justMyCode": false
         }

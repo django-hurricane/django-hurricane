@@ -8,6 +8,7 @@ from concurrent.futures.thread import ThreadPoolExecutor
 import tornado.autoreload
 import tornado.web
 import tornado.wsgi
+from django.conf import settings
 from django.core.management.base import BaseCommand
 
 from hurricane.management.commands import HURRICANE_DIST_VERSION
@@ -182,11 +183,130 @@ class Command(BaseCommand):
             help="The port of the pycharm debug server",
         )
 
+    def merge_option(
+        self,
+        option_name: str,
+        option_descriptor: str,
+        options: dict,
+        optional=False,
+        default=None,
+    ):
+        """
+        Merges a single option into the given option dictionary
+
+        Args:
+            option_name (str): Name of the option in the options dictionary
+            option_descriptor (str): Name of the option as env variable
+        """
+        # leave early if option is already set via cli argument - highest precedence
+        if options[option_name] is not None and options[option_name] != default:
+            return
+        try:  # first try to add option from django settings - second highest precedence
+            options.update(
+                {
+                    option_name: getattr(
+                        settings, option_descriptor.removeprefix("HURRICANE_")
+                    )
+                }
+            )
+        except AttributeError:  # then add from env variables - lowest precedence
+            if option_descriptor not in os.environ and options[option_name] is None:
+                if optional:  # if optional, just return and do not raise an error
+                    return
+                raise ValueError(
+                    f"Option {option_descriptor} must be set as environment variable, in django settings or as a command line argument."
+                )
+            # try parsing int in general because we can't know the type of env vars
+            try:
+                options.update({option_name: int(os.environ.get(option_descriptor))})
+            except TypeError:
+                options.update(
+                    {
+                        option_name: os.environ.get(option_descriptor)
+                        if option_descriptor in os.environ
+                        else options[option_name]
+                    }
+                )
+
+    def merge_options(self, options: dict):
+        """
+        Merges options with django settings. Precedence is the following:
+        - ENV variables
+        - Django settings
+        - Command line arguments
+        """
+        self.merge_option("static", "HURRICANE_STATIC", options)
+        self.merge_option("media", "HURRICANE_MEDIA", options)
+        self.merge_option("autoreload", "HURRICANE_AUTORELOAD", options)
+        self.merge_option("debug", "HURRICANE_DEBUG", options)
+        self.merge_option("port", "HURRICANE_PORT", options, default=8000)
+        self.merge_option(
+            "metrics_path", "HURRICANE_METRICS", options, default="/metrics"
+        )
+        self.merge_option(
+            "liveness_probe", "HURRICANE_LIVENESS_PROBE", options, default="/alive"
+        )
+        self.merge_option(
+            "readiness_probe", "HURRICANE_READINESS_PROBE", options, default="/ready"
+        )
+        self.merge_option(
+            "startup_probe", "HURRICANE_STARTUP_PROBE", options, default="/startup"
+        )
+        self.merge_option("probe_port", "HURRICANE_PROBE_PORT", options, optional=True)
+        self.merge_option(
+            "req_queue_len", "HURRICANE_REQ_QUEUE_LEN", options, default=10
+        )
+        self.merge_option("no_probe", "HURRICANE_NO_PROBE", options)
+        self.merge_option("no_metrics", "HURRICANE_NO_METRICS", options)
+        self.merge_option("command", "HURRICANE_COMMAND", options, optional=True)
+        self.merge_option("check_migrations", "HURRICANE_CHECK_MIGRATIONS", options)
+        self.merge_option(
+            "check_migrations_apply", "HURRICANE_CHECK_MIGRATIONS_APPLY", options
+        )
+        self.merge_option("debugger", "HURRICANE_DEBUGGER", options)
+        self.merge_option(
+            "debugger_port", "HURRICANE_DEBUGGER_PORT", options, default=5678
+        )
+        self.merge_option(
+            "webhook_url", "HURRICANE_WEBHOOK_URL", options, optional=True
+        )
+        self.merge_option(
+            "max_lifetime",
+            "HURRICANE_MAX_LIFETIME",
+            options,
+            optional=True,
+            default=None,
+        )
+        self.merge_option(
+            "max_memory", "HURRICANE_MAX_MEMORY", options, optional=True, default=None
+        )
+        self.merge_option(
+            "workers", "HURRICANE_WORKERS", options, optional=True, default=None
+        )
+        self.merge_option(
+            "static_watch", "HURRICANE_STATIC_WATCH", options, optional=True
+        )
+        self.merge_option(
+            "pycharm_host",
+            "HURRICANE_PYCHARM_HOST",
+            options,
+            optional=True,
+            default=None,
+        )
+        self.merge_option(
+            "pycharm_port",
+            "HURRICANE_PYCHARM_PORT",
+            options,
+            optional=True,
+            default=None,
+        )
+
     def handle(self, *args, **options):
         """
         Defines functionalities for different arguments. After all arguments were processed, it starts the async event
         loop.
         """
+        self.merge_options(options)
         start_time = time.time()
         if STRUCTLOG_ENABLED:
             logger.info(
