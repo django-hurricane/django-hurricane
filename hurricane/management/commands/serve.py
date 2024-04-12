@@ -214,7 +214,10 @@ class Command(BaseCommand):
                 if optional:  # if optional, just return and do not raise an error
                     return
                 raise ValueError(
-                    f"Option {option_descriptor} must be set as environment variable, in django settings or as a command line argument."
+                    (
+                        f"Option {option_descriptor} must be set as environment variable,"
+                        " in django settings or as a command line argument."
+                    )
                 )
             # try parsing int in general because we can't know the type of env vars
             try:
