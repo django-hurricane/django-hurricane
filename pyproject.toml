@@ -2,7 +2,7 @@
 name = "django-hurricane"
 version = "1.5.0"
 description = "A Kubernetes Native Stack Specifically Created For Django"
-authors = ["Michael Schilonka <michael@blueshoe.io>"]
+authors = ["Michael Schilonka <michael@blueshoe.io>", "Korbinian Habereder <Korbinian@blueshoe.de>"]
 license = "MIT"
 readme = "README.md"
 packages = [{include = "hurricane"}]
@@ -59,6 +59,7 @@ django-stubs = {extras = ["compatible-mypy"], version = "^4.2.4"}
 isort = "^5.12.0"
 types-requests = "^2.31.0.8"
 coveralls = "^3.3.1"
+poethepoet = "^0.25.0"
 
 [tool.isort]
 profile = "black"
@@ -66,6 +67,9 @@ profile = "black"
 [tool.mypy]
 exclude = ["tests", "docs"]
 ignore_missing_imports = true
+
+[tool.poe]
+include = "tasks.toml"
 
 [build-system]
 requires = ["poetry-core"]

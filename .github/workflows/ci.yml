@@ -18,10 +18,7 @@ jobs:
     - name: Install project
       run: poetry install --no-interaction
     - name: Check code climate
-      run: |
-        poetry run flake8
-        poetry run black --check .
-        poetry run isort --check .
+      run: poetry run poe lint
   test:
     name: Run unit (w/o Structlog) and integration tests with coverage
     needs: codeclimate
