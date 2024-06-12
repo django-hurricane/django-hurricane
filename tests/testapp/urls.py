@@ -46,11 +46,22 @@ def memory_leak_view(request):
     return HttpResponse("Memory was leaked", status=200)
 
 
+def upload_file(request):
+    if request.method == "POST":
+        file = request.FILES["file"]
+        with open("uploaded_file", "wb+") as destination:
+            for chunk in file.chunks():
+                destination.write(chunk)
+        return HttpResponse("File was uploaded", status=200)
+    return HttpResponse("Upload a file", status=200)
+
+
 urlpatterns = [
     path("", test_view),
     path("medium", medium_view),
     path("heavy", heavy_view),
     path("memory", memory_leak_view),
+    path("upload", upload_file),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
