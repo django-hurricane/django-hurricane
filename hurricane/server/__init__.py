@@ -241,7 +241,7 @@ def make_http_server_and_listen(
     django_application.listen(
         options["port"],
         max_body_size=options.get("max_body_size", 1024 * 1024 * 100),
-        max_buffer_size=options.get("max_buffer_size", 1024 * 1024 * 100)
+        max_buffer_size=options.get("max_buffer_size", 1024 * 1024 * 100),
     )
     StartupWebhook().run(
         url=options["webhook_url"] or None, status=WebhookStatus.SUCCEEDED
