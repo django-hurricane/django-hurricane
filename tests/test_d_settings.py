@@ -1,6 +1,8 @@
 import os
 import time
+
 from django.test import SimpleTestCase
+
 from hurricane.testing.drivers import HurricaneServerDriver
 
 
