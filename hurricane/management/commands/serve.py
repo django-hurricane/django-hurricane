@@ -262,9 +262,14 @@ class Command(BaseCommand):
         self.merge_option("no_probe", "HURRICANE_NO_PROBE", options, default=False)
         self.merge_option("no_metrics", "HURRICANE_NO_METRICS", options, default=False)
         self.merge_option("command", "HURRICANE_COMMAND", options, optional=True)
-        self.merge_option("check_migrations", "HURRICANE_CHECK_MIGRATIONS", options, default=False)
         self.merge_option(
-            "check_migrations_apply", "HURRICANE_CHECK_MIGRATIONS_APPLY", options, default=False
+            "check_migrations", "HURRICANE_CHECK_MIGRATIONS", options, default=False
+        )
+        self.merge_option(
+            "check_migrations_apply",
+            "HURRICANE_CHECK_MIGRATIONS_APPLY",
+            options,
+            default=False,
         )
         self.merge_option("debugger", "HURRICANE_DEBUGGER", options, default=False)
         self.merge_option(

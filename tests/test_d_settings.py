@@ -5,7 +5,6 @@ from hurricane.testing.drivers import HurricaneServerDriver
 
 
 class HurricaneSettingsServerTest(SimpleTestCase):
-
     def test_port_gets_read_from_env(self):
         hurricane_server = HurricaneServerDriver()
         hurricane_server._get_env()
@@ -20,7 +19,7 @@ class HurricaneSettingsServerTest(SimpleTestCase):
     def test_port_gets_read_from_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
             old_settings_content = f.read()
-        
+
         with open("tests/testapp/settings.py", "a") as f:
             f.write("\nPORT = 6572\n")
 
@@ -36,9 +35,7 @@ class HurricaneSettingsServerTest(SimpleTestCase):
 
     def test_port_get_overwritten_by_cli_arg(self):
         hurricane_server = HurricaneServerDriver()
-        hurricane_server.start_server(
-            params=["--port", "9276"]
-        )
+        hurricane_server.start_server(params=["--port", "9276"])
         out, _ = hurricane_server.get_output(read_all=True)
         hurricane_server.stop_server()
         self.assertIn("Starting HTTP Server on port 9276", out)
@@ -57,7 +54,7 @@ class HurricaneSettingsServerTest(SimpleTestCase):
     def test_media_get_read_from_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
             old_settings_content = f.read()
-        
+
         with open("tests/testapp/settings.py", "a") as f:
             f.write("\nMEDIA = True\n")
 
@@ -73,9 +70,7 @@ class HurricaneSettingsServerTest(SimpleTestCase):
 
     def test_media_get_overwritten_by_cli_arg(self):
         hurricane_server = HurricaneServerDriver()
-        hurricane_server.start_server(
-            params=["--media"]
-        )
+        hurricane_server.start_server(params=["--media"])
         out, _ = hurricane_server.get_output(read_all=True)
         hurricane_server.stop_server()
         self.assertIn("Serving media files under /media/", out)
@@ -94,7 +89,7 @@ class HurricaneSettingsServerTest(SimpleTestCase):
     def test_live_probe_read_from_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
             old_settings_content = f.read()
-        
+
         with open("tests/testapp/settings.py", "a") as f:
             f.write("\nLIVENESS_PROBE = '/veryalive'\n")
 
@@ -107,12 +102,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
 
         with open("tests/testapp/settings.py", "w") as f:
             f.write(old_settings_content)
-    
+
     def test_live_probe_overwritten_by_cli_arg(self):
         hurricane_server = HurricaneServerDriver()
-        hurricane_server.start_server(
-            params=["--liveness-probe", "/veryalive"]
-        )
+        hurricane_server.start_server(params=["--liveness-probe", "/veryalive"])
         out, _ = hurricane_server.get_output(read_all=True)
         hurricane_server.stop_server()
         self.assertIn("with route liveness-probe: /veryalive", out)

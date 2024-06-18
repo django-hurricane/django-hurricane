@@ -97,8 +97,8 @@ DATABASES = {
 #     }
 # }
 
-MEDIA = 'tests/testapp/media'
+MEDIA = "tests/testapp/media"
 
 MEDIA = True
 
-LIVENESS_PROBE = '/veryalive'
+LIVENESS_PROBE = "/veryalive"
