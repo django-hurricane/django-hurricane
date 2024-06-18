@@ -238,10 +238,10 @@ class Command(BaseCommand):
         - Django settings
         - Command line arguments
         """
-        self.merge_option("static", "HURRICANE_STATIC", options)
-        self.merge_option("media", "HURRICANE_MEDIA", options)
-        self.merge_option("autoreload", "HURRICANE_AUTORELOAD", options)
-        self.merge_option("debug", "HURRICANE_DEBUG", options)
+        self.merge_option("static", "HURRICANE_STATIC", options, default=False)
+        self.merge_option("media", "HURRICANE_MEDIA", options, default=False)
+        self.merge_option("autoreload", "HURRICANE_AUTORELOAD", options, default=False)
+        self.merge_option("debug", "HURRICANE_DEBUG", options, default=False)
         self.merge_option("port", "HURRICANE_PORT", options, default=8000)
         self.merge_option(
             "metrics_path", "HURRICANE_METRICS", options, default="/metrics"
@@ -259,14 +259,14 @@ class Command(BaseCommand):
         self.merge_option(
             "req_queue_len", "HURRICANE_REQ_QUEUE_LEN", options, default=10
         )
-        self.merge_option("no_probe", "HURRICANE_NO_PROBE", options)
-        self.merge_option("no_metrics", "HURRICANE_NO_METRICS", options)
+        self.merge_option("no_probe", "HURRICANE_NO_PROBE", options, default=False)
+        self.merge_option("no_metrics", "HURRICANE_NO_METRICS", options, default=False)
         self.merge_option("command", "HURRICANE_COMMAND", options, optional=True)
-        self.merge_option("check_migrations", "HURRICANE_CHECK_MIGRATIONS", options)
+        self.merge_option("check_migrations", "HURRICANE_CHECK_MIGRATIONS", options, default=False)
         self.merge_option(
-            "check_migrations_apply", "HURRICANE_CHECK_MIGRATIONS_APPLY", options
+            "check_migrations_apply", "HURRICANE_CHECK_MIGRATIONS_APPLY", options, default=False
         )
-        self.merge_option("debugger", "HURRICANE_DEBUGGER", options)
+        self.merge_option("debugger", "HURRICANE_DEBUGGER", options, default=False)
         self.merge_option(
             "debugger_port", "HURRICANE_DEBUGGER_PORT", options, default=5678
         )
