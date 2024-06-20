@@ -221,7 +221,7 @@ class Command(BaseCommand):
                 )
             # try parsing int in general because we can't know the type of env vars
             try:
-                options.update({option_name: int(os.environ.get(option_descriptor))})
+                options.update({option_name: int(str(os.environ.get(option_descriptor)))})
             except TypeError:
                 options.update(
                     {
