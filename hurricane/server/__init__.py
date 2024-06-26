@@ -238,7 +238,11 @@ def make_http_server_and_listen(
     if not STRUCTLOG_ENABLED:
         logger.info(f"Starting HTTP Server on port {options['port']}")
     django_application = make_http_server(options, check, include_probe)
-    django_application.listen(options["port"])
+    django_application.listen(
+        options["port"],
+        max_body_size=options.get("max_body_size", 1024 * 1024 * 100),
+        max_buffer_size=options.get("max_buffer_size", 1024 * 1024 * 100),
+    )
     StartupWebhook().run(
         url=options["webhook_url"] or None, status=WebhookStatus.SUCCEEDED
     )

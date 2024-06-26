@@ -1,0 +1,18 @@
+[tool.poe.tasks.code]
+shell  = """
+poetry run black . &&
+poetry run isort . &&
+poetry run mypy . &&
+poetry run flake8 .
+"""
+help = "Maintain the codebase to ensure good code climate with black, isort, mypy, flake8"
+
+[tool.poe.tasks.lint]
+shell  = """
+poetry run black --check . &&
+poetry run isort --check . &&
+pip install types-setuptools &&
+poetry run mypy . &&
+poetry run flake8 .
+"""
+help = "Run check on code climate (black, isort, mypy, flake8)"
