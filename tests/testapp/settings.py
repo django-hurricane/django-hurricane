@@ -96,9 +96,3 @@ DATABASES = {
 #         "CONN_MAX_AGE": 60
 #     }
 # }
-
-MEDIA = "tests/testapp/media"
-
-MEDIA = True
-
-LIVENESS_PROBE = "/veryalive"

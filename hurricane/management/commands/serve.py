@@ -224,7 +224,7 @@ class Command(BaseCommand):
                 options.update(
                     {option_name: int(str(os.environ.get(option_descriptor)))}
                 )
-            except TypeError:
+            except (TypeError, ValueError):
                 options.update(
                     {
                         option_name: os.environ.get(option_descriptor)

@@ -93,7 +93,7 @@ class HurricaneSettingsServerTest(SimpleTestCase):
             old_settings_content = f.read()
 
         with open("tests/testapp/settings.py", "a") as f:
-            f.write("\nLIVENESS_PROBE = '/veryalive'\n")
+            f.write("\nLIVENESS_PROBE = \"/veryalive\"\n")
 
         hurricane_server = HurricaneServerDriver()
         hurricane_server.start_server()
