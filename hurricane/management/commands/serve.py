@@ -185,13 +185,13 @@ class Command(BaseCommand):
         parser.add_argument(
             "--max-body-size",
             type=int,
-            default=1024*1024*100,
+            default=1024 * 1024 * 100,
             help="The maximum size of the body of a request in bytes",
         )
         parser.add_argument(
             "--max-buffer-size",
             type=int,
-            default=1024*1024*100,
+            default=1024 * 1024 * 100,
             help="The maximum size of the buffer of a request in bytes",
         )
 
@@ -327,14 +327,14 @@ class Command(BaseCommand):
             "HURRICANE_MAX_BODY_SIZE",
             options,
             optional=True,
-            default=1024*1024*100,
+            default=1024 * 1024 * 100,
         )
         self.merge_option(
             "max_buffer_size",
             "HURRICANE_MAX_BUFFER_SIZE",
             options,
             optional=True,
-            default=1024*1024*100,
+            default=1024 * 1024 * 100,
         )
 
     def handle(self, *args, **options):
