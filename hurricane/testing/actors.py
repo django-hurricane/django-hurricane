@@ -1,7 +1,7 @@
-import os
 import http
 import json
 import mimetypes
+import os
 
 import pika
 import tornado.ioloop
