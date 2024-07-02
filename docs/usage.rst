@@ -96,6 +96,11 @@ Command options for *serve*-command:
 | ``--max-memory``           | If specified, process reloads after exceeding maximum memory                  |
 |                            | (RSS) usage (in Mb)                                                           | 
 +----------------------------+-------------------------------------------------------------------------------+
+| ``--max-body-size``        | If specified, maximum request body size in bytes                              |
++----------------------------+-------------------------------------------------------------------------------+
+| ``--max-buffer-size``      | If specified, maximum buffer size in bytes                                    |
++----------------------------+-------------------------------------------------------------------------------+
+
 
 **Please note**: :code:`req-queue-len` parameter is set to a default value of 10. It means, that if the length of the
 asynchronous tasks' queue will exceed 10, readiness probe will return the status 400 until the length of the queue
@@ -258,7 +263,13 @@ any unapplied migrations. It is executed in a separate thread, so the main threa
 
 Settings
 ^^^^^^^^
+
 :code:`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
+
+From version 1.6.0 onwards, all Django Hurricane settings can be set as either environment variables or in the Django settings file.
+The Django settings take precedence over the environment variables. Both of those methods need the settings to be prefixed with `HURRICANE_`.  
+
+Settings can still be overwritten by cli args as they take the highest precedence.
 
 Logging
 ^^^^^^^
