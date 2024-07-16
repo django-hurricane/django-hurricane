@@ -266,8 +266,14 @@ Settings
 
 :code:`HURRICANE_VERSION` - is sent together with webhooks to distinguish between different versions.
 
-From version 1.6.0 onwards, all Django Hurricane settings can be set as either environment variables or in the Django settings file.
-The Django settings take precedence over the environment variables. Both of those methods need the settings to be prefixed with `HURRICANE_`.  
+From version 1.6.0 onward, all Django Hurricane settings can be set as either environment variables or in the Django settings file.
+*The Django settings take precedence over the environment variables*. Both of those methods need the settings to be prefixed with `HURRICANE_`.  
+
+For example, to set the `HURRICANE_PORT` setting, you can either set the environment variable `HURRICANE_PORT` or add the following line to your Django settings file:
+::
+    HURRICANE_PORT = 8000
+
+`NOTE`: all known cli args have to be prefixed with `HURRICANE_` and hyphens have to be replaced with underscores when used as env vars or in Django settings.
 
 Settings can still be overwritten by cli args as they take the highest precedence.
 
