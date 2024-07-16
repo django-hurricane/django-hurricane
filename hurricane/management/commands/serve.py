@@ -59,6 +59,8 @@ class Command(BaseCommand):
         - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
         - ``--max-memory``- If specified, process reloads after exceeding maximum memory (RSS) usage (in Mb)
         - ``--static-watch`` - If specified, static files will be watched for changes and recollected
+        - ``--max-body-size`` - The maximum size of the body of a tornado request in bytes
+        - ``--max-buffer-size`` - The maximum size of the buffer of a tornado request in bytes
     """
 
     help = "Start a Tornado-powered Django web server"
