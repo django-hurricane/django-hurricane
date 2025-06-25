@@ -1,5 +1,6 @@
 import asyncio
 import concurrent.futures
+import importlib.metadata
 import os
 import signal
 import sys
@@ -7,7 +8,6 @@ import time
 import traceback
 from typing import Callable, Optional
 
-import pkg_resources
 import psutil  # type: ignore
 import tornado
 from django.conf import settings
@@ -251,9 +251,10 @@ def make_http_server_and_listen(
     # if startup time metric value is set - startup process is finished
     StartupTimeMetric.set(time_elapsed)
     if with_metrics(options):
-        hurricane_dist_version = pkg_resources.get_distribution(
-            "django-hurricane"
-        ).version
+        try:
+            hurricane_dist_version = importlib.metadata.version("django-hurricane")
+        except importlib.metadata.PackageNotFoundError:
+            hurricane_dist_version = "unknown"
         registry.metrics["hurricane"].set(
             {
                 "version": hurricane_dist_version,
