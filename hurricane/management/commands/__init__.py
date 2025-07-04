@@ -1,3 +1,6 @@
-import pkg_resources  # type: ignore
+import importlib.metadata
 
-HURRICANE_DIST_VERSION = pkg_resources.get_distribution("django-hurricane").version
+try:
+    HURRICANE_DIST_VERSION = importlib.metadata.version("django-hurricane")
+except importlib.metadata.PackageNotFoundError:
+    raise RuntimeError("django-hurricane not found in environment.")
