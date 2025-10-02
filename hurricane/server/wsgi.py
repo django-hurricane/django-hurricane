@@ -104,7 +104,10 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
         start_line = httputil.ResponseStartLine("HTTP/1.1", status_code, reason)
         header_obj = httputil.HTTPHeaders()
         for key, value in headers:
-            header_obj.add(key, value)
+            sanitized_value = self._sanitize_header_value(value)
+            if sanitized_value is None:
+                continue
+            header_obj.add(key, sanitized_value)
         assert request.connection is not None
         if request.method == "HEAD":
             request.connection.write_headers(start_line, header_obj)
@@ -114,3 +117,22 @@ class HurricaneWSGIContainer(tornado.wsgi.WSGIContainer):
             registry.metrics["response_size_bytes"].observe(len(body))
         request.connection.finish()
         self._log(status_code, request)
+
+    @staticmethod
+    def _sanitize_header_value(value: str) -> Optional[str]:
+        """Normalize header values before they are passed to Tornado.
+
+        Tornado 6.5 raises ``HTTPInputError`` for header values that contain
+        leading whitespace or are empty. Some WSGI applications, including
+        Django, may emit values with a leading space when removing cookies
+        (e.g. ``" sessionid=..."``).  To keep backwards compatibility with
+        those applications we normalise the value by stripping surrounding
+        whitespace and dropping headers that end up empty.
+        """
+
+        if value is None:
+            return None
+        normalized_value = value.strip()
+        if not normalized_value:
+            return None
+        return normalized_value
