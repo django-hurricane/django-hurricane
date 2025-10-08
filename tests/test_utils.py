@@ -48,10 +48,10 @@ def _get_wsgi_container():
 def test_sanitize_header_value_strips_leading_whitespace():
     HurricaneWSGIContainer = _get_wsgi_container()
 
-    value = " sessionid=\"\"; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; SameSite=Lax"
+    value = ' sessionid=""; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; SameSite=Lax'
     assert (
         HurricaneWSGIContainer._sanitize_header_value(value)
-        == "sessionid=\"\"; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; SameSite=Lax"
+        == 'sessionid=""; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0; Path=/; SameSite=Lax'
     )
 
 
