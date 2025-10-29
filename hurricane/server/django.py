@@ -293,7 +293,10 @@ class PrometheusHandler(tornado.web.RequestHandler):
         Transmitting incoming request to the Prometheus application via WSGI Container.
         """
         for _, metric in registry.metrics.items():
-            metric.get()
+            if metric.is_async:
+                await metric.get()
+            else:
+                metric.get()
 
         self.prometheus(self.request)
         self._finished = True
