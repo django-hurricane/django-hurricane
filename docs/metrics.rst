@@ -25,9 +25,37 @@ variable, which is used as a key for storing and retrieving value from the regis
 also registered in a metric registry. This can be done by adding the following lines to init file of metrics package:
 ::
     # file: metrics/__init__.py
+    from hurricane.metrics import registry
     from hurricane.metrics.requests import <CustomMetricClass>
 
     registry.register(<CustomMetricClass>)
+
+
+.. hint:: Dont't forget to import the metrics in your Django app. We recommend doing this in the AppConfig.ready() method.
+
+It is possible to add both synchronous and asynchronous custom metrics:
+
+::
+    # file: metrics/__init__.py
+    from hurricane.metrics.base import InfoMetrics
+
+    class CustomMetric(InfoMetrics):
+        code = "custom_metric_code"
+        is_async = True
+        prometheus = Gauge(
+            "processed_order", "Number of orders that have been processed."
+        )
+        value = 1
+
+        @classmethod
+        async def get(cls):
+            value = await Order.objects.filter(
+                status=Order.PROCESSED,
+            ).acount()
+            cls.prometheus.set(value)
+            cls.value = value
+
+This is particularly useful when the metric value needs to be fetched from an external source, such as a database or an API.
 
 
 Disable Metrics

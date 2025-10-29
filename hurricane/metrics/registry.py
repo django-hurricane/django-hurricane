@@ -2,13 +2,12 @@ from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
 
 
 class MetricsRegistry:
-
     """
     Registering metrics and storing them in a metrics dictionary.
     """
 
-    def __init__(self):
-        self.metrics = {}
+    def __init__(self) -> None:
+        self.metrics: dict = {}
 
     def register(self, metric_cls):
         if metric_cls.code in self.metrics:
@@ -24,5 +23,5 @@ class MetricsRegistry:
             # TODO warn about trying to unregister not registered metric
             pass
 
-    def get(self, code):
+    def get(self, code: str):
         return self.metrics[code]
