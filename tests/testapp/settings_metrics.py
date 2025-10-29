@@ -1,8 +1,9 @@
 from prometheus_client import Counter
-from .settings import *
 
 from hurricane.metrics import registry
-from hurricane.metrics.base import CounterMetric, CalculatedMetric
+from hurricane.metrics.base import CalculatedMetric, CounterMetric
+
+from .settings import *
 
 
 class TestMetric(CounterMetric):
