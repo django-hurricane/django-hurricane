@@ -8,7 +8,9 @@ class HurricanStartServerTests(HurricanServerTest):
     starting_message = "Tornado-powered Django web server"
     starting_http_message = "Starting Prometheus metrics exporter on port "
 
-    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_metrics"})
+    @HurricanServerTest.cycle_server(
+        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_metrics"}
+    )
     def test_custom_metrics(self):
         found_sync = False
         found_async = False
@@ -20,5 +22,9 @@ class HurricanStartServerTests(HurricanServerTest):
             if fam.name == "test_metric_async":
                 found_async = True
 
-        self.assertTrue(found_sync, msg="Synchronous metric not found in /metrics output")
-        self.assertTrue(found_async, msg="Asynchronous metric not found in /metrics output")
+        self.assertTrue(
+            found_sync, msg="Synchronous metric not found in /metrics output"
+        )
+        self.assertTrue(
+            found_async, msg="Asynchronous metric not found in /metrics output"
+        )

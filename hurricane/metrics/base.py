@@ -4,12 +4,15 @@ from prometheus_client import Counter, Gauge, Histogram
 
 CONTINUOUS_LOOP_TASKS = 5  # 5 is the number of tasks that are always running
 
+
 class HurricaneMetric:
     """
     Base class for storing metrics in registry.
     """
+
     is_async: bool = False
     code: str = ""
+
 
 class StoredMetric(HurricaneMetric):
     value: Optional[Any] = None
@@ -82,6 +85,7 @@ class CounterMetric(StoredMetric):
     """
     Metric, that can be incremented and decremented.
     """
+
     value = 0
     prometheus: Optional[Counter] = None
 
@@ -108,6 +112,7 @@ class AverageMetric(StoredMetric):
     """
     Calculating average of a metric.
     """
+
     counter = 0
     value = 0
     prometheus: Optional[Gauge] = None
@@ -130,6 +135,7 @@ class ObservedMetric(StoredMetric):
     """
     Metric, that can be oberserved.
     """
+
     value = 0
     prometheus: Optional[Histogram] = None
 
