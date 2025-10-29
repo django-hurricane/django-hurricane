@@ -1,4 +1,3 @@
-from hurricane.metrics.base import HurricaneMetric
 from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
 
 
