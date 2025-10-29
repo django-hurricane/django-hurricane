@@ -24,5 +24,5 @@ class MetricsRegistry:
             # TODO warn about trying to unregister not registered metric
             pass
 
-    def get(self, code: str) -> HurricaneMetric:
+    def get(self, code: str):
         return self.metrics[code]
