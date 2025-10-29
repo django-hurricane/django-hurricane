@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "django-hurricane"
-version = "1.6.1"
+version = "1.6.2"
 description = "A Kubernetes Native Stack Specifically Created For Django"
 authors = ["Michael Schilonka <michael@blueshoe.io>", "Korbinian Habereder <Korbinian@blueshoe.de>"]
 license = "MIT"
