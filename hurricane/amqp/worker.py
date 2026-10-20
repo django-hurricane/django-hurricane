@@ -1,8 +1,8 @@
+import asyncio
 import os
 import time
 from typing import Type
 
-import tornado.ioloop
 from django.conf import settings
 
 from hurricane.amqp import logger
@@ -10,7 +10,6 @@ from hurricane.amqp.basehandler import _AMQPConsumer
 
 
 class AMQPClient(object):
-
     """
     This is the AMQP Client that will reconnect, if the nested handler instance indicates that a reconnect is necessary.
     """
@@ -75,8 +74,12 @@ class AMQPClient(object):
         else:
             self._consumer.run()
         logger.info("Terminating Hurricane AMQP client")
-        loop = tornado.ioloop.IOLoop.current()
-        loop.stop()
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.stop()
+        except Exception:
+            pass
 
     def _maybe_reconnect(self) -> None:
         if self._consumer.should_reconnect:

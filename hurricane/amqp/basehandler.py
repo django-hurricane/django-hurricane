@@ -2,13 +2,12 @@ import functools
 from typing import List, Optional
 
 import pika
-from pika.adapters.tornado_connection import TornadoConnection
+from pika.adapters.asyncio_connection import AsyncioConnection
 
 from hurricane.amqp import logger
 
 
 class _AMQPConsumer:
-
     """
     This is Hurricane's base AMQP consumer that will handle unexpected interactions
     with the message broker such as channel and connection closures.
@@ -43,14 +42,14 @@ class _AMQPConsumer:
         self._username = username
         self._password = password
 
-        self._connection: TornadoConnection
+        self._connection: AsyncioConnection
         self._channel: Optional[pika.channel.Channel] = None
         self._closing = False
         self._consumer_tag = None
         self._consuming = False
         self._prefetch_count = 1
 
-    def connect(self) -> TornadoConnection:
+    def connect(self) -> AsyncioConnection:
         """
         This method connects to the broker, returning the connection handle.
         """
@@ -74,7 +73,7 @@ class _AMQPConsumer:
             )
 
         # connect
-        connection = TornadoConnection(
+        connection = AsyncioConnection(
             parameters=parameters,
             on_open_callback=self.on_connection_open,
             on_open_error_callback=self.on_connection_open_error,
@@ -99,9 +98,7 @@ class _AMQPConsumer:
         logger.info("Connection opened")
         self.open_channel()
 
-    def on_connection_open_error(
-        self, _unused_connection: pika.SelectConnection, err: Exception
-    ):
+    def on_connection_open_error(self, _unused_connection: pika.SelectConnection, err: Exception):
         """
         This method is called by pika if the connection to the broker
         can't be established.
@@ -112,9 +109,7 @@ class _AMQPConsumer:
         logger.error(f"Connection open failed: {err}")
         self.reconnect()
 
-    def on_connection_closed(
-        self, _unused_connection: pika.SelectConnection, reason: Exception
-    ):
+    def on_connection_closed(self, _unused_connection: pika.SelectConnection, reason: Exception):
         """
         This method is invoked by pika when the connection to the broker is
         closed unexpectedly. Since it is unexpected, we will reconnect to
@@ -193,13 +188,9 @@ class _AMQPConsumer:
         # how arbitrary data can be passed to the callback when it is called
         cb = functools.partial(self.on_exchange_declareok, userdata=exchange_name)
         if self._channel:
-            self._channel.exchange_declare(
-                exchange=exchange_name, exchange_type=self.EXCHANGE_TYPE, callback=cb
-            )
+            self._channel.exchange_declare(exchange=exchange_name, exchange_type=self.EXCHANGE_TYPE, callback=cb)
 
-    def on_exchange_declareok(
-        self, _unused_frame: pika.frame.Method, userdata: str
-    ) -> None:
+    def on_exchange_declareok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
         """
         Invoked by pika when the broker has finished the Exchange.Declare RPC
         command.
@@ -229,9 +220,7 @@ class _AMQPConsumer:
 
         return []
 
-    def on_queue_declareok(
-        self, _unused_frame: pika.frame.Method, userdata: str
-    ) -> None:
+    def on_queue_declareok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
         """
         Method invoked by pika when the Queue.Declare RPC call made in
         setup_queue has completed. In this method we will bind the queue
@@ -247,14 +236,10 @@ class _AMQPConsumer:
             # no routing key applicable
             cb = functools.partial(self.on_bindok, queue_name=queue_name)
             if self._channel:
-                self._channel.queue_bind(
-                    queue_name, exchange=self._exchange_name, callback=cb
-                )
+                self._channel.queue_bind(queue_name, exchange=self._exchange_name, callback=cb)
         else:
             for routing_key in routing_keys:
-                cb = functools.partial(
-                    self.on_bindok, queue_name=queue_name, routing_key=routing_key
-                )
+                cb = functools.partial(self.on_bindok, queue_name=queue_name, routing_key=routing_key)
                 if self._channel:
                     self._channel.queue_bind(
                         queue_name,
@@ -288,9 +273,7 @@ class _AMQPConsumer:
         with different prefetch values to achieve desired performance.
         """
         if self._channel:
-            self._channel.basic_qos(
-                prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok
-            )
+            self._channel.basic_qos(prefetch_count=self._prefetch_count, callback=self.on_basic_qos_ok)
 
     def on_basic_qos_ok(self, _unused_frame) -> None:
         """
@@ -313,9 +296,7 @@ class _AMQPConsumer:
         logger.info("Issuing consumer")
         self.add_on_cancel_callback()
         if self._channel:
-            self._consumer_tag = self._channel.basic_consume(
-                self._queue_name, self.on_message
-            )
+            self._consumer_tag = self._channel.basic_consume(self._queue_name, self.on_message)
             self.was_consuming = True
             self._consuming = True
 
@@ -357,9 +338,7 @@ class _AMQPConsumer:
             properties.app_id,
         )
         self.reject_message(basic_deliver.delivery_tag)
-        raise NotImplementedError(
-            "The on_message method must be implemented by a handler class"
-        )
+        raise NotImplementedError("The on_message method must be implemented by a handler class")
 
     def acknowledge_message(self, delivery_tag) -> None:
         """
@@ -392,7 +371,7 @@ class _AMQPConsumer:
             cb = functools.partial(self.on_cancelok, userdata=self._consumer_tag)
             self._channel.basic_cancel(self._consumer_tag, cb)
 
-    def on_cancelok(self, _unused_frame: pika.frame.Method, userdata: str) -> None:
+    def on_cancelok(self, _unused_frame: pika.frame.Method, userdata: Optional[str] = None) -> None:
         """
         This method is invoked by pika when the broker acknowledges the
         cancellation of a consumer. At this point we will close the channel.
@@ -401,9 +380,7 @@ class _AMQPConsumer:
         """
 
         self._consuming = False
-        logger.info(
-            f"The broker acknowledged the cancellation of the consumer: {userdata}"
-        )
+        logger.info(f"The broker acknowledged the cancellation of the consumer: {userdata}")
         self.close_channel()
 
     def close_channel(self) -> None:
@@ -423,7 +400,10 @@ class _AMQPConsumer:
         """
 
         self._connection = self.connect()
-        self._connection.ioloop.start()
+        if hasattr(self._connection.ioloop, "run_forever"):
+            self._connection.ioloop.run_forever()
+        else:
+            self._connection.ioloop.start()
 
     def stop(self) -> None:
         """
@@ -445,7 +425,6 @@ class _AMQPConsumer:
 
 
 class TopicHandler(_AMQPConsumer):
-
     """
     This handler implements Hurricane's base AMQP consumer that handles unexpected interactions
     with the message broker such as channel and connection closures. The ``EXCHANGE_TYPE`` is *topic*.

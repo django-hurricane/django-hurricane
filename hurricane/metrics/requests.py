@@ -11,10 +11,10 @@ from hurricane.metrics.base import (
     ObservedMetric,
     StoredMetric,
 )
+from hurricane.metrics.shared import SharedMetrics
 
 
 class RequestCounterMetric(CounterMetric):
-
     """
     Defines request counter metric with corresponding metric code.
     """
@@ -22,19 +22,42 @@ class RequestCounterMetric(CounterMetric):
     code = "request_counter"
     prometheus = Counter(code, __doc__.strip())
 
+    @classmethod
+    def increment(cls):
+        val = SharedMetrics.increment_requests()
+        if cls.prometheus:
+            cls.prometheus.inc()
+        cls.value = val
+
+    @classmethod
+    def get(cls):
+        val = SharedMetrics.get_requests()
+        return val if val > 0 else (cls.value or 0)
+
 
 class ResponseTimeAverageMetric(AverageMetric):
-
     """
     Defines response time average metric with corresponding metric code.
     """
 
     code = "response_time_average"
     prometheus = Gauge(code, __doc__.strip())
+    value: Any = 0.0
+
+    @classmethod
+    def add_value(cls, value: float):
+        avg = SharedMetrics.add_response_time(value)
+        if cls.prometheus:
+            cls.prometheus.set(avg)
+        cls.value = avg
+
+    @classmethod
+    def get(cls):
+        avg = SharedMetrics.get_average_response_time()
+        return avg if avg > 0.0 else cls.value
 
 
 class RequestQueueLengthMetric(CalculatedMetric):
-
     """
     Defines request queue length metric with corresponding metric code.
     """
@@ -42,70 +65,98 @@ class RequestQueueLengthMetric(CalculatedMetric):
     code = "request_queue_length"
     prometheus = Gauge(code, __doc__.strip())
 
-    def get_value(self):
-        """
-        Getting length of the asyncio queue of all tasks.
-        """
-        _len = max(0, len(asyncio.all_tasks()) - CONTINUOUS_LOOP_TASKS)
-        self.prometheus.set(_len)
-        return _len
+    @classmethod
+    def set(cls, value: int):
+        SharedMetrics.set_queue_length(value)
+        if cls.prometheus:
+            cls.prometheus.set(value)
+
+    @classmethod
+    def get_value(cls, *args):
+        return SharedMetrics.get_queue_length()
 
 
 class StartupTimeMetric(StoredMetric):
     code = "startup_time"
 
+    @classmethod
+    def set(cls, value: Any):
+        SharedMetrics.set_startup_time(float(value))
+        cls.value = value
+
+    @classmethod
+    def get(cls):
+        val = SharedMetrics.get_startup_time()
+        return val if val is not None else cls.value
+
 
 class HealthMetric(StoredMetric):
     code = "health"
+
+    @classmethod
+    def set(cls, value: Any):
+        SharedMetrics.set_health(bool(value))
+        cls.value = value
+
+    @classmethod
+    def get(cls):
+        val = SharedMetrics.get_health()
+        return val if val is not None else cls.value
 
 
 class ReadinessMetric(StoredMetric):
     code = "readiness"
 
+    @classmethod
+    def set(cls, value: Any):
+        SharedMetrics.set_readiness(bool(value))
+        cls.value = value
+
+    @classmethod
+    def get(cls):
+        val = SharedMetrics.get_readiness()
+        return val if val is not None else cls.value
+
 
 class ResponseTimeMetric(ObservedMetric):
     """
-    The time to generate a response in seconds.
+    Defines response time metric with corresponding metric code.
     """
 
-    code = "response_time_seconds"
-    prometheus = Histogram(code, __doc__.strip())
+    code = "response_time"
+    prometheus = Histogram(code, __doc__.strip(), buckets=[0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10])
 
 
 class ResponseSizeMetric(ObservedMetric):
     """
-    The response size in bytes.
+    Defines response size metric with corresponding metric code.
     """
 
-    code = "response_size_bytes"
-    prometheus = Histogram(code, __doc__.strip())
+    code = "response_size"
+    prometheus = Histogram(
+        code,
+        __doc__.strip(),
+        buckets=[100, 1000, 10000, 100000, 1000000, 10000000, 100000000],
+    )
 
 
 class PathCounterMetric(CounterMetric):
     """
-    The number of requests to a specific path.
+    Defines response path metric with corresponding metric code.
     """
 
-    code = "path_requests_total"
-    prometheus = Counter(code, __doc__.strip(), ["method", "path"])
-
-    @classmethod
-    def increment(cls, method, path):
-        """
-        Increment value to the metric.
-        """
-        if cls.prometheus:
-            cls.prometheus.labels(method, path).inc()
-        cls.set(cls.get() + 1)
+    code = "request_path"
+    prometheus = Counter(code, __doc__.strip(), labelnames=["path"])
 
 
-class InfoMetrics(StoredMetric):
+class InfoMetrics(CalculatedMetric):
     """
     Python package info of Hurricane
     """
 
     code = "hurricane"
     prometheus = Info(code, __doc__.strip())
+    value: Any = None
 
     @classmethod
     def set(cls, value: Any):

@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hurricane-static-media
+  labels:
+    app: hurricane-static-media
+spec:
+  containers:
+  - name: hurricane
+    image: django-hurricane-test:latest
+    imagePullPolicy: Never
+    ports:
+    - containerPort: 8000
+    command: ["python", "manage.py", "serve", "--port=8000", "--probe-port=8000", "--static", "--media"]
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8000
+      periodSeconds: 1
+      failureThreshold: 30

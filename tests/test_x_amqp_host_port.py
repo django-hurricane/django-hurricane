@@ -135,9 +135,7 @@ class HurricaneStartAMQPPortHostTests(HurricaneAMQPTest):
     from hurricane.amqp.basehandler import _AMQPConsumer
     from hurricane.amqp.worker import AMQPClient
 
-    amqp_consumer = _AMQPConsumer(
-        queue_name="test", exchange_name="test", host="localhost", port=8075
-    )
+    amqp_consumer = _AMQPConsumer(queue_name="test", exchange_name="test", host="localhost", port=8075)
     amqp_client = AMQPClient(type(amqp_consumer), "test", "test", "test", 8083, "test")
     amqp_consumer._channel = Channel()
 

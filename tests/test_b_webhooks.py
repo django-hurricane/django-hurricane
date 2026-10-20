@@ -43,9 +43,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
     @HurricaneWebhookServerTest.cycle_server
     def test_webhook_without_management_commands(self):
         hurricane_server = HurricaneServerDriver()
-        hurricane_server.start_server(
-            params=["--webhook-url", "http://localhost:8074/webhook"]
-        )
+        hurricane_server.start_server(params=["--webhook-url", "http://localhost:8074/webhook"])
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
         self.assertIn(self.starting_message, out)
@@ -63,9 +61,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
     @HurricaneWebhookServerTest.cycle_server
     def test_liveness_webhook(self):
         hurricane_server = HurricaneServerDriver()
-        hurricane_server.start_server(
-            params=["--webhook-url", "http://localhost:8074/webhook"]
-        )
+        hurricane_server.start_server(params=["--webhook-url", "http://localhost:8074/webhook"])
         response = requests.get("http://localhost:8001/alive", timeout=5)
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
@@ -76,9 +72,7 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
     @HurricaneWebhookServerTest.cycle_server
     def test_readiness_webhook(self):
         hurricane_server = HurricaneServerDriver()
-        hurricane_server.start_server(
-            params=["--webhook-url", "http://localhost:8074/webhook"]
-        )
+        hurricane_server.start_server(params=["--webhook-url", "http://localhost:8074/webhook"])
         response = requests.get("http://localhost:8001/ready", timeout=5)
         out, err = self.driver.get_output(read_all=True)
         hurricane_server.stop_server()
@@ -129,5 +123,6 @@ class HurricaneWebhookStartServerTests(HurricaneWebhookServerTest):
         self.assertIn("succeeded", out)
 
     def test_webhook_app(self):
-        app = WebhookReceiverServer().make_http_receiver_app()
-        self.assertEqual(str(type(app)), "<class 'tornado.web.Application'>")
+        app = WebhookReceiverServer().make_http_receiver_server(8075)
+        self.assertIn("HTTPServer", str(type(app)))
+        app.server_close()

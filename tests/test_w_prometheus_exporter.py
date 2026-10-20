@@ -5,7 +5,7 @@ from hurricane.testing.testcases import HurricanServerTest
 
 class HurricanStartServerTests(HurricanServerTest):
     metrics_route = "/metrics"
-    starting_message = "Tornado-powered Django web server"
+    starting_message = "Granian-powered Django web server"
     starting_http_message = "Starting Prometheus metrics exporter on port "
 
     @HurricanServerTest.cycle_server
@@ -51,9 +51,7 @@ class HurricanStartServerTests(HurricanServerTest):
     @HurricanServerTest.cycle_server(args=["--no-probe"])
     def test_startup_exporter_integrated_no_probe(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(
-            "Running without Prometheus exporter, because --no-probe flag was set", out
-        )
+        self.assertIn("Running without Prometheus exporter, because --no-probe flag was set", out)
 
     @HurricanServerTest.cycle_server(args=["--metrics", "/metrics1"])
     def test_startup_path(self):
@@ -135,9 +133,7 @@ class HurricanStartServerTests(HurricanServerTest):
                 self.assertEqual(family.samples[0].labels["serve_static"], "false")
                 self.assertEqual(family.samples[0].labels["serve_media"], "false")
 
-    @HurricanServerTest.cycle_server(
-        args=["--probe-port", "8090", "--port", "8010", "--static", "--media"]
-    )
+    @HurricanServerTest.cycle_server(args=["--probe-port", "8090", "--port", "8010", "--static", "--media"])
     def test_exporter_hurricane_ports_selected(self):
         res = self.probe_client.get(self.metrics_route)
         families = text_string_to_metric_families(res.text)

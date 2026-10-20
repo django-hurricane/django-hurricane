@@ -64,9 +64,7 @@ pip3 install django-hurricane
 
 Add *"hurricane"* to your *INSTALLED_APPS*: 
 ```python
-INSTALLED_APPS += (
-    'hurricane',
-)
+INSTALLED_APPS += ("hurricane",)
 ```
 You can start the Hurricane server with a following command:
 ```python

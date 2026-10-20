@@ -19,9 +19,7 @@ class HurricanDebuggerServerTest(HurricanServerTest):
 
     def test_incompatible_debugger_and_autoreload(self):
         with self.assertRaises(IncompatibleOptions):
-            setup_debugging(
-                {"autoreload": True, "debugger": True, "pycharm_host": True}
-            )
+            setup_debugging({"autoreload": True, "debugger": True, "pycharm_host": True})
 
     def test_debugger_success_and_import_error(self):
         options = {"debugger": True, "debugger_port": 8071}

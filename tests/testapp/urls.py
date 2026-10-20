@@ -56,12 +56,28 @@ def upload_file(request):
     return HttpResponse("Upload a file", status=200)
 
 
+def deadlock_view(request):
+    import time
+
+    time.sleep(300)
+    return HttpResponse("Woke up", status=200)
+
+
+def slow_view(request):
+    import time
+
+    time.sleep(1.5)
+    return HttpResponse("Slow response finished", status=200)
+
+
 urlpatterns = [
     path("", test_view),
     path("medium", medium_view),
     path("heavy", heavy_view),
     path("memory", memory_leak_view),
     path("upload", upload_file),
+    path("deadlock", deadlock_view),
+    path("slow", slow_view),
 ]
 
 urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
