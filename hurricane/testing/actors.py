@@ -5,8 +5,6 @@ import mimetypes
 import os
 import time
 
-import pika
-
 
 class HTTPClient(object):
     class Response(dict):
@@ -78,16 +76,6 @@ class HTTPClient(object):
         data = res.read()
 
         return self.Response({"status": res.status, "text": data.decode("utf-8")})
-
-
-class TestPublisher(object):
-    def __init__(self, host, port, vhost="/"):
-        parameters = pika.ConnectionParameters(host=host, port=port, virtual_host=vhost)
-        connection = pika.BlockingConnection(parameters)
-        self.channel = connection.channel()
-
-    def publish(self, exchange: str, queue: str, message: str) -> None:
-        self.channel.basic_publish(exchange=exchange, routing_key=queue, body=message)
 
 
 class LoggingServer:

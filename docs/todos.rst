@@ -23,13 +23,6 @@ Todos
 - [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes)
 - [ ] Implement the Kubernetes Metrics API
 
-**AMQP**
-
-- [x] Concept draft
-- [ ] Kubernetes health probes for amqp workers
-- [ ] Implement hooks for calling webservices (e.g. for deployment or health state changes)
-- [ ] Implement the Kubernetes Metrics API
-
 **Guidelines**
 
 - [ ] Concept draft
