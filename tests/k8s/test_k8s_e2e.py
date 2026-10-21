@@ -17,19 +17,17 @@ def get_free_port() -> int:
         return s.getsockname()[1]
 
 
-def wait_for_pod_ready(k8s: AClusterManager, pod_name: str, timeout: int = 60):
-    """Wait for pod to reach Ready condition."""
+def wait_for_pod_ready(k8s: AClusterManager, pod_name: str, timeout: int = 60, namespace: str = "default"):
+    """Wait for pod to reach Ready condition using pytest-kubernetes on-board wait method."""
     start = time.time()
+    target = f"pod/{pod_name}"
     while time.time() - start < timeout:
+        remaining = max(1, int(timeout - (time.time() - start)))
         try:
-            pod = k8s.kubectl(["get", "pod", pod_name])
-            conditions = pod.get("status", {}).get("conditions", [])
-            for c in conditions:
-                if c.get("type") == "Ready" and c.get("status") == "True":
-                    return pod
+            k8s.wait(target, "condition=Ready", timeout=remaining, namespace=namespace)
+            return k8s.kubectl(["get", "pod", pod_name, f"--namespace={namespace}"])
         except Exception:
-            pass
-        time.sleep(1)
+            time.sleep(0.5)
     raise TimeoutError(f"Pod {pod_name} did not become Ready within {timeout}s")
 
 

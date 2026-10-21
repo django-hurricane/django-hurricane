@@ -5,7 +5,7 @@ import signal
 import sys
 import threading
 import time
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -30,6 +30,29 @@ from hurricane.server import (
 from hurricane.server.debugging import setup_debugging
 from hurricane.server.granian import configure_granian
 from hurricane.server.loggers import STRUCTLOG_ENABLED
+
+
+def _get_setting_value(descriptor: str) -> Any:
+    """Retrieve option value from Django settings, checking prefixed then unprefixed name."""
+    if hasattr(settings, descriptor):
+        return getattr(settings, descriptor)
+    unprefixed = descriptor.removeprefix("HURRICANE_")
+    if hasattr(settings, unprefixed):
+        return getattr(settings, unprefixed)
+    raise AttributeError(f"Setting {descriptor} not found")
+
+
+def _get_env_value(descriptor: str) -> Optional[Any]:
+    """Retrieve option value from environment variables, checking prefixed then unprefixed name."""
+    val = os.environ.get(descriptor)
+    if val is None:
+        val = os.environ.get(descriptor.removeprefix("HURRICANE_"))
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return val
 
 
 class Command(BaseCommand):
@@ -209,34 +232,28 @@ class Command(BaseCommand):
         option_name: str,
         option_descriptor: str,
         options: dict,
-        optional=False,
-        default=None,
+        optional: bool = False,
+        default: Any = None,
     ):
-        if options[option_name] is not None and options[option_name] != default:
+        if options.get(option_name) is not None and options[option_name] != default:
             return
-        try:
-            if hasattr(settings, option_descriptor):
-                options.update({option_name: getattr(settings, option_descriptor)})
-            else:
-                options.update({option_name: getattr(settings, option_descriptor.removeprefix("HURRICANE_"))})
-        except AttributeError:
-            unprefixed_descriptor = option_descriptor.removeprefix("HURRICANE_")
-            env_val = os.environ.get(option_descriptor)
-            if env_val is None:
-                env_val = os.environ.get(unprefixed_descriptor)
 
-            if env_val is None and options[option_name] is None:
-                if optional:
-                    return
-                raise ValueError(
-                    f"Option {option_descriptor} must be set as environment variable,"
-                    " in django settings or as a command line argument."
-                )
-            if env_val is not None:
-                try:
-                    options.update({option_name: int(env_val)})
-                except (TypeError, ValueError):
-                    options.update({option_name: env_val})
+        try:
+            options[option_name] = _get_setting_value(option_descriptor)
+            return
+        except AttributeError:
+            pass
+
+        env_val = _get_env_value(option_descriptor)
+        if env_val is not None:
+            options[option_name] = env_val
+            return
+
+        if options.get(option_name) is None and not optional:
+            raise ValueError(
+                f"Option {option_descriptor} must be set as environment variable,"
+                " in django settings or as a command line argument."
+            )
 
     def merge_options(self, options: dict):
         self.merge_option("static", "HURRICANE_STATIC", options, default=False)

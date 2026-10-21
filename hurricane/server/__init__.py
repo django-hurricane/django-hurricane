@@ -103,6 +103,37 @@ def make_http_server(options: Dict[str, Any], check_func: Optional[Callable] = N
     return HurricaneApplication(options=options, check_func=check_func, include_probe=include_probe)
 
 
+def _format_startup_commands(commands: Any) -> str:
+    if not commands:
+        return ""
+    return ",".join(item for row in commands for item in row)
+
+
+def _record_startup_metrics(options: dict, time_elapsed: float) -> None:
+    if not with_metrics(options):
+        return
+
+    try:
+        dist_version = importlib.metadata.version("django-hurricane")
+    except importlib.metadata.PackageNotFoundError:
+        dist_version = "unknown"
+
+    if "hurricane" not in registry.metrics:
+        return
+
+    registry.metrics["hurricane"].set(
+        {
+            "version": dist_version,
+            "startup_time_seconds": str(round(time_elapsed, 5)),
+            "server_port": str(options.get("port", "")),
+            "serve_static": "true" if options.get("static") else "false",
+            "serve_media": "true" if options.get("media") else "false",
+            "probe_port": str(options.get("probe_port", "")),
+            "commands": _format_startup_commands(options.get("command")),
+        }
+    )
+
+
 def make_http_server_and_listen(
     start_time: float,
     options: dict,
@@ -119,29 +150,10 @@ def make_http_server_and_listen(
         logger.info(f"Starting HTTP Server on port {options['port']}")
 
     StartupWebhook().run(url=options.get("webhook_url") or None, status=WebhookStatus.SUCCEEDED)
-    end_time = time.time()
-    time_elapsed = end_time - start_time
+    time_elapsed = time.time() - start_time
     StartupTimeMetric.set(time_elapsed)
 
-    if with_metrics(options):
-        try:
-            hurricane_dist_version = importlib.metadata.version("django-hurricane")
-        except importlib.metadata.PackageNotFoundError:
-            hurricane_dist_version = "unknown"
-        if "hurricane" in registry.metrics:
-            registry.metrics["hurricane"].set(
-                {
-                    "version": hurricane_dist_version,
-                    "startup_time_seconds": str(round(time_elapsed, 5)),
-                    "server_port": str(options["port"]),
-                    "serve_static": "true" if options.get("static") else "false",
-                    "serve_media": "true" if options.get("media") else "false",
-                    "probe_port": str(options.get("probe_port")),
-                    "commands": ",".join(
-                        [item for row in options.get("command", []) for item in row] if options.get("command") else ""
-                    ),
-                }
-            )
+    _record_startup_metrics(options, time_elapsed)
 
     workers = options.get("workers") or min(32, (os.cpu_count() or 1) + 4)
     if STRUCTLOG_ENABLED:

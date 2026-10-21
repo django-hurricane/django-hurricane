@@ -27,6 +27,9 @@ from hurricane.server.loggers import STRUCTLOG_ENABLED, access_log, logger
 if STRUCTLOG_ENABLED:
     from structlog.contextvars import bind_contextvars
 
+STARTUP_NOT_FINISHED_MESSAGE: bytes = b"Startup is not finished yet"
+STATUS_200_OK: str = "200 OK"
+
 
 class WorkerBacklogTracker:
     """
@@ -116,7 +119,7 @@ class BaseHurricaneGateway:
 
     def evaluate_liveness(self) -> Tuple[int, bytes]:
         if not StartupTimeMetric.get():
-            return 400, b"Startup is not finished yet"
+            return 400, STARTUP_NOT_FINISHED_MESSAGE
         if self.max_lifetime and RequestCounterMetric.get() > self.max_lifetime:
             return 400, b"Max lifetime reached"
 
@@ -132,7 +135,7 @@ class BaseHurricaneGateway:
 
     def evaluate_readiness(self) -> Tuple[int, bytes]:
         if not StartupTimeMetric.get():
-            return 400, b"Startup is not finished yet"
+            return 400, STARTUP_NOT_FINISHED_MESSAGE
 
         current_backlog = RequestQueueLengthMetric.get()
         if current_backlog >= self.req_queue_len:
@@ -145,7 +148,7 @@ class BaseHurricaneGateway:
         startup_time = StartupTimeMetric.get()
         if startup_time:
             return 200, f"Startup was finished {startup_time}".encode("utf-8")
-        return 400, b"Startup is not finished yet"
+        return 400, STARTUP_NOT_FINISHED_MESSAGE
 
     def evaluate_metrics(self) -> bytes:
         from hurricane.metrics.shared import SharedMetrics
@@ -242,54 +245,75 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         self.media_url = getattr(settings, "MEDIA_URL", "/media/") or "/media/"
         self.media_root = getattr(settings, "MEDIA_ROOT", "") or ""
 
-    def __call__(self, environ: Dict[str, Any], start_response: Callable) -> Any:
-        path = environ.get("PATH_INFO", "")
-        method = environ.get("REQUEST_METHOD", "GET")
-        start_time = time.perf_counter()
+    def _try_handle_probe(
+        self,
+        environ: Dict[str, Any],
+        start_response: Callable,
+        path: str,
+        start_time: float,
+    ) -> Optional[Any]:
+        if not self.include_probe or self.options.get("no_probe", False):
+            return None
+        if self._matches_path(path, self.liveness_path):
+            status_code, body = self.evaluate_liveness()
+            return self._send_probe_response(environ, start_response, status_code, body, start_time)
+        if self._matches_path(path, self.readiness_path):
+            status_code, body = self.evaluate_readiness()
+            return self._send_probe_response(environ, start_response, status_code, body, start_time)
+        if self._matches_path(path, self.startup_path):
+            status_code, body = self.evaluate_startup()
+            return self._send_probe_response(environ, start_response, status_code, body, start_time)
+        return None
 
-        # Handle Probes and Metrics
-        if self.include_probe and not self.options.get("no_probe", False):
-            if self._matches_path(path, self.liveness_path):
-                status_code, body = self.evaluate_liveness()
-                return self._send_probe_response(environ, start_response, status_code, body, start_time)
-            if self._matches_path(path, self.readiness_path):
-                status_code, body = self.evaluate_readiness()
-                return self._send_probe_response(environ, start_response, status_code, body, start_time)
-            if self._matches_path(path, self.startup_path):
-                status_code, body = self.evaluate_startup()
-                return self._send_probe_response(environ, start_response, status_code, body, start_time)
+    def _try_handle_metrics(
+        self,
+        environ: Dict[str, Any],
+        start_response: Callable,
+        method: str,
+        path: str,
+        start_time: float,
+    ) -> Optional[Any]:
+        if not (self.collect_metrics and self._matches_path(path, self.metrics_path)):
+            return None
+        payload = self.evaluate_metrics()
+        headers = [
+            ("Content-Type", CONTENT_TYPE_LATEST),
+            ("Content-Length", str(len(payload))),
+            ("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"),
+        ]
+        start_response(STATUS_200_OK, headers)
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_request(environ, method, path, 200, elapsed_ms, is_probe=True)
+        return [payload]
 
-        if self.collect_metrics and self._matches_path(path, self.metrics_path):
-            payload = self.evaluate_metrics()
-            headers = [
-                ("Content-Type", CONTENT_TYPE_LATEST),
-                ("Content-Length", str(len(payload))),
-                ("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0"),
-            ]
-            start_response("200 OK", headers)
-            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-            self._log_request(environ, method, path, 200, elapsed_ms, is_probe=True)
-            return [payload]
-
-        # Handle Static & Media
+    def _try_handle_static_or_media(
+        self,
+        environ: Dict[str, Any],
+        start_response: Callable,
+        path: str,
+        start_time: float,
+    ) -> Optional[Any]:
         if self.static_enabled and path.startswith(self.static_url):
             return self._handle_static_file(
                 environ, start_response, path, self.static_url, self.static_root, start_time
             )
         if self.media_enabled and path.startswith(self.media_url):
             return self._handle_static_file(environ, start_response, path, self.media_url, self.media_root, start_time)
+        return None
 
-        # Early Fast-404 protection (block attack signatures and invalid prefixes silently before Django)
-        if self.fast_404:
-            drop_info = self.fast_404.should_drop(path)
-            if drop_info:
-                status, headers, body = self.fast_404.get_response()
-                if self.collect_metrics:
-                    RequestCounterMetric.increment()
-                start_response(status, headers)
-                return [body]
+    def _try_handle_security_shield(
+        self,
+        environ: Dict[str, Any],
+        start_response: Callable,
+        path: str,
+    ) -> Optional[Any]:
+        if self.fast_404 and self.fast_404.should_drop(path):
+            status, headers, body = self.fast_404.get_response()
+            if self.collect_metrics:
+                RequestCounterMetric.increment()
+            start_response(status, headers)
+            return [body]
 
-        # Request rate limiter (protect Django from DoS and flood attacks silently)
         if self.rate_limiter and not self.rate_limiter.is_allowed(environ):
             status, headers, body = self.rate_limiter.get_response()
             if self.collect_metrics:
@@ -297,18 +321,28 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             start_response(status, headers)
             return [body]
 
-        # Check max_body_size
-        max_body_size = self.options.get("max_body_size")
-        if max_body_size:
-            try:
-                content_length = int(environ.get("CONTENT_LENGTH") or 0)
-                if content_length > max_body_size:
-                    raise ConnectionResetError("Request body size exceeded max_body_size")
-            except (ValueError, TypeError):
-                pass
+        return None
 
-        # Forward standard traffic to Django with backlog tracking & logging
-        status_container: List[str] = ["200 OK"]
+    def _check_max_body_size(self, environ: Dict[str, Any]) -> None:
+        max_body_size = self.options.get("max_body_size")
+        if not max_body_size:
+            return
+        try:
+            content_length = int(environ.get("CONTENT_LENGTH") or 0)
+            if content_length > max_body_size:
+                raise ConnectionResetError("Request body size exceeded max_body_size")
+        except (ValueError, TypeError):
+            pass
+
+    def _forward_to_django(
+        self,
+        environ: Dict[str, Any],
+        start_response: Callable,
+        method: str,
+        path: str,
+        start_time: float,
+    ) -> Any:
+        status_container: List[str] = [STATUS_200_OK]
         headers_container: List[List[Tuple[str, str]]] = [[]]
 
         def custom_start_response(status: str, headers: List[Tuple[str, str]], exc_info=None):
@@ -332,6 +366,27 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             ResponseTimeAverageMetric.add_value(elapsed_ms)
 
         return response_iter
+
+    def __call__(self, environ: Dict[str, Any], start_response: Callable) -> Any:
+        path = environ.get("PATH_INFO", "")
+        method = environ.get("REQUEST_METHOD", "GET")
+        start_time = time.perf_counter()
+
+        if probe_resp := self._try_handle_probe(environ, start_response, path, start_time):
+            return probe_resp
+
+        if metrics_resp := self._try_handle_metrics(environ, start_response, method, path, start_time):
+            return metrics_resp
+
+        if static_resp := self._try_handle_static_or_media(environ, start_response, path, start_time):
+            return static_resp
+
+        if security_resp := self._try_handle_security_shield(environ, start_response, path):
+            return security_resp
+
+        self._check_max_body_size(environ)
+
+        return self._forward_to_django(environ, start_response, method, path, start_time)
 
     def _send_probe_response(
         self,
@@ -385,7 +440,7 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             ("Content-Type", content_type),
             ("Content-Length", str(file_size)),
         ]
-        start_response("200 OK", headers)
+        start_response(STATUS_200_OK, headers)
 
         with open(file_path, "rb") as f:
             content = f.read()
@@ -459,54 +514,56 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
 
         self.django_app = django_app or get_asgi_application()
 
-    async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
-        if scope["type"] != "http":
-            await self.django_app(scope, receive, send)
-            return
+    async def _try_handle_probe(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
+        if not self.include_probe or self.options.get("no_probe", False):
+            return False
+        if self._matches_path(path, self.liveness_path):
+            status, body = self.evaluate_liveness()
+            await self._send_response(scope, send, status, body, start_time)
+            return True
+        if self._matches_path(path, self.readiness_path):
+            status, body = self.evaluate_readiness()
+            await self._send_response(scope, send, status, body, start_time)
+            return True
+        if self._matches_path(path, self.startup_path):
+            status, body = self.evaluate_startup()
+            await self._send_response(scope, send, status, body, start_time)
+            return True
+        return False
 
-        path = scope.get("path", "")
-        method = scope.get("method", "GET")
-        start_time = time.perf_counter()
+    async def _try_handle_metrics(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
+        if not (self.collect_metrics and self._matches_path(path, self.metrics_path)):
+            return False
+        payload = self.evaluate_metrics()
+        headers = [
+            (b"content-type", CONTENT_TYPE_LATEST.encode("utf-8")),
+            (b"content-length", str(len(payload)).encode("utf-8")),
+            (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
+        ]
+        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await send({"type": "http.response.body", "body": payload})
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_asgi_request(scope, "GET", path, 200, elapsed_ms, is_probe=True)
+        return True
 
-        # Handle Probes and Metrics
-        if self.include_probe and not self.options.get("no_probe", False):
-            if self._matches_path(path, self.liveness_path):
-                status, body = self.evaluate_liveness()
-                await self._send_response(scope, send, status, body, start_time)
-                return
-            if self._matches_path(path, self.readiness_path):
-                status, body = self.evaluate_readiness()
-                await self._send_response(scope, send, status, body, start_time)
-                return
-            if self._matches_path(path, self.startup_path):
-                status, body = self.evaluate_startup()
-                await self._send_response(scope, send, status, body, start_time)
-                return
+    async def _try_handle_fast_404(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
+        if not (self.fast_404 and self.fast_404.should_drop(path)):
+            return False
+        _, _, body = self.fast_404.get_response()
+        if self.collect_metrics:
+            RequestCounterMetric.increment()
+        await self._send_response(scope, send, 404, body, start_time, is_probe=False)
+        return True
 
-        if self.collect_metrics and self._matches_path(path, self.metrics_path):
-            payload = self.evaluate_metrics()
-            headers = [
-                (b"content-type", CONTENT_TYPE_LATEST.encode("utf-8")),
-                (b"content-length", str(len(payload)).encode("utf-8")),
-                (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
-            ]
-            await send({"type": "http.response.start", "status": 200, "headers": headers})
-            await send({"type": "http.response.body", "body": payload})
-            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-            self._log_asgi_request(scope, "GET", path, 200, elapsed_ms, is_probe=True)
-            return
-
-        # Early Fast-404 protection
-        if self.fast_404:
-            drop_info = self.fast_404.should_drop(path)
-            if drop_info:
-                _, _, body = self.fast_404.get_response()
-                if self.collect_metrics:
-                    RequestCounterMetric.increment()
-                await self._send_response(scope, send, 404, body, start_time, is_probe=False)
-                return
-
-        # Forward standard traffic to Django
+    async def _forward_to_django(
+        self,
+        scope: Dict[str, Any],
+        receive: Callable,
+        send: Callable,
+        method: str,
+        path: str,
+        start_time: float,
+    ) -> None:
         status_code_container = [200]
 
         async def logging_send(message: Mapping[str, Any]) -> None:
@@ -523,6 +580,26 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         if self.collect_metrics:
             RequestCounterMetric.increment()
             ResponseTimeAverageMetric.add_value(elapsed_ms)
+
+    async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
+        if scope["type"] != "http":
+            await self.django_app(scope, receive, send)
+            return
+
+        path = scope.get("path", "")
+        method = scope.get("method", "GET")
+        start_time = time.perf_counter()
+
+        if await self._try_handle_probe(scope, send, path, start_time):
+            return
+
+        if await self._try_handle_metrics(scope, send, path, start_time):
+            return
+
+        if await self._try_handle_fast_404(scope, send, path, start_time):
+            return
+
+        await self._forward_to_django(scope, receive, send, method, path, start_time)
 
     async def _send_response(
         self,

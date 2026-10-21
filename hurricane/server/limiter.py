@@ -88,6 +88,110 @@ class TokenBucketLimiter:
                 del self._buckets[ip]
 
 
+DISABLED_RATE_VALUES = ("off", "none", "false", "no", False)
+
+
+def _is_rate_limiter_disabled(options: Dict[str, Any], settings: Any) -> bool:
+    if options.get("no_rate_limit") or options.get("rate_limit") in DISABLED_RATE_VALUES:
+        return True
+
+    enabled_setting = getattr(settings, "HURRICANE_RATE_LIMIT_ENABLED", getattr(settings, "RATE_LIMIT_ENABLED", None))
+    if enabled_setting is False:
+        return True
+
+    setting_val = getattr(settings, "HURRICANE_RATE_LIMIT", getattr(settings, "RATE_LIMIT", True))
+    if setting_val is False or setting_val in DISABLED_RATE_VALUES:
+        return True
+
+    if isinstance(setting_val, dict) and not setting_val.get("ENABLED", True):
+        return True
+
+    return False
+
+
+def _parse_rate_value(val: Any) -> Optional[float]:
+    if val is None or val in (True, "auto", "on", "true", "yes"):
+        return None
+    clean = str(val).lower().removesuffix("/s").removesuffix("/sec")
+    try:
+        return float(clean)
+    except ValueError:
+        return None
+
+
+def _resolve_settings_config(settings: Any) -> Tuple[float, float, str, bool, bool]:
+    rate = 10.0
+    burst = 30.0
+    proxy_header = "X-Forwarded-For"
+    has_burst = False
+    has_header = False
+
+    ind_burst = getattr(settings, "HURRICANE_RATE_LIMIT_BURST", getattr(settings, "RATE_LIMIT_BURST", None))
+    if ind_burst is not None:
+        try:
+            burst = float(ind_burst)
+            has_burst = True
+        except (ValueError, TypeError):
+            pass
+
+    ind_header = getattr(
+        settings, "HURRICANE_RATE_LIMIT_PROXY_HEADER", getattr(settings, "RATE_LIMIT_PROXY_HEADER", None)
+    )
+    if ind_header is not None:
+        proxy_header = str(ind_header)
+        has_header = True
+
+    setting_val = getattr(settings, "HURRICANE_RATE_LIMIT", getattr(settings, "RATE_LIMIT", True))
+    if isinstance(setting_val, dict):
+        if "RATE" in setting_val:
+            parsed_rate = _parse_rate_value(setting_val["RATE"])
+            if parsed_rate is not None:
+                rate = parsed_rate
+        if "BURST" in setting_val:
+            try:
+                burst = float(setting_val["BURST"])
+                has_burst = True
+            except (ValueError, TypeError):
+                pass
+        if "PROXY_HEADER" in setting_val:
+            proxy_header = str(setting_val["PROXY_HEADER"])
+            has_header = True
+    else:
+        parsed_rate = _parse_rate_value(setting_val)
+        if parsed_rate is not None:
+            rate = parsed_rate
+
+    return rate, burst, proxy_header, has_burst, has_header
+
+
+def _apply_cli_overrides(
+    options: Dict[str, Any],
+    rate: float,
+    burst: float,
+    proxy_header: str,
+    has_settings_burst: bool,
+    has_settings_header: bool,
+) -> Tuple[float, float, str]:
+    cli_rate = options.get("rate_limit")
+    if cli_rate and cli_rate != "10/s":
+        parsed = _parse_rate_value(cli_rate)
+        if parsed is not None:
+            rate = parsed
+
+    cli_burst = options.get("rate_limit_burst")
+    if cli_burst is not None and (cli_burst != 30 or not has_settings_burst):
+        try:
+            burst = float(cli_burst)
+        except (ValueError, TypeError):
+            pass
+
+    cli_header = options.get("rate_limit_proxy_header")
+    if cli_header is not None and (cli_header != "X-Forwarded-For" or not has_settings_header):
+        proxy_header = cli_header
+
+    return rate, burst, proxy_header
+
+
 class RateLimiterEngine:
     """
     High-performance request rate limiter for Hurricane Gateway.
@@ -125,96 +229,20 @@ class RateLimiterEngine:
         """Factory creating RateLimiterEngine from CLI options and Django settings."""
         from django.conf import settings
 
-        # 1. Check if explicitly disabled via CLI
-        if options.get("no_rate_limit"):
+        if _is_rate_limiter_disabled(options, settings):
             logger.info("Rate limiter disabled")
             return None
 
-        cli_rate = options.get("rate_limit")
-        if cli_rate in ("off", "none", "false", "no", False):
-            logger.info("Rate limiter disabled")
-            return None
+        rate, burst, proxy_header, has_burst, has_header = _resolve_settings_config(settings)
+        rate, burst, proxy_header = _apply_cli_overrides(options, rate, burst, proxy_header, has_burst, has_header)
 
-        # 2. Check Django settings
-        enabled_setting = getattr(
-            settings, "HURRICANE_RATE_LIMIT_ENABLED", getattr(settings, "RATE_LIMIT_ENABLED", None)
-        )
-        if enabled_setting is False:
-            logger.info("Rate limiter disabled")
-            return None
-
-        setting_val = getattr(settings, "HURRICANE_RATE_LIMIT", getattr(settings, "RATE_LIMIT", True))
-        if setting_val is False or setting_val in ("off", "none", "false", "no"):
-            logger.info("Rate limiter disabled")
-            return None
-
-        rate = 10.0
-        burst = 30.0
-        proxy_header_input = "X-Forwarded-For"
-
-        # Check individual Django settings
-        individual_burst = getattr(settings, "HURRICANE_RATE_LIMIT_BURST", getattr(settings, "RATE_LIMIT_BURST", None))
-        if individual_burst is not None:
-            try:
-                burst = float(individual_burst)
-            except (ValueError, TypeError):
-                pass
-
-        individual_header = getattr(
-            settings, "HURRICANE_RATE_LIMIT_PROXY_HEADER", getattr(settings, "RATE_LIMIT_PROXY_HEADER", None)
-        )
-        if individual_header is not None:
-            proxy_header_input = str(individual_header)
-
-        # Parse settings dict or value if provided
-        if isinstance(setting_val, dict):
-            if not setting_val.get("ENABLED", True):
-                logger.info("Rate limiter disabled")
-                return None
-            if "RATE" in setting_val:
-                rate = float(setting_val["RATE"])
-            if "BURST" in setting_val:
-                burst = float(setting_val["BURST"])
-            if "PROXY_HEADER" in setting_val:
-                proxy_header_input = setting_val["PROXY_HEADER"]
-        elif setting_val not in (True, "auto", "on", "true", "yes"):
-            clean_setting = str(setting_val).lower().removesuffix("/s").removesuffix("/sec")
-            try:
-                rate = float(clean_setting)
-            except ValueError:
-                pass
-
-        # 3. CLI overrides
-        if cli_rate and cli_rate not in ("auto", "on", "true", "yes", True):
-            if cli_rate != "10/s" or (isinstance(setting_val, (bool, dict)) and setting_val is True):
-                clean_rate = str(cli_rate).lower().removesuffix("/s").removesuffix("/sec")
-                try:
-                    rate = float(clean_rate)
-                except ValueError:
-                    pass
-
-        cli_burst = options.get("rate_limit_burst")
-        has_settings_burst = individual_burst is not None or (isinstance(setting_val, dict) and "BURST" in setting_val)
-        if cli_burst is not None and (cli_burst != 30 or not has_settings_burst):
-            try:
-                burst = float(cli_burst)
-            except (ValueError, TypeError):
-                pass
-
-        cli_header = options.get("rate_limit_proxy_header")
-        has_settings_header = individual_header is not None or (
-            isinstance(setting_val, dict) and "PROXY_HEADER" in setting_val
-        )
-        if cli_header is not None and (cli_header != "X-Forwarded-For" or not has_settings_header):
-            proxy_header_input = cli_header
-
-        proxy_header = normalize_proxy_header(proxy_header_input)
-        header_display = proxy_header_input.removeprefix("HTTP_").replace("_", "-")
+        proxy_header_normalized = normalize_proxy_header(proxy_header)
+        header_display = proxy_header.removeprefix("HTTP_").replace("_", "-")
 
         return cls(
             rate=rate,
             burst=burst,
-            proxy_header=proxy_header,
+            proxy_header=proxy_header_normalized,
             header_display=header_display,
         )
 
