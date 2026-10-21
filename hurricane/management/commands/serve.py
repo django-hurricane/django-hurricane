@@ -164,6 +164,19 @@ class Command(BaseCommand):
             default="auto",
             help="Interface to run: auto (default), wsgi, or asgi",
         )
+        parser.add_argument(
+            "--no-fast-404",
+            action="store_true",
+            default=False,
+            help="Disable early fast-404 protection",
+        )
+        parser.add_argument(
+            "--fast-404",
+            type=str,
+            choices=["auto", "signature", "prefix", "off"],
+            default="auto",
+            help="Fast-404 protection strategy: auto (default), signature, prefix, or off",
+        )
 
     def merge_option(
         self,

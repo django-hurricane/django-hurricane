@@ -28,7 +28,7 @@
 
 As is required by Internet Law™, we felt the moral imperative to bring **Rust** into the Python ecosystem. 
 
-Previous versions of Hurricane relied on Tornado to bridge asynchronous networking with Django's synchronous WSGI layer. While pioneering, Tornado's Python event loop occasionally threw tantrums under heavy concurrency—choking on WSGI thread transitions and flapping Kubernetes readiness probes with false queue-saturation warnings.
+Previous versions of Hurricane relied on Tornado to bridge asynchronous networking with Django's synchronous WSGI layer. While pioneering, Tornado's Python event loop occasionally threw tantrums under heavy concurrency-choking on WSGI thread transitions and flapping Kubernetes readiness probes with false queue-saturation warnings.
 
 **We ripped that out.**
 
@@ -62,6 +62,15 @@ Whether you are running a classic synchronous Django app or a bleeding-edge asyn
 - Got `WSGI_APPLICATION` in your settings? Hurricane boots with Granian's multithreaded WSGI runner.
 - Configured `ASGI_APPLICATION`? Hurricane automatically switches to Granian's ASGI asynchronous engine.
 - No manual `--mode` flags. No extra configuration files.
+
+### 🛡️ First Line of Defense: Fast-404 Protection
+Automated vulnerability scanners love hammering Django with `.php`, `/.env`, and `/wp-admin/` dictionary attacks. Normally, each attack request forces Django to execute its entire middleware stack, run session DB queries, and compile 404 templates.
+
+Hurricane's **Fast-404 Engine** intercepts malicious and non-existent routes at the gateway edge:
+- **Zero Django Overhead:** Serves your project's pre-rendered 404 HTML in **< 50 microseconds**, sparing Python worker threads and DB connection pools.
+- **Anti-Django Signatures:** Immediately blocks scanner probes (`.php`, `/.env`, `/.git`, `wp-*`, `xmlrpc`, etc.).
+- **CMS / Catch-All Aware:** Automatically detects root catch-alls (e.g. Wagtail, django-cms) and switches to signature-only matching so legitimate dynamic pages are never blocked.
+- **Configurable:** Enabled by default (`auto`); easily disabled via `--no-fast-404` or `HURRICANE_FAST_404 = False`.
 
 ### ☸️ Native Kubernetes Probes
 Kubernetes requires three probes to reliably manage container lifecycles. Hurricane implements all three out of the box without polluting your Django `urls.py`:

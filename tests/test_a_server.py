@@ -598,3 +598,19 @@ class HurricanStartServerTests(HurricanServerTest):
             static_watch()
             os.rmdir("static/new")
             os.rmdir("static")
+
+    @HurricanServerTest.cycle_server
+    def test_fast_404_active_by_default(self):
+        from hurricane.testing.actors import HTTPClient
+
+        host, port = self.driver.get_server_host_port()
+        client = HTTPClient(host, port)
+        res = client.get("/wp-login.php")
+        self.assertEqual(res.status, 404)
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertIn("Fast-404: Dropped", out)
+
+    @HurricanServerTest.cycle_server(args=["--no-fast-404"])
+    def test_no_fast_404_option(self):
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertNotIn("Fast-404 active", out)

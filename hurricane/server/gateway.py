@@ -94,6 +94,15 @@ class HurricaneWSGIGateway:
         self.media_url = getattr(settings, "MEDIA_URL", "/media/") or "/media/"
         self.media_root = getattr(settings, "MEDIA_ROOT", "") or ""
 
+        # Initialize Fast-404 protection engine
+        try:
+            from hurricane.server.fast_404 import Fast404Engine
+
+            self.fast_404 = Fast404Engine.from_options(self.options)
+        except Exception as e:
+            logger.warning(f"Could not initialize Fast-404 engine: {e}")
+            self.fast_404 = None
+
     def _normalize_path(self, path: str) -> str:
         clean = path.split("{")[0]
         if not clean.startswith("/"):
@@ -131,6 +140,21 @@ class HurricaneWSGIGateway:
             )
         if self.media_enabled and path.startswith(self.media_url):
             return self._handle_static_file(environ, start_response, path, self.media_url, self.media_root, start_time)
+
+        # Early Fast-404 protection (block attack signatures and invalid prefixes before Django)
+        if self.fast_404:
+            drop_info = self.fast_404.should_drop(path)
+            if drop_info:
+                reason_type, detail = drop_info
+                self.fast_404.log_drop(environ, path, reason_type, detail)
+                status, headers, body = self.fast_404.get_response()
+                elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+                self._log_request(environ, method, path, 404, elapsed_ms, is_probe=False)
+                if self.collect_metrics:
+                    RequestCounterMetric.increment()
+                    ResponseTimeAverageMetric.add_value(elapsed_ms)
+                start_response(status, headers)
+                return [body]
 
         # Check max_body_size
         max_body_size = self.options.get("max_body_size")
