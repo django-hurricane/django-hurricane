@@ -410,7 +410,7 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         elapsed_ms: float,
         is_probe: bool = False,
     ):
-        if is_probe and not getattr(settings, "LOG_PROBES", False):
+        if is_probe and not getattr(settings, "HURRICANE_LOG_PROBES", getattr(settings, "LOG_PROBES", False)):
             return
 
         if status < 400:
@@ -559,7 +559,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         elapsed_ms: float,
         is_probe: bool = False,
     ):
-        if is_probe and not getattr(settings, "LOG_PROBES", False):
+        if is_probe and not getattr(settings, "HURRICANE_LOG_PROBES", getattr(settings, "LOG_PROBES", False)):
             return
 
         if status < 400:

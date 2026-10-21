@@ -1,7 +1,7 @@
 import os
 import time
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from hurricane.testing.drivers import HurricaneServerDriver
 
@@ -124,3 +124,87 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
         self.assertIn("with route liveness-probe: /veryalive", out)
+
+    def test_port_gets_read_from_prefixed_settings(self):
+        with open("tests/testapp/settings.py", "r") as f:
+            old_settings_content = f.read()
+
+        try:
+            with open("tests/testapp/settings.py", "a") as f:
+                f.write("\nHURRICANE_PORT = 6589\n")
+
+            self.server = HurricaneServerDriver()
+            self.server.start_server()
+            out, _ = self.server.get_output(read_all=True)
+            self.server.stop_server()
+
+            self.assertIn("Starting HTTP Server on port 6589", out)
+        finally:
+            with open("tests/testapp/settings.py", "w") as f:
+                f.write(old_settings_content)
+
+    def test_port_gets_read_from_unprefixed_env(self):
+        self.server = HurricaneServerDriver()
+        self.server.start_server(env={"PORT": "6591"})
+        out, _ = self.server.get_output(read_all=True)
+        self.server.stop_server()
+
+        self.assertIn("Starting HTTP Server on port 6591", out)
+
+    def test_mode_cli_argument(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(["--mode", "asgi"])
+        self.assertEqual(args.mode, "asgi")
+
+        # Legacy --interface flag alias
+        legacy_args = parser.parse_args(["--interface", "wsgi"])
+        self.assertEqual(legacy_args.mode, "wsgi")
+
+    @override_settings(MODE="asgi")
+    def test_mode_from_unprefixed_settings(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["mode"], "asgi")
+        self.assertEqual(options["interface"], "asgi")
+
+    @override_settings(HURRICANE_MODE="wsgi")
+    def test_mode_from_prefixed_settings(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["mode"], "wsgi")
+        self.assertEqual(options["interface"], "wsgi")
+
+    @override_settings(INTERFACE="asgi")
+    def test_mode_legacy_interface_setting_fallback(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["mode"], "asgi")
+        self.assertEqual(options["interface"], "asgi")

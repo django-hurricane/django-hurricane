@@ -158,11 +158,13 @@ class Command(BaseCommand):
             help="The maximum size of the buffer of a request in bytes",
         )
         parser.add_argument(
+            "--mode",
             "--interface",
+            dest="mode",
             type=str,
             choices=["auto", "wsgi", "asgi"],
             default="auto",
-            help="Interface to run: auto (default), wsgi, or asgi",
+            help="Execution mode: auto (default), wsgi, or asgi",
         )
         parser.add_argument(
             "--no-fast-404",
@@ -213,25 +215,28 @@ class Command(BaseCommand):
         if options[option_name] is not None and options[option_name] != default:
             return
         try:
-            options.update({option_name: getattr(settings, option_descriptor.removeprefix("HURRICANE_"))})
+            if hasattr(settings, option_descriptor):
+                options.update({option_name: getattr(settings, option_descriptor)})
+            else:
+                options.update({option_name: getattr(settings, option_descriptor.removeprefix("HURRICANE_"))})
         except AttributeError:
-            if option_descriptor not in os.environ and options[option_name] is None:
+            unprefixed_descriptor = option_descriptor.removeprefix("HURRICANE_")
+            env_val = os.environ.get(option_descriptor)
+            if env_val is None:
+                env_val = os.environ.get(unprefixed_descriptor)
+
+            if env_val is None and options[option_name] is None:
                 if optional:
                     return
                 raise ValueError(
                     f"Option {option_descriptor} must be set as environment variable,"
                     " in django settings or as a command line argument."
                 )
-            try:
-                options.update({option_name: int(str(os.environ.get(option_descriptor)))})
-            except (TypeError, ValueError):
-                options.update(
-                    {
-                        option_name: os.environ.get(option_descriptor)
-                        if option_descriptor in os.environ
-                        else options[option_name]
-                    }
-                )
+            if env_val is not None:
+                try:
+                    options.update({option_name: int(env_val)})
+                except (TypeError, ValueError):
+                    options.update({option_name: env_val})
 
     def merge_options(self, options: dict):
         self.merge_option("static", "HURRICANE_STATIC", options, default=False)
@@ -297,12 +302,26 @@ class Command(BaseCommand):
             default=1024 * 1024 * 100,
         )
         self.merge_option(
-            "interface",
-            "HURRICANE_INTERFACE",
+            "mode",
+            "HURRICANE_MODE",
             options,
             optional=True,
             default="auto",
         )
+        # Fallback check for legacy INTERFACE / HURRICANE_INTERFACE
+        if options.get("mode") == "auto":
+            legacy_interface = getattr(
+                settings,
+                "HURRICANE_INTERFACE",
+                getattr(
+                    settings,
+                    "INTERFACE",
+                    os.environ.get("HURRICANE_INTERFACE", os.environ.get("INTERFACE")),
+                ),
+            )
+            if legacy_interface:
+                options["mode"] = legacy_interface
+        options["interface"] = options.get("mode", "auto")
 
     def handle(self, *args, **options):
         self.merge_options(options)
@@ -374,10 +393,11 @@ class Command(BaseCommand):
 
         setup_debugging(options)
 
-        # Determine WSGI vs ASGI
-        if options.get("interface") == "asgi":
+        # Determine WSGI vs ASGI mode
+        mode = options.get("mode") or options.get("interface") or "auto"
+        if mode == "asgi":
             is_asgi = True
-        elif options.get("interface") == "wsgi":
+        elif mode == "wsgi":
             is_asgi = False
         else:
             is_asgi = bool(getattr(settings, "ASGI_APPLICATION", None))

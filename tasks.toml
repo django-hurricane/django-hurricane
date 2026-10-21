@@ -35,3 +35,11 @@ docker build -t django-hurricane-test:latest . &&
 uv run pytest tests/k8s/test_k8s_e2e.py -v
 """
 help = "Build Docker image and execute Kubernetes end-to-end tests with k3d"
+
+[tool.poe.tasks.docs-dev]
+shell = "cd docs && npm run dev"
+help = "Start the Docus local documentation development server"
+
+[tool.poe.tasks.docs-build]
+shell = "cd docs && npm run generate"
+help = "Generate static production documentation build in docs/.output/public"

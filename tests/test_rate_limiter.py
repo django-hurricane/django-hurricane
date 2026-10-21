@@ -114,12 +114,45 @@ class RateLimiterEngineConfigTests(SimpleTestCase):
     def test_disabled_via_django_settings(self):
         self.assertIsNone(RateLimiterEngine.from_options({}))
 
+    @override_settings(RATE_LIMIT=False)
+    def test_disabled_via_unprefixed_django_settings(self):
+        self.assertIsNone(RateLimiterEngine.from_options({}))
+
+    @override_settings(RATE_LIMIT_ENABLED=False)
+    def test_disabled_via_rate_limit_enabled_setting(self):
+        self.assertIsNone(RateLimiterEngine.from_options({}))
+
     @override_settings(HURRICANE_RATE_LIMIT={"ENABLED": True, "RATE": 5.0, "BURST": 15})
     def test_custom_django_settings(self):
         engine = RateLimiterEngine.from_options({})
         self.assertIsNotNone(engine)
         self.assertEqual(engine.rate, 5.0)  # type: ignore
         self.assertEqual(engine.burst, 15.0)  # type: ignore
+
+    @override_settings(
+        RATE_LIMIT="15/s",
+        RATE_LIMIT_BURST=40,
+        RATE_LIMIT_PROXY_HEADER="CF-Connecting-IP",
+    )
+    def test_individual_unprefixed_settings(self):
+        engine = RateLimiterEngine.from_options({})
+        self.assertIsNotNone(engine)
+        self.assertEqual(engine.rate, 15.0)  # type: ignore
+        self.assertEqual(engine.burst, 40.0)  # type: ignore
+        self.assertEqual(engine.proxy_header, "HTTP_CF_CONNECTING_IP")  # type: ignore
+        self.assertEqual(engine.header_display, "CF-Connecting-IP")  # type: ignore
+
+    @override_settings(
+        HURRICANE_RATE_LIMIT=20.0,
+        HURRICANE_RATE_LIMIT_BURST=45,
+        HURRICANE_RATE_LIMIT_PROXY_HEADER="X-Real-IP",
+    )
+    def test_individual_prefixed_settings(self):
+        engine = RateLimiterEngine.from_options({})
+        self.assertIsNotNone(engine)
+        self.assertEqual(engine.rate, 20.0)  # type: ignore
+        self.assertEqual(engine.burst, 45.0)  # type: ignore
+        self.assertEqual(engine.proxy_header, "HTTP_X_REAL_IP")  # type: ignore
 
 
 class RateLimiterGatewayIntegrationTests(SimpleTestCase):

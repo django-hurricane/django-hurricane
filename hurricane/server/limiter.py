@@ -104,6 +104,7 @@ class RateLimiterEngine:
         self.rate = rate
         self.burst = burst
         self.proxy_header = proxy_header
+        self.header_display = header_display
         self.limiter = TokenBucketLimiter(rate=rate, burst=burst)
 
         # 429 response payload (immutable bytes)
@@ -135,16 +136,37 @@ class RateLimiterEngine:
             return None
 
         # 2. Check Django settings
-        setting_val = getattr(settings, "HURRICANE_RATE_LIMIT", True)
+        enabled_setting = getattr(
+            settings, "HURRICANE_RATE_LIMIT_ENABLED", getattr(settings, "RATE_LIMIT_ENABLED", None)
+        )
+        if enabled_setting is False:
+            logger.info("Rate limiter disabled")
+            return None
+
+        setting_val = getattr(settings, "HURRICANE_RATE_LIMIT", getattr(settings, "RATE_LIMIT", True))
         if setting_val is False or setting_val in ("off", "none", "false", "no"):
             logger.info("Rate limiter disabled")
             return None
 
         rate = 10.0
         burst = 30.0
-        proxy_header_input = options.get("rate_limit_proxy_header") or "X-Forwarded-For"
+        proxy_header_input = "X-Forwarded-For"
 
-        # Parse settings dict if provided
+        # Check individual Django settings
+        individual_burst = getattr(settings, "HURRICANE_RATE_LIMIT_BURST", getattr(settings, "RATE_LIMIT_BURST", None))
+        if individual_burst is not None:
+            try:
+                burst = float(individual_burst)
+            except (ValueError, TypeError):
+                pass
+
+        individual_header = getattr(
+            settings, "HURRICANE_RATE_LIMIT_PROXY_HEADER", getattr(settings, "RATE_LIMIT_PROXY_HEADER", None)
+        )
+        if individual_header is not None:
+            proxy_header_input = str(individual_header)
+
+        # Parse settings dict or value if provided
         if isinstance(setting_val, dict):
             if not setting_val.get("ENABLED", True):
                 logger.info("Rate limiter disabled")
@@ -155,20 +177,36 @@ class RateLimiterEngine:
                 burst = float(setting_val["BURST"])
             if "PROXY_HEADER" in setting_val:
                 proxy_header_input = setting_val["PROXY_HEADER"]
-
-        # Parse CLI overrides if provided
-        if cli_rate and cli_rate not in ("auto", "on", "true", "yes", True):
-            clean_rate = str(cli_rate).lower().removesuffix("/s").removesuffix("/sec")
+        elif setting_val not in (True, "auto", "on", "true", "yes"):
+            clean_setting = str(setting_val).lower().removesuffix("/s").removesuffix("/sec")
             try:
-                rate = float(clean_rate)
+                rate = float(clean_setting)
             except ValueError:
                 pass
 
-        if options.get("rate_limit_burst") is not None:
+        # 3. CLI overrides
+        if cli_rate and cli_rate not in ("auto", "on", "true", "yes", True):
+            if cli_rate != "10/s" or (isinstance(setting_val, (bool, dict)) and setting_val is True):
+                clean_rate = str(cli_rate).lower().removesuffix("/s").removesuffix("/sec")
+                try:
+                    rate = float(clean_rate)
+                except ValueError:
+                    pass
+
+        cli_burst = options.get("rate_limit_burst")
+        has_settings_burst = individual_burst is not None or (isinstance(setting_val, dict) and "BURST" in setting_val)
+        if cli_burst is not None and (cli_burst != 30 or not has_settings_burst):
             try:
-                burst = float(options["rate_limit_burst"])
+                burst = float(cli_burst)
             except (ValueError, TypeError):
                 pass
+
+        cli_header = options.get("rate_limit_proxy_header")
+        has_settings_header = individual_header is not None or (
+            isinstance(setting_val, dict) and "PROXY_HEADER" in setting_val
+        )
+        if cli_header is not None and (cli_header != "X-Forwarded-For" or not has_settings_header):
+            proxy_header_input = cli_header
 
         proxy_header = normalize_proxy_header(proxy_header_input)
         header_display = proxy_header_input.removeprefix("HTTP_").replace("_", "-")

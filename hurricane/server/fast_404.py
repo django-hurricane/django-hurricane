@@ -196,17 +196,26 @@ class Fast404Engine:
             return None
 
         # Check Django settings
-        setting_val = getattr(settings, "HURRICANE_FAST_404", "auto")
+        setting_val = getattr(settings, "HURRICANE_FAST_404", getattr(settings, "FAST_404", "auto"))
         if setting_val is False or setting_val == "off":
             return None
 
         # Determine strategy from CLI or settings
-        mode = options.get("fast_404") or setting_val
+        cli_mode = options.get("fast_404")
+        if cli_mode and cli_mode != "auto":
+            mode = cli_mode
+        elif setting_val and setting_val != "auto":
+            mode = setting_val
+        else:
+            mode = "auto"
+
         if mode in (False, "off"):
             return None
 
-        extra_patterns = getattr(settings, "HURRICANE_FAST_404_PATTERNS", None)
-        extra_prefixes = getattr(settings, "HURRICANE_FAST_404_EXTRA_PREFIXES", None)
+        extra_patterns = getattr(settings, "HURRICANE_FAST_404_PATTERNS", getattr(settings, "FAST_404_PATTERNS", None))
+        extra_prefixes = getattr(
+            settings, "HURRICANE_FAST_404_EXTRA_PREFIXES", getattr(settings, "FAST_404_EXTRA_PREFIXES", None)
+        )
         if extra_prefixes:
             extra_prefixes = set(extra_prefixes)
 

@@ -1,10 +1,12 @@
 [![PyPI version](https://badge.fury.io/py/django-hurricane.svg)](https://badge.fury.io/py/django-hurricane)
 [![CI Status](https://github.com/django-hurricane/django-hurricane/actions/workflows/ci.yml/badge.svg)](https://github.com/django-hurricane/django-hurricane/actions/workflows/ci.yml)
 [![Coverage Status](https://coveralls.io/repos/github/django-hurricane/django-hurricane/badge.svg?branch=main)](https://coveralls.io/github/django-hurricane/django-hurricane?branch=main)
-[![ReadTheDocs](https://readthedocs.org/projects/django-hurricane/badge/?version=latest)](https://django-hurricane.readthedocs.io/en/latest/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT)
 [![Powered by Rust](https://img.shields.io/badge/Rewritten%20in-Rust%20🦀-orange.svg)](https://github.com/emmett-framework/granian)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/8NTPMVPaKy)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Follow-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/blueshoe-gmbh/)
+
 
 <br />
 
@@ -16,9 +18,9 @@
     <em>Now powered by Granian (Hyper / Tokio / Rust 🦀) with zero-config WSGI & ASGI support.</em>
   </p>
   <p align="center">
-    <a href="https://django-hurricane.io/">Website</a> ·
-    <a href="https://django-hurricane.readthedocs.io/en/latest/">Documentation</a> ·
-    <a href="https://django-hurricane.readthedocs.io/en/latest/usage.html">User Guide</a>
+    <a href="https://django-hurricane.io/">Website & Documentation</a> ·
+    <a href="https://django-hurricane.io/guides/getting-started">Getting Started</a> ·
+    <a href="https://django-hurricane.io/configuration/settings">Configuration Reference</a>
   </p>
 </div>
 
@@ -149,7 +151,7 @@ python manage.py serve
 Watch Hurricane spin up with Granian:
 
 ```text
-2026-10-20 12:00:00,102 INFO     hurricane.server.general Granian-powered Django web server. Version: 1.6.2
+2026-10-20 12:00:00,102 INFO     hurricane.server.general Granian-powered Django web server. Version: 2.0.0rc1
 2026-10-20 12:00:00,103 INFO     hurricane.server.general Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup
 2026-10-20 12:00:00,103 INFO     hurricane.server.general Starting Prometheus metrics exporter on port 8001 with route /metrics
 2026-10-20 12:00:00,215 INFO     hurricane.server.general Starting HTTP Server on port 8000
@@ -218,8 +220,11 @@ uv run poe benchmark
 
 ---
 
-## 🏢 Commercial Support
+## 🏢 Commercial Support & Community
 
 Hurricane is developed and maintained with ❤️ by [Blueshoe](https://www.blueshoe.de).
 
-Need help optimizing your cloud-native Django deployment or Kubernetes architecture? Reach out to us at [hurricane@blueshoe.de](mailto:hurricane@blueshoe.de).
+- 💬 **Discord:** Join the discussion on our [Blueshoe Discord Server](https://discord.gg/8NTPMVPaKy)
+- 💼 **LinkedIn:** Connect with [Blueshoe on LinkedIn](https://www.linkedin.com/company/blueshoe-gmbh/)
+- ✉️ **Contact:** Need help optimizing your cloud-native Django deployment or Kubernetes architecture? Reach out to us at [hurricane@blueshoe.de](mailto:hurricane@blueshoe.de).
+

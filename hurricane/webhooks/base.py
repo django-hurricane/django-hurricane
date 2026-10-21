@@ -118,6 +118,8 @@ class Webhook:
     def set_version(self):
         if hasattr(settings, "HURRICANE_VERSION"):
             self.data["version"] = settings.HURRICANE_VERSION
+        elif hasattr(settings, "VERSION"):
+            self.data["version"] = settings.VERSION
         else:
             self.data["version"] = None
 

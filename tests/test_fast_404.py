@@ -190,3 +190,23 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
             options={"no_probe": True},
         )
         self.assertIsNone(disabled_gateway.fast_404)
+
+    @override_settings(FAST_404=False)
+    def test_gateway_disabled_via_unprefixed_django_settings(self):
+        disabled_gateway = HurricaneWSGIGateway(
+            options={"no_probe": True},
+        )
+        self.assertIsNone(disabled_gateway.fast_404)
+
+    @override_settings(
+        FAST_404="prefix",
+        FAST_404_PATTERNS=[r"\.custombak$"],
+        FAST_404_EXTRA_PREFIXES=["unprefixed-custom-route"],
+    )
+    def test_gateway_unprefixed_custom_patterns_and_prefixes(self):
+        gateway = HurricaneWSGIGateway(options={"no_probe": True})
+        self.assertIsNotNone(gateway.fast_404)
+        # Drop attack matching custom pattern
+        self.assertIsNotNone(gateway.fast_404.should_drop("/secret.custombak"))
+        # Allow route starting with extra prefix
+        self.assertIsNone(gateway.fast_404.should_drop("/unprefixed-custom-route/data/"))
