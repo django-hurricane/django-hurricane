@@ -102,6 +102,7 @@ exclude = ["tests", "docs", "benchmarks"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
+testpaths = ["tests"]
 markers = [
     "k8s: Kubernetes end-to-end integration tests using pytest-kubernetes and k3d",
 ]
