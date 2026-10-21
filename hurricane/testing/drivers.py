@@ -123,13 +123,17 @@ class HurricaneBaseDriver(object):
         self.t_stderr.start()
         self.t_stdout.daemon = True
         self.t_stdout.start()
-        # wait a maximum of 3 second
-        for _ in range(30):
+        # wait a maximum of 5 seconds for server startup to complete
+        for _ in range(50):
             if self.proc:
                 out, _ = self.get_output(read_all=True)  # type: ignore
             else:
                 out = ""
-            if self.test_string in out:
+            if (
+                "Starting HTTP Server on port" in out
+                or "HTTP configured" in out
+                or (self.test_string and self.test_string in out)
+            ):
                 break
             sleep(0.1)
 
@@ -188,7 +192,7 @@ class HurricaneServerDriver(HurricaneBaseDriver):
         "serve",
     ]
     base_command = ["python", MANAGE_FILE, "serve"]
-    test_string = "Granian-powered Django web server"
+    test_string = "Starting HTTP Server on port"
     _env: Dict = {}
 
     def _get_env(self):

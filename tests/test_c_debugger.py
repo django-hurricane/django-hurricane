@@ -26,15 +26,29 @@ class HurricanDebuggerServerTest(HurricanServerTest):
         with mock.patch("debugpy.listen") as dbgpy:
             dbgpy.side_effect = None
             setup_debugpy(options)
-        sys.modules["debugpy"] = None
-        options = {"debugger": True}
-        setup_debugpy(options)
+        orig_debugpy = sys.modules.get("debugpy")
+        try:
+            sys.modules["debugpy"] = None
+            options = {"debugger": True}
+            setup_debugpy(options)
+        finally:
+            if orig_debugpy is not None:
+                sys.modules["debugpy"] = orig_debugpy
+            else:
+                sys.modules.pop("debugpy", None)
 
     def test_pycharm_success_and_import_error(self):
         options = {"pycharm_host": "test", "pycharm_port": 8071}
         with mock.patch("pydevd_pycharm.settrace") as pdvd:
             pdvd.side_effect = None
             setup_pycharm(options)
-        sys.modules["pydevd_pycharm"] = None
-        options = {"pycharm_host": "test"}
-        setup_pycharm(options)
+        orig_pydevd = sys.modules.get("pydevd_pycharm")
+        try:
+            sys.modules["pydevd_pycharm"] = None
+            options = {"pycharm_host": "test"}
+            setup_pycharm(options)
+        finally:
+            if orig_pydevd is not None:
+                sys.modules["pydevd_pycharm"] = orig_pydevd
+            else:
+                sys.modules.pop("pydevd_pycharm", None)
