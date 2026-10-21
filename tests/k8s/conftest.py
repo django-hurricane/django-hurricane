@@ -18,7 +18,7 @@ def k8s():
     manager: AClusterManager = manager_cls(CLUSTER_NAME)
 
     manager.create()
-    
+
     os.environ["KUBECONFIG"] = str(manager.kubeconfig)
 
     # Load test docker image into cluster

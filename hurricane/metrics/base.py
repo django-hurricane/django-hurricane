@@ -1,3 +1,4 @@
+import math
 from typing import Any, Optional
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -62,18 +63,21 @@ class StoredMetric(HurricaneMetric):
         Getting value of metric from registry or shared memory.
         """
 
+        metric = cls.get_from_registry()
         try:
             shared = cls._get_shared()
             with shared.get_lock():
                 raw = shared.value
-            metric = cls.get_from_registry()
             if isinstance(metric.value, bool):
                 return bool(raw)
             if isinstance(metric.value, int):
                 return int(raw)
-            return raw if raw != 0.0 else metric.value
+            if isinstance(metric.value, float):
+                return raw
+            if not math.isclose(raw, 0.0, abs_tol=1e-9):
+                return raw
+            return metric.value
         except Exception:
-            metric = cls.get_from_registry()
             return metric.value
 
 
