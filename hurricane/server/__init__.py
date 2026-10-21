@@ -233,25 +233,23 @@ def command_task(
             logger.info(f"Command {command_split[0]} was executed in {end_time_command - start_time_command} seconds")
 
 
-def check_databases():
+def check_databases() -> bool:
     for db_name in connections:
         connection = connections[db_name]
-        cursor = connection.cursor()
         try:
-            cursor.execute("SELECT (1)")
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT (1)")
             if STRUCTLOG_ENABLED:
                 logger.info("Database check successful", database=db_name)
             else:
                 logger.info("Database was checked successfully")
-            cursor.close()
-            return True
         except Exception as e:
             if STRUCTLOG_ENABLED:
                 logger.info("Database check unsuccessful", database=db_name)
             else:
                 logger.warning(f"Database command execution has failed with {e}")
-            cursor.close()
             return False
+    return True
 
 
 def count_migrations():

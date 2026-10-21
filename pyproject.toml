@@ -10,7 +10,6 @@ readme = "README.md"
 license = { text = "MIT" }
 authors = [
     { name = "Michael Schilonka", email = "michael@blueshoe.io" },
-    { name = "Korbinian Habereder", email = "Korbinian@blueshoe.de" },
 ]
 requires-python = ">=3.9"
 dependencies = [
