@@ -103,6 +103,15 @@ class HurricaneWSGIGateway:
             logger.warning(f"Could not initialize Fast-404 engine: {e}")
             self.fast_404 = None
 
+        # Initialize Rate Limiter engine
+        try:
+            from hurricane.server.limiter import RateLimiterEngine
+
+            self.rate_limiter = RateLimiterEngine.from_options(self.options)
+        except Exception as e:
+            logger.warning(f"Could not initialize Rate Limiter engine: {e}")
+            self.rate_limiter = None
+
     def _normalize_path(self, path: str) -> str:
         clean = path.split("{")[0]
         if not clean.startswith("/"):
@@ -141,20 +150,23 @@ class HurricaneWSGIGateway:
         if self.media_enabled and path.startswith(self.media_url):
             return self._handle_static_file(environ, start_response, path, self.media_url, self.media_root, start_time)
 
-        # Early Fast-404 protection (block attack signatures and invalid prefixes before Django)
+        # Early Fast-404 protection (block attack signatures and invalid prefixes silently before Django)
         if self.fast_404:
             drop_info = self.fast_404.should_drop(path)
             if drop_info:
-                reason_type, detail = drop_info
-                self.fast_404.log_drop(environ, path, reason_type, detail)
                 status, headers, body = self.fast_404.get_response()
-                elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-                self._log_request(environ, method, path, 404, elapsed_ms, is_probe=False)
                 if self.collect_metrics:
                     RequestCounterMetric.increment()
-                    ResponseTimeAverageMetric.add_value(elapsed_ms)
                 start_response(status, headers)
                 return [body]
+
+        # Request rate limiter (protect Django from DoS and flood attacks silently)
+        if self.rate_limiter and not self.rate_limiter.is_allowed(environ):
+            status, headers, body = self.rate_limiter.get_response()
+            if self.collect_metrics:
+                RequestCounterMetric.increment()
+            start_response(status, headers)
+            return [body]
 
         # Check max_body_size
         max_body_size = self.options.get("max_body_size")

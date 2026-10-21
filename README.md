@@ -70,7 +70,15 @@ Hurricane's **Fast-404 Engine** intercepts malicious and non-existent routes at 
 - **Zero Django Overhead:** Serves your project's pre-rendered 404 HTML in **< 50 microseconds**, sparing Python worker threads and DB connection pools.
 - **Anti-Django Signatures:** Immediately blocks scanner probes (`.php`, `/.env`, `/.git`, `wp-*`, `xmlrpc`, etc.).
 - **CMS / Catch-All Aware:** Automatically detects root catch-alls (e.g. Wagtail, django-cms) and switches to signature-only matching so legitimate dynamic pages are never blocked.
+- **Silent Drop:** Drops attacks without log pollution, preventing disk and stdout exhaustion during scanning waves.
 - **Configurable:** Enabled by default (`auto`); easily disabled via `--no-fast-404` or `HURRICANE_FAST_404 = False`.
+
+### 🛑 DoS & Flood Protection: Request Rate Limiting
+Prevent your Django workloads from getting overwhelmed by floods and Denial-of-Service attacks. Hurricane features an in-memory token bucket rate limiter **enabled by default**:
+- **Default Baseline:** 10 requests / second with a burst allowance of 30 requests per IP (protecting legitimate browser asset storms and multi-tab browsing).
+- **Forwarded IP Resolution:** Safely resolves the true client IP from `X-Forwarded-For` (leftmost IP) or `X-Real-IP`, bypassing intermediate Kubernetes ingresses and reverse proxies.
+- **Silent Protection:** Drops rate-limited requests (`HTTP 429 Too Many Requests`) in `< 5 microseconds` with **zero log spam**, preventing disk and stdout saturation during DDoS attacks.
+- **Configurable:** Easily customize rate, burst, or disable via `--no-rate-limit` or `HURRICANE_RATE_LIMIT = False`.
 
 ### ☸️ Native Kubernetes Probes
 Kubernetes requires three probes to reliably manage container lifecycles. Hurricane implements all three out of the box without polluting your Django `urls.py`:

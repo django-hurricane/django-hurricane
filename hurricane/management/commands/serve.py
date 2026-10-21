@@ -177,6 +177,30 @@ class Command(BaseCommand):
             default="auto",
             help="Fast-404 protection strategy: auto (default), signature, prefix, or off",
         )
+        parser.add_argument(
+            "--no-rate-limit",
+            action="store_true",
+            default=False,
+            help="Disable request rate limiter",
+        )
+        parser.add_argument(
+            "--rate-limit",
+            type=str,
+            default="10/s",
+            help="Max allowed requests per second per IP (default: 10/s, or off to disable)",
+        )
+        parser.add_argument(
+            "--rate-limit-burst",
+            type=int,
+            default=30,
+            help="Burst capacity for rate limiter (default: 30)",
+        )
+        parser.add_argument(
+            "--rate-limit-proxy-header",
+            type=str,
+            default="X-Forwarded-For",
+            help="Proxy header to extract client IP from (default: X-Forwarded-For)",
+        )
 
     def merge_option(
         self,

@@ -195,7 +195,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertEqual(res.status, 200)
         self.assertAlmostEqual(result, timing, 1)
 
-    @HurricanServerTest.cycle_server
+    @HurricanServerTest.cycle_server(args=["--no-fast-404"])
     def test_log_outputs(self):
         out, err = self.driver.get_output(read_all=True)
         res = self.app_client.get("/doesnotexist")
@@ -608,9 +608,20 @@ class HurricanStartServerTests(HurricanServerTest):
         res = client.get("/wp-login.php")
         self.assertEqual(res.status, 404)
         out, _ = self.driver.get_output(read_all=True)
-        self.assertIn("Fast-404: Dropped", out)
+        self.assertIn("Fast-404 active", out)
+        self.assertNotIn("Fast-404: Dropped", out)
 
     @HurricanServerTest.cycle_server(args=["--no-fast-404"])
     def test_no_fast_404_option(self):
         out, _ = self.driver.get_output(read_all=True)
         self.assertNotIn("Fast-404 active", out)
+
+    @HurricanServerTest.cycle_server
+    def test_rate_limiter_startup_log(self):
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertIn("Rate limiter active: 10.0 req/s (burst: 30)", out)
+
+    @HurricanServerTest.cycle_server(args=["--no-rate-limit"])
+    def test_no_rate_limit_option(self):
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertIn("Rate limiter disabled", out)
