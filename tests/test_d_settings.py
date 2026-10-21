@@ -3,6 +3,7 @@ import time
 
 from django.test import SimpleTestCase, override_settings
 
+from hurricane.server.loggers import STRUCTLOG_ENABLED
 from hurricane.testing.drivers import HurricaneServerDriver
 
 
@@ -28,7 +29,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
 
-        self.assertIn("Starting HTTP Server on port 12345", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("port=12345", out)
+        else:
+            self.assertIn("Starting HTTP Server on port 12345", out)
 
     def test_port_gets_read_from_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
@@ -43,7 +47,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
             out, _ = self.server.get_output(read_all=True)
             self.server.stop_server()
 
-            self.assertIn("Starting HTTP Server on port 6572", out)
+            if STRUCTLOG_ENABLED:
+                self.assertIn("port=6572", out)
+            else:
+                self.assertIn("Starting HTTP Server on port 6572", out)
         finally:
             with open("tests/testapp/settings.py", "w") as f:
                 f.write(old_settings_content)
@@ -53,7 +60,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         self.server.start_server(params=["--port", "9276"])
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
-        self.assertIn("Starting HTTP Server on port 9276", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("port=9276", out)
+        else:
+            self.assertIn("Starting HTTP Server on port 9276", out)
 
     def test_media_get_read_from_env(self):
         self.server = HurricaneServerDriver()
@@ -63,7 +73,11 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
 
-        self.assertIn("Serving media files under /media/", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("Serving media", out)
+            self.assertIn("prefix=/media/", out)
+        else:
+            self.assertIn("Serving media files under /media/", out)
 
     def test_media_get_read_from_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
@@ -78,7 +92,11 @@ class HurricaneSettingsServerTest(SimpleTestCase):
             out, _ = self.server.get_output(read_all=True)
             self.server.stop_server()
 
-            self.assertIn("Serving media files under /media/", out)
+            if STRUCTLOG_ENABLED:
+                self.assertIn("Serving media", out)
+                self.assertIn("prefix=/media/", out)
+            else:
+                self.assertIn("Serving media files under /media/", out)
         finally:
             with open("tests/testapp/settings.py", "w") as f:
                 f.write(old_settings_content)
@@ -88,7 +106,11 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         self.server.start_server(params=["--media"])
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
-        self.assertIn("Serving media files under /media/", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("Serving media", out)
+            self.assertIn("prefix=/media/", out)
+        else:
+            self.assertIn("Serving media files under /media/", out)
 
     def test_live_probe_read_from_env(self):
         self.server = HurricaneServerDriver()
@@ -98,7 +120,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
 
-        self.assertIn("with route liveness-probe: /veryalive", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("liveness=/veryalive", out)
+        else:
+            self.assertIn("with route liveness-probe: /veryalive", out)
 
     def test_live_probe_read_from_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
@@ -113,7 +138,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
             out, _ = self.server.get_output(read_all=True)
             self.server.stop_server()
 
-            self.assertIn("with route liveness-probe: /veryalive", out)
+            if STRUCTLOG_ENABLED:
+                self.assertIn("liveness=/veryalive", out)
+            else:
+                self.assertIn("with route liveness-probe: /veryalive", out)
         finally:
             with open("tests/testapp/settings.py", "w") as f:
                 f.write(old_settings_content)
@@ -123,7 +151,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         self.server.start_server(params=["--liveness-probe", "/veryalive"])
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
-        self.assertIn("with route liveness-probe: /veryalive", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("liveness=/veryalive", out)
+        else:
+            self.assertIn("with route liveness-probe: /veryalive", out)
 
     def test_port_gets_read_from_prefixed_settings(self):
         with open("tests/testapp/settings.py", "r") as f:
@@ -138,7 +169,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
             out, _ = self.server.get_output(read_all=True)
             self.server.stop_server()
 
-            self.assertIn("Starting HTTP Server on port 6589", out)
+            if STRUCTLOG_ENABLED:
+                self.assertIn("port=6589", out)
+            else:
+                self.assertIn("Starting HTTP Server on port 6589", out)
         finally:
             with open("tests/testapp/settings.py", "w") as f:
                 f.write(old_settings_content)
@@ -149,7 +183,10 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
 
-        self.assertIn("Starting HTTP Server on port 6591", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("port=6591", out)
+        else:
+            self.assertIn("Starting HTTP Server on port 6591", out)
 
     def test_mode_cli_argument(self):
         import argparse

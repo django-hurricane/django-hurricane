@@ -54,6 +54,9 @@ debug = [
 pycharm = [
     "pydevd-pycharm>=213.5605.23",
 ]
+structlog = [
+    "structlog>=23.0.0",
+]
 
 [dependency-groups]
 dev = [

@@ -39,7 +39,7 @@ jobs:
     - name: Set up Python
       run: uv python install ${{ matrix.python-version }}
     - name: Install project
-      run: uv sync --all-groups --all-extras --python ${{ matrix.python-version }}
+      run: uv sync --all-groups --extra debug --extra pycharm --python ${{ matrix.python-version }}
     
     - name: Test with django tests
       uses: nick-fields/retry@v3
@@ -74,7 +74,6 @@ jobs:
         timeout_minutes: 12
         max_attempts: 3
         command: |
-          uv pip install structlog
           uv run coverage run manage.py test -v 2
 
     - name: Combine coverage

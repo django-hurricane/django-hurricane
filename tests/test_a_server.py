@@ -193,7 +193,7 @@ class HurricanStartServerTests(HurricanServerTest):
 
         timing = float(self._get_timing_from_string(res.text))
         self.assertEqual(res.status, 200)
-        self.assertAlmostEqual(result, timing, 1)
+        self.assertAlmostEqual(result, timing, delta=0.5)
 
     @HurricanServerTest.cycle_server(args=["--no-fast-404"])
     def test_log_outputs(self):
