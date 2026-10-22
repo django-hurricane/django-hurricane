@@ -218,3 +218,36 @@ class HurricaneASGIGatewayTests(unittest.IsolatedAsyncioTestCase):
     def test_compatibility_aliases(self):
         self.assertIs(DjangoHandler, HurricaneWSGIGateway)
         self.assertIs(HurricaneWSGIContainer, HurricaneWSGIGateway)
+
+    async def test_event_loop_lag_tracker_lifecycle(self):
+        gateway = HurricaneASGIGateway(django_app=dummy_asgi_app, options={}, include_probe=True)
+        self.assertIsNotNone(gateway.loop_lag_tracker)
+        self.assertFalse(gateway.loop_lag_tracker.is_unhealthy())
+
+        # Start tracking task
+        gateway.loop_lag_tracker.ensure_running()
+        self.assertIsNotNone(gateway.loop_lag_tracker._task)
+
+        # Calling again does not spawn a second task
+        old_task = gateway.loop_lag_tracker._task
+        gateway.loop_lag_tracker.ensure_running()
+        self.assertIs(gateway.loop_lag_tracker._task, old_task)
+
+        # Stop tracker cleanly
+        gateway.loop_lag_tracker.stop()
+        self.assertIsNone(gateway.loop_lag_tracker._task)
+
+    async def test_asgi_readiness_lag_failure(self):
+        gateway = HurricaneASGIGateway(
+            django_app=dummy_asgi_app,
+            options={},
+            check_func=lambda **kwargs: [],
+            include_probe=True,
+        )
+        # Simulate high event loop lag (e.g. 300ms > 200ms threshold)
+        gateway.loop_lag_tracker.current_lag_ms = 300.0
+        self.assertTrue(gateway.loop_lag_tracker.is_unhealthy())
+
+        status, body = gateway.evaluate_readiness()
+        self.assertEqual(status, 400)
+        self.assertIn(b"Event loop lag limit exceeded", body)

@@ -1,3 +1,4 @@
+import asyncio
 import mimetypes
 import os
 import time
@@ -54,6 +55,44 @@ class WorkerBacklogTracker:
         from hurricane.metrics.shared import SharedMetrics
 
         return SharedMetrics.get_queue_length()
+
+
+class EventLoopLagTracker:
+    """
+    Monitors event loop responsiveness for ASGI servers.
+    Measures event loop scheduling lag in milliseconds.
+    If loop lag exceeds lag_threshold_ms, the server is considered overloaded or starving.
+    """
+
+    def __init__(self, check_interval: float = 0.05, lag_threshold_ms: float = 200.0):
+        self.check_interval = check_interval
+        self.lag_threshold_ms = lag_threshold_ms
+        self.current_lag_ms = 0.0
+        self._task: Optional[asyncio.Task] = None
+
+    def ensure_running(self) -> None:
+        if self._task is None or self._task.done():
+            try:
+                loop = asyncio.get_running_loop()
+                self._task = loop.create_task(self._monitor())
+            except RuntimeError:
+                pass
+
+    async def _monitor(self) -> None:
+        while True:
+            t0 = time.perf_counter()
+            await asyncio.sleep(self.check_interval)
+            elapsed = time.perf_counter() - t0
+            lag = max(0.0, (elapsed - self.check_interval) * 1000.0)
+            self.current_lag_ms = lag
+
+    def is_unhealthy(self) -> bool:
+        return self.current_lag_ms > self.lag_threshold_ms
+
+    def stop(self) -> None:
+        if self._task and not self._task.done():
+            self._task.cancel()
+            self._task = None
 
 
 class BaseHurricaneGateway:
@@ -513,6 +552,26 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         from django.core.asgi import get_asgi_application
 
         self.django_app = django_app or get_asgi_application()
+        lag_threshold = float(
+            self.options.get(
+                "loop_lag_threshold",
+                getattr(settings, "HURRICANE_LOOP_LAG_THRESHOLD", getattr(settings, "LOOP_LAG_THRESHOLD", 200.0)),
+            )
+        )
+        self.loop_lag_tracker = EventLoopLagTracker(lag_threshold_ms=lag_threshold)
+
+    def evaluate_readiness(self) -> Tuple[int, bytes]:
+        if not StartupTimeMetric.get():
+            return 400, STARTUP_NOT_FINISHED_MESSAGE
+
+        if self.loop_lag_tracker and self.loop_lag_tracker.is_unhealthy():
+            self._update_webhook_and_metric(ReadinessMetric, status_succeeded=False)
+            return (
+                400,
+                f"Event loop lag limit exceeded ({self.loop_lag_tracker.current_lag_ms:.1f}ms)".encode("utf-8"),
+            )
+
+        return self._run_custom_check("readiness", ReadinessMetric)
 
     async def _try_handle_probe(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
         if not self.include_probe or self.options.get("no_probe", False):
@@ -575,8 +634,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
                 status_code_container[0] = int(message.get("status", 200))
             await send(message)
 
-        with self.backlog_tracker.track_request():
-            await self.django_app(scope, receive, logging_send)
+        await self.django_app(scope, receive, logging_send)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(scope, method, path, status_code_container[0], elapsed_ms, is_probe=False)
@@ -586,6 +644,9 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             ResponseTimeAverageMetric.add_value(elapsed_ms)
 
     async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
+        if self.loop_lag_tracker:
+            self.loop_lag_tracker.ensure_running()
+
         if scope["type"] != "http":
             await self.django_app(scope, receive, send)
             return

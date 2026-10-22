@@ -102,7 +102,7 @@ class Command(BaseCommand):
             type=int,
             help="The port for the probe route to listen on",
         )
-        parser.add_argument("--req-queue-len", type=int, default=10, help="Length of the request queue")
+        parser.add_argument("--req-queue-len", type=int, default=None, help="Length of the request queue (WSGI only)")
         parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
         parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
@@ -266,7 +266,12 @@ class Command(BaseCommand):
         self.merge_option("readiness_probe", "HURRICANE_READINESS_PROBE", options, default="/ready")
         self.merge_option("startup_probe", "HURRICANE_STARTUP_PROBE", options, default="/startup")
         self.merge_option("probe_port", "HURRICANE_PROBE_PORT", options, optional=True)
-        self.merge_option("req_queue_len", "HURRICANE_REQ_QUEUE_LEN", options, default=10)
+        self.merge_option("req_queue_len", "HURRICANE_REQ_QUEUE_LEN", options, optional=True, default=None)
+        if options.get("req_queue_len") is not None:
+            options["req_queue_len_explicit"] = True
+        else:
+            options["req_queue_len"] = 10
+            options["req_queue_len_explicit"] = False
         self.merge_option("no_probe", "HURRICANE_NO_PROBE", options, default=False)
         self.merge_option("no_metrics", "HURRICANE_NO_METRICS", options, default=False)
         self.merge_option("command", "HURRICANE_COMMAND", options, optional=True)
@@ -418,6 +423,19 @@ class Command(BaseCommand):
             is_asgi = False
         else:
             is_asgi = bool(getattr(settings, "ASGI_APPLICATION", None))
+
+        if is_asgi and options.get("req_queue_len_explicit"):
+            if STRUCTLOG_ENABLED:
+                logger.warning(
+                    "The '--req-queue-len' option is ignored when running in ASGI mode. "
+                    "Event loop lag tracking is used instead for readiness probing.",
+                    req_queue_len=options.get("req_queue_len"),
+                )
+            else:
+                logger.warning(
+                    f"The '--req-queue-len' option ({options.get('req_queue_len')}) is ignored when running in ASGI mode. "
+                    "Event loop lag tracking is used instead for readiness probing."
+                )
 
         configure_granian(
             options=options,
