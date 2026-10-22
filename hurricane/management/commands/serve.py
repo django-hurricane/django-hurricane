@@ -151,6 +151,12 @@ class Command(BaseCommand):
             help="Number of thread workers to be used for the server (default = Number of CPUs + 4)",
         )
         parser.add_argument(
+            "--runtime-threads",
+            type=int,
+            default=None,
+            help="Number of Rust/Tokio runtime worker threads (default: CPU count for ASGI, 1 for WSGI)",
+        )
+        parser.add_argument(
             "--static-watch",
             type=str,
             action="append",
@@ -294,6 +300,7 @@ class Command(BaseCommand):
         )
         self.merge_option("max_memory", "HURRICANE_MAX_MEMORY", options, optional=True, default=None)
         self.merge_option("workers", "HURRICANE_WORKERS", options, optional=True, default=None)
+        self.merge_option("runtime_threads", "HURRICANE_RUNTIME_THREADS", options, optional=True, default=None)
         self.merge_option("static_watch", "HURRICANE_STATIC_WATCH", options, optional=True)
         self.merge_option(
             "pycharm_host",
@@ -518,6 +525,13 @@ class Command(BaseCommand):
         workers = 1
         threads = options.get("workers") or min(32, (os.cpu_count() or 1) + 4)
 
+        if options.get("runtime_threads") is not None:
+            runtime_threads = int(options["runtime_threads"])
+        elif is_asgi:
+            runtime_threads = max(1, min(16, os.cpu_count() or 1))
+        else:
+            runtime_threads = 1
+
         reload_paths = None
         if options.get("autoreload") and options.get("static_watch"):
             reload_paths = [p for p in options["static_watch"] if os.path.exists(p)]
@@ -530,6 +544,7 @@ class Command(BaseCommand):
             interface=Interfaces.ASGI if is_asgi else Interfaces.WSGI,
             workers=workers,
             blocking_threads=threads,
+            runtime_threads=runtime_threads,
             runtime_mode="mt",
             backlog=1024,
             log_access=False,
