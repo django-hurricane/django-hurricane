@@ -518,11 +518,15 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         if not self.include_probe or self.options.get("no_probe", False):
             return False
         if self._matches_path(path, self.liveness_path):
-            status, body = self.evaluate_liveness()
+            from asgiref.sync import sync_to_async
+
+            status, body = await sync_to_async(self.evaluate_liveness, thread_sensitive=False)()
             await self._send_response(scope, send, status, body, start_time)
             return True
         if self._matches_path(path, self.readiness_path):
-            status, body = self.evaluate_readiness()
+            from asgiref.sync import sync_to_async
+
+            status, body = await sync_to_async(self.evaluate_readiness, thread_sensitive=False)()
             await self._send_response(scope, send, status, body, start_time)
             return True
         if self._matches_path(path, self.startup_path):

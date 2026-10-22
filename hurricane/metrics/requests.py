@@ -81,8 +81,12 @@ class StartupTimeMetric(StoredMetric):
 
     @classmethod
     def set(cls, value: Any):
-        SharedMetrics.set_startup_time(float(value))
-        cls.value = value
+        if value is None:
+            SharedMetrics.set_startup_time(0.0)
+            cls.value = None
+        else:
+            SharedMetrics.set_startup_time(float(value))
+            cls.value = value
 
     @classmethod
     def get(cls):

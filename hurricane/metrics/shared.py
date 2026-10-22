@@ -27,17 +27,6 @@ def _get_shm_name() -> str:
     return name
 
 
-def cleanup_shm():
-    global _SHM_INSTANCE
-    if _SHM_INSTANCE is not None:
-        try:
-            _SHM_INSTANCE.close()
-            _SHM_INSTANCE.unlink()
-        except Exception:
-            pass
-        _SHM_INSTANCE = None
-
-
 def _get_shm() -> Optional[shared_memory.SharedMemory]:
     global _SHM_INSTANCE
     if _SHM_INSTANCE is not None:
@@ -172,6 +161,15 @@ class SharedMetrics:
             return struct.unpack_from("q", buf, 32)[0]
 
     @classmethod
+    def get_in_flight(cls) -> int:
+        shm = _get_shm()
+        if not shm or shm.buf is None:
+            return 0
+        buf = shm.buf
+        with _SHM_LOCK:
+            return struct.unpack_from("q", buf, 56)[0]
+
+    @classmethod
     def set_health(cls, health: bool):
         shm = _get_shm()
         if not shm or shm.buf is None:
@@ -212,3 +210,25 @@ class SharedMetrics:
             if val == -1:
                 return None
             return bool(val)
+
+    @classmethod
+    def cleanup(cls):
+        global _SHM_INSTANCE
+        if _SHM_INSTANCE is not None:
+            try:
+                _SHM_INSTANCE.close()
+                _SHM_INSTANCE.unlink()
+            except Exception:
+                pass
+            _SHM_INSTANCE = None
+
+    @classmethod
+    def reset(cls):
+        shm = _get_shm()
+        if shm and shm.buf is not None:
+            with _SHM_LOCK:
+                struct.pack_into("QdQdqqqq", shm.buf, 0, 0, 0.0, 0, 0.0, 0, -1, -1, 0)
+
+
+def cleanup_shm():
+    SharedMetrics.cleanup()
