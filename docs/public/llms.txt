@@ -59,6 +59,7 @@ python manage.py serve --port=8000 --probe-port=8001
 - [Custom Prometheus Metrics Guide](https://django-hurricane.io/guides/custom-metrics): Developing custom Counter, Stored, Calculated, and Observed metrics.
 - [Reverse Proxies & Ingress Guide](https://django-hurricane.io/guides/reverse-proxies): Setting up Cloudflare, Nginx, and Ingress-Nginx.
 - [Configuration Reference](https://django-hurricane.io/configuration/settings): Complete list of all CLI flags and Django settings.
+- [Django on Kubernetes vs. Gunicorn](https://django-hurricane.io/concepts/django-kubernetes-vs-gunicorn): Architectural comparison of running Django in Kubernetes with Hurricane vs Gunicorn and uWSGI.
 - [ASGI vs. WSGI Architecture](https://django-hurricane.io/concepts/asgi-vs-wsgi): Concurrency models and event loop lag tracking.
 - [Rust Engine Architecture](https://django-hurricane.io/concepts/rust-engine): How Granian, Hyper, and Tokio operate under Hurricane.
 - [Kubernetes Probes](https://django-hurricane.io/concepts/kubernetes-probes): Deep dive into `/startup`, `/alive`, and `/ready`.

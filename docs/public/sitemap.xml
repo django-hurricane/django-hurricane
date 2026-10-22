@@ -51,6 +51,11 @@
     <priority>0.8</priority>
   </url>
   <url>
+    <loc>https://django-hurricane.io/concepts/django-kubernetes-vs-gunicorn</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
     <loc>https://django-hurricane.io/concepts/fast-404-protection</loc>
     <changefreq>monthly</changefreq>
     <priority>0.8</priority>
