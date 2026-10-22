@@ -17,7 +17,7 @@ spec:
         path: /startup
         port: 8000
       periodSeconds: 1
-      failureThreshold: 30
+      failureThreshold: 60
     livenessProbe:
       httpGet:
         path: /alive

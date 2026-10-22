@@ -12,6 +12,12 @@ spec:
     ports:
     - containerPort: 8000
     command: ["python", "manage.py", "serve", "--port=8000", "--probe-port=8000", "--static", "--media"]
+    startupProbe:
+      httpGet:
+        path: /startup
+        port: 8000
+      periodSeconds: 1
+      failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /ready

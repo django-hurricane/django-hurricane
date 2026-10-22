@@ -32,7 +32,7 @@ help = "Compare Granian benchmark results against the stored Tornado baseline"
 [tool.poe.tasks.test-k8s]
 shell = """
 docker build -t django-hurricane-test:latest . &&
-uv run pytest tests/k8s/test_k8s_e2e.py -v
+uv run pytest tests/k8s/test_k8s_e2e.py -v -x
 """
 help = "Build Docker image and execute Kubernetes end-to-end tests with k3d"
 

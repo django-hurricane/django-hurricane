@@ -106,6 +106,7 @@ ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "-x"
 markers = [
     "k8s: Kubernetes end-to-end integration tests using pytest-kubernetes and k3d",
 ]

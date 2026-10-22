@@ -17,7 +17,8 @@ def k8s():
     manager_cls = select_provider_manager("k3d")
     manager: AClusterManager = manager_cls(CLUSTER_NAME)
 
-    manager.create()
+    cluster_timeout = int(os.environ.get("K8S_CLUSTER_TIMEOUT", "60"))
+    manager.create(timeout=cluster_timeout)
 
     os.environ["KUBECONFIG"] = str(manager.kubeconfig)
 

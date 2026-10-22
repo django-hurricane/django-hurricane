@@ -13,6 +13,12 @@ spec:
     - containerPort: 8000
     - containerPort: 8001
     command: ["python", "manage.py", "serve", "--port=8000", "--probe-port=8001", "--req-queue-len=1", "--workers=2"]
+    startupProbe:
+      httpGet:
+        path: /startup
+        port: 8001
+      periodSeconds: 1
+      failureThreshold: 60
     readinessProbe:
       httpGet:
         path: /ready

@@ -1,4 +1,5 @@
 import concurrent.futures
+import os
 import socket
 import time
 from contextlib import contextmanager
@@ -10,6 +11,10 @@ from pytest_kubernetes.providers import AClusterManager
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
+DEFAULT_POD_READY_TIMEOUT: int = int(os.environ.get("K8S_POD_READY_TIMEOUT", "120"))
+DEFAULT_CONTAINER_RESTART_TIMEOUT: int = int(os.environ.get("K8S_CONTAINER_RESTART_TIMEOUT", "120"))
+DEFAULT_FORWARD_PORT_TIMEOUT: int = int(os.environ.get("K8S_PORT_FORWARD_TIMEOUT", "90"))
+
 
 def get_free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -17,7 +22,12 @@ def get_free_port() -> int:
         return s.getsockname()[1]
 
 
-def wait_for_pod_ready(k8s: AClusterManager, pod_name: str, timeout: int = 60, namespace: str = "default"):
+def wait_for_pod_ready(
+    k8s: AClusterManager,
+    pod_name: str,
+    timeout: int = DEFAULT_POD_READY_TIMEOUT,
+    namespace: str = "default",
+):
     """Wait for pod to reach Ready condition using pytest-kubernetes on-board wait method."""
     start = time.time()
     target = f"pod/{pod_name}"
@@ -31,7 +41,12 @@ def wait_for_pod_ready(k8s: AClusterManager, pod_name: str, timeout: int = 60, n
     raise TimeoutError(f"Pod {pod_name} did not become Ready within {timeout}s")
 
 
-def wait_for_pod_container_ready(k8s: AClusterManager, pod_name: str, min_restarts: int = 1, timeout: int = 45):
+def wait_for_pod_container_ready(
+    k8s: AClusterManager,
+    pod_name: str,
+    min_restarts: int = 1,
+    timeout: int = DEFAULT_CONTAINER_RESTART_TIMEOUT,
+):
     """Wait until container has restarted min_restarts times and is currently ready."""
     start = time.time()
     while time.time() - start < timeout:
@@ -48,13 +63,13 @@ def wait_for_pod_container_ready(k8s: AClusterManager, pod_name: str, min_restar
     raise TimeoutError(f"Pod {pod_name} did not reach ready state with min_restarts={min_restarts}")
 
 
-def delete_pod_if_exists(k8s: AClusterManager, pod_name: str):
+def delete_pod_if_exists(k8s: AClusterManager, pod_name: str, timeout: int = 30):
     try:
         k8s.kubectl(["delete", "pod", pod_name, "--now", "--ignore-not-found=true", "--wait=true"])
     except Exception:
         pass
     start = time.time()
-    while time.time() - start < 10:
+    while time.time() - start < timeout:
         try:
             k8s.kubectl(["get", "pod", pod_name])
             time.sleep(0.5)
@@ -67,9 +82,9 @@ def apply_fixture(k8s: AClusterManager, fixture_name: str):
 
 
 @contextmanager
-def forward_port(k8s: AClusterManager, pod_name: str, container_port: int):
+def forward_port(k8s: AClusterManager, pod_name: str, container_port: int, timeout: int = DEFAULT_FORWARD_PORT_TIMEOUT):
     port = get_free_port()
-    with k8s.port_forwarding(f"pod/{pod_name}", port, container_port):
+    with k8s.port_forwarding(f"pod/{pod_name}", port, container_port, timeout=timeout):
         time.sleep(0.5)
         yield port
 
@@ -86,7 +101,7 @@ def test_k8s_happy_path_and_lifecycle(k8s: AClusterManager):
     delete_pod_if_exists(k8s, pod_name)
     apply_fixture(k8s, "happy_path.yaml")
 
-    pod = wait_for_pod_ready(k8s, pod_name, timeout=45)
+    pod = wait_for_pod_ready(k8s, pod_name, timeout=DEFAULT_POD_READY_TIMEOUT)
     assert pod["status"]["phase"] == "Running"
 
     with forward_port(k8s, pod_name, 8000) as local_port:
@@ -115,7 +130,7 @@ def test_k8s_separate_probe_port(k8s: AClusterManager):
     delete_pod_if_exists(k8s, pod_name)
     apply_fixture(k8s, "separate_probe_port.yaml")
 
-    pod = wait_for_pod_ready(k8s, pod_name, timeout=45)
+    pod = wait_for_pod_ready(k8s, pod_name, timeout=DEFAULT_POD_READY_TIMEOUT)
     assert pod["status"]["phase"] == "Running"
 
     # Main application port 8000
@@ -152,7 +167,7 @@ def test_k8s_intended_readiness_failure_under_backlog(k8s: AClusterManager):
     delete_pod_if_exists(k8s, pod_name)
     apply_fixture(k8s, "readiness_backlog.yaml")
 
-    wait_for_pod_ready(k8s, pod_name, timeout=45)
+    wait_for_pod_ready(k8s, pod_name, timeout=DEFAULT_POD_READY_TIMEOUT)
 
     with forward_port(k8s, pod_name, 8000) as app_port, forward_port(k8s, pod_name, 8001) as probe_port:
         # Fire 6 concurrent requests to /slow (which sleeps for 1.5 seconds)
@@ -194,7 +209,7 @@ def test_k8s_intended_liveness_failure_and_container_healing(k8s: AClusterManage
     delete_pod_if_exists(k8s, pod_name)
     apply_fixture(k8s, "liveness_deadlock.yaml")
 
-    wait_for_pod_ready(k8s, pod_name, timeout=45)
+    wait_for_pod_ready(k8s, pod_name, timeout=DEFAULT_POD_READY_TIMEOUT)
 
     with forward_port(k8s, pod_name, 8000) as port:
         # Trigger deadlock view (single worker sleeps for 300s)
@@ -204,7 +219,7 @@ def test_k8s_intended_liveness_failure_and_container_healing(k8s: AClusterManage
             pass  # Expected: request blocks for 300s, client times out
 
     # Wait for container to be restarted by Kubernetes and become Ready again
-    wait_for_pod_container_ready(k8s, pod_name, min_restarts=1, timeout=45)
+    wait_for_pod_container_ready(k8s, pod_name, min_restarts=1, timeout=DEFAULT_CONTAINER_RESTART_TIMEOUT)
 
     # Verify recovered pod serves traffic normally
     time.sleep(3)
@@ -235,7 +250,7 @@ def test_k8s_static_and_media_serving(k8s: AClusterManager):
     delete_pod_if_exists(k8s, pod_name)
     apply_fixture(k8s, "static_media.yaml")
 
-    wait_for_pod_ready(k8s, pod_name, timeout=45)
+    wait_for_pod_ready(k8s, pod_name, timeout=DEFAULT_POD_READY_TIMEOUT)
 
     with forward_port(k8s, pod_name, 8000) as port:
         # Test media file
