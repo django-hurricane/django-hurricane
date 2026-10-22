@@ -1,0 +1,68 @@
+# Django Hurricane
+
+> The Kubernetes-Native Application Server for Django, powered by Granian (Rust Hyper / Tokio).
+
+Django Hurricane connects Django directly to Kubernetes container lifecycles, health probes, Prometheus metrics, and edge security shields (Fast-404 and Token-Bucket Rate Limiter) without extra reverse proxies or boilerplates.
+
+## Core Features
+
+- **Rust-Powered HTTP Engine:** Built on Granian (Rust Hyper + Tokio), replacing Python event loops with zero-copy asynchronous I/O and native multi-core worker threads.
+- **Zero-Config WSGI & ASGI Auto-Detection:** Automatically executes WSGI (`WSGI_APPLICATION`) or ASGI (`ASGI_APPLICATION`) based on project settings.
+- **Native Kubernetes Probes:** Out-of-the-box `/startup`, `/alive`, and `/ready` probes synchronized via POSIX shared memory (`/dev/shm`).
+- **Traffic Shedding Under Congestion:** Saturated worker backlogs (WSGI) or event loop lag (ASGI) automatically trigger HTTP 400 on `/ready` to shed Ingress traffic before pods crash.
+- **First-Line Defense Shields:**
+  - **Fast-404:** Intercepts bot/scanner dictionary attacks (`.php`, `/.env`, `wp-admin`) at the gateway in <50µs with zero Django overhead and silent drop logging.
+  - **Rate Limiter:** Token-bucket rate limiter (default: 10 req/s, burst 30) with proxy header client IP extraction (`X-Forwarded-For`, `CF-Connecting-IP`, `X-Real-IP`).
+- **Built-in Prometheus Metrics:** Exposes `/metrics` endpoint with request counts, average latency, queue depth, and a framework for custom application metrics.
+
+## Quickstart
+
+Install via `uv` or `pip`:
+```bash
+uv add django-hurricane
+# or
+pip install django-hurricane
+```
+
+Add to `settings.py`:
+```python
+INSTALLED_APPS = [
+    # ...
+    "hurricane",
+]
+```
+
+Run server:
+```bash
+python manage.py serve --port=8000 --probe-port=8001
+```
+
+## CLI Reference (`manage.py serve`)
+
+- `--port`: Application HTTP port (default: 8000).
+- `--probe-port`: Probe/metrics port (default: port + 1). Set equal to `--port` for integrated routing.
+- `--mode`: Execution mode (`auto`, `wsgi`, `asgi`).
+- `--workers`: Number of worker threads (default: CPU count + 4).
+- `--runtime-threads`: Rust/Tokio runtime worker threads (default: CPU count for ASGI, 1 for WSGI).
+- `--req-queue-len`: Saturated queue threshold for WSGI readiness failure (default: 10).
+- `--fast-404`: Fast-404 mode (`auto`, `prefix`, `signature`, `off`).
+- `--rate-limit`: Rate limit frequency (e.g. `10/s`, `off`).
+- `--rate-limit-burst`: Token-bucket burst allowance (default: 30).
+- `--rate-limit-proxy-header`: Header for client IP extraction (`X-Forwarded-For`, `CF-Connecting-IP`, `X-Real-IP`).
+- `--max-memory`: Worker RSS memory limit in MB for graceful recycling (e.g. `400`).
+- `--check-migrations-apply`: Check and apply pending DB migrations before marking `/startup` successful.
+
+## Documentation Index
+
+- [Getting Started Guide](https://django-hurricane.io/guides/getting-started): Quickstart and initial setup.
+- [Kubernetes Deployment Guide](https://django-hurricane.io/guides/kubernetes-deployment): Production Deployment, Service, and HPA manifests.
+- [Custom Prometheus Metrics Guide](https://django-hurricane.io/guides/custom-metrics): Developing custom Counter, Stored, Calculated, and Observed metrics.
+- [Reverse Proxies & Ingress Guide](https://django-hurricane.io/guides/reverse-proxies): Setting up Cloudflare, Nginx, and Ingress-Nginx.
+- [Configuration Reference](https://django-hurricane.io/configuration/settings): Complete list of all CLI flags and Django settings.
+- [ASGI vs. WSGI Architecture](https://django-hurricane.io/concepts/asgi-vs-wsgi): Concurrency models and event loop lag tracking.
+- [Rust Engine Architecture](https://django-hurricane.io/concepts/rust-engine): How Granian, Hyper, and Tokio operate under Hurricane.
+- [Kubernetes Probes](https://django-hurricane.io/concepts/kubernetes-probes): Deep dive into `/startup`, `/alive`, and `/ready`.
+- [Fast-404 Protection](https://django-hurricane.io/concepts/fast-404-protection): Gateway-level scanner mitigation.
+- [Rate Limiting](https://django-hurricane.io/concepts/rate-limiting): DoS and flood prevention.
+- [POSIX Shared Memory Metrics](https://django-hurricane.io/concepts/shared-memory-metrics): Cross-process atomic metrics architecture.
+- [Webhooks](https://django-hurricane.io/concepts/webhooks): Cluster notification lifecycle webhooks.

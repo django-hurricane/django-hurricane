@@ -1,0 +1,27 @@
+User-agent: *
+Allow: /
+Disallow: /api/_content/
+Disallow: /_payload.json
+
+# AI Web Crawlers
+User-agent: GPTBot
+Allow: /
+Disallow: /api/_content/
+Disallow: /_payload.json
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /api/_content/
+Disallow: /_payload.json
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /api/_content/
+Disallow: /_payload.json
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /api/_content/
+Disallow: /_payload.json
+
+Sitemap: https://django-hurricane.io/sitemap.xml

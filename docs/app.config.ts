@@ -2,7 +2,7 @@ export default defineAppConfig({
   docus: {
     title: 'Django Hurricane',
     description: 'The Kubernetes-Native Application Server for Django',
-    image: '/logo.png',
+    image: 'https://django-hurricane.io/logo.png',
     url: 'https://django-hurricane.io',
     socials: {
       github: 'django-hurricane/django-hurricane',

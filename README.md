@@ -55,6 +55,8 @@ We pit the classic Tornado-based Hurricane against the new Granian-powered engin
 
 *Under heavy traffic, Tornado mistook pending asyncio task counts for saturated request backlogs, triggering 160 false unready events that pulled pods out of service endpoints. Granian completely eliminates false unready flaps while doubling throughput.*
 
+> 📊 **Reproduce & Explore:** The complete benchmark suite, load scenarios, and raw result datasets are available at **[django-hurricane/django-hurricane-bench](https://github.com/django-hurricane/django-hurricane-bench)** on GitHub.
+
 ---
 
 ## ✨ Highlights & Features
