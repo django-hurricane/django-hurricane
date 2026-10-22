@@ -256,3 +256,41 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         cmd.merge_options(options)
         self.assertEqual(options["mode"], "asgi")
         self.assertEqual(options["interface"], "asgi")
+
+    def test_runtime_threads_cli_argument(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args(["--runtime-threads", "8"]))
+        cmd.merge_options(options)
+        self.assertEqual(options["runtime_threads"], 8)
+
+    @override_settings(HURRICANE_RUNTIME_THREADS=4)
+    def test_runtime_threads_prefixed_setting(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["runtime_threads"], 4)
+
+    @override_settings(RUNTIME_THREADS=6)
+    def test_runtime_threads_unprefixed_setting(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["runtime_threads"], 6)
