@@ -10,7 +10,7 @@
   },
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.1",
-    "mermaid": "^11.4.1",
+    "mermaid": "^12.2.0",
     "nuxt": "^4.6.2"
   },
   "dependencies": {
