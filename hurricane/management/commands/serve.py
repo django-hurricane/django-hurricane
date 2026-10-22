@@ -2,17 +2,22 @@ import asyncio
 import functools
 import os
 import signal
+import sys
+import threading
 import time
-from concurrent.futures.thread import ThreadPoolExecutor
+from typing import Any, Dict, Optional
 
-import tornado.autoreload
-import tornado.web
-import tornado.wsgi
 from django.conf import settings
 from django.core.management.base import BaseCommand
+from granian import Granian
+from granian.constants import Interfaces
 
 from hurricane.management.commands import HURRICANE_DIST_VERSION
+from hurricane.metrics.shared import cleanup_shm
 from hurricane.server import (
+    HTTP_CONFIGURED_EVENT,
+    PROBE_CONFIGURED_EVENT,
+    PROMETHEUS_CONFIGURED_EVENT,
     check_db_and_migrations,
     check_mem_allocations,
     command_task,
@@ -23,65 +28,50 @@ from hurricane.server import (
     static_watch,
 )
 from hurricane.server.debugging import setup_debugging
+from hurricane.server.granian import configure_granian
 from hurricane.server.loggers import STRUCTLOG_ENABLED
 
-PROBE_CONFIGURED_EVENT = "Probe configured"
-PROMETHEUS_CONFIGURED_EVENT = "Prometheus configured"
+
+def _get_setting_value(descriptor: str) -> Any:
+    """Retrieve option value from Django settings, checking prefixed then unprefixed name."""
+    if hasattr(settings, descriptor):
+        return getattr(settings, descriptor)
+    unprefixed = descriptor.removeprefix("HURRICANE_")
+    if hasattr(settings, unprefixed):
+        return getattr(settings, unprefixed)
+    raise AttributeError(f"Setting {descriptor} not found")
+
+
+def _get_env_value(descriptor: str) -> Optional[Any]:
+    """Retrieve option value from environment variables, checking prefixed then unprefixed name."""
+    val = os.environ.get(descriptor)
+    if val is None:
+        val = os.environ.get(descriptor.removeprefix("HURRICANE_"))
+    if val is None:
+        return None
+    try:
+        return int(val)
+    except (TypeError, ValueError):
+        return val
 
 
 class Command(BaseCommand):
-
     """
-    Start a Tornado-powered Django web server by using ``python manage.py serve <arguments>``.
+    Start a Granian-powered Django web server by using ``python manage.py serve <arguments>``.
 
     It can run Django management commands with the ``--command`` flag, that will be executed asynchronously.
     The application server will only be started upon successful execution of management commands. During execution
     of management commands the startup probe responds with a status 400.
-
-    Arguments:
-        - ``--static`` - serve collected static files
-        - ``--media`` - serve media files
-        - ``--autoreload`` - reload code on change
-        - ``--debug`` - set Tornado's Debug flag
-        - ``--port`` - the port for Tornado to listen on
-        - ``--metrics`` - the exposed path (default is /metrics) to export Prometheus metrics
-        - ``--startup-probe`` - the exposed path (default is /startup) for probes to check startup
-        - ``--readiness-probe`` - the exposed path (default is /ready) for probes to check readiness
-        - ``--liveness-probe`` - the exposed path (default is /alive) for probes to check liveness
-        - ``--probe-port`` - the port for Tornado probe route to listen on
-        - ``--req-queue-len`` - threshold of length of queue of request, which is considered for readiness probe
-        - ``--no-probe`` - disable probe endpoint
-        - ``--no-metrics`` - disable metrics collection
-        - ``--command`` - repetitive command for adding execution of management commands before serving
-        - ``--check-migrations`` - check if all migrations were applied before starting application
-        - ``--check-migrations-apply`` - same as --check-migrations but also applies them if needed
-        - ``--webhook-url``- If specified, webhooks will be sent to this url
-        - ``--max-lifetime``- If specified,  maximum requests after which pod is restarted
-        - ``--max-memory``- If specified, process reloads after exceeding maximum memory (RSS) usage (in Mb)
-        - ``--static-watch`` - If specified, static files will be watched for changes and recollected
-        - ``--max-body-size`` - The maximum size of the body of a tornado request in bytes
-        - ``--max-buffer-size`` - The maximum size of the buffer of a tornado request in bytes
     """
 
-    help = "Start a Tornado-powered Django web server"
+    help = "Start a Granian-powered Django web server"
 
     def add_arguments(self, parser):
-        """
-        Defines arguments, that can be accepted with ``serve`` command.
-        """
-        parser.add_argument(
-            "--static", action="store_true", help="Serve collected static files"
-        )
+        parser.add_argument("--static", action="store_true", help="Serve collected static files")
         parser.add_argument("--media", action="store_true", help="Serve media files")
-        parser.add_argument(
-            "--autoreload", action="store_true", help="Reload code on change"
-        )
-        parser.add_argument(
-            "--debug", action="store_true", help="Set Tornado's Debug flag"
-        )
-        parser.add_argument(
-            "--port", type=int, default=8000, help="The port for Tornado to listen on"
-        )
+        parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
+        parser.add_argument("--debug", action="store_true", help="Set Debug flag")
+        parser.add_argument("--port", type=int, default=8000, help="The port for the server to listen on")
         parser.add_argument(
             "--metrics",
             type=str,
@@ -110,17 +100,11 @@ class Command(BaseCommand):
         parser.add_argument(
             "--probe-port",
             type=int,
-            help="The port for Tornado probe route to listen on",
+            help="The port for the probe route to listen on",
         )
-        parser.add_argument(
-            "--req-queue-len", type=int, default=10, help="Length of the request queue"
-        )
-        parser.add_argument(
-            "--no-probe", action="store_true", help="Disable probe endpoint"
-        )
-        parser.add_argument(
-            "--no-metrics", action="store_true", help="Disable metrics collection"
-        )
+        parser.add_argument("--req-queue-len", type=int, default=10, help="Length of the request queue")
+        parser.add_argument("--no-probe", action="store_true", help="Disable probe endpoint")
+        parser.add_argument("--no-metrics", action="store_true", help="Disable metrics collection")
         parser.add_argument("--command", type=str, action="append", nargs="+")
         parser.add_argument(
             "--check-migrations",
@@ -196,91 +180,97 @@ class Command(BaseCommand):
             default=1024 * 1024 * 100,
             help="The maximum size of the buffer of a request in bytes",
         )
+        parser.add_argument(
+            "--mode",
+            "--interface",
+            dest="mode",
+            type=str,
+            choices=["auto", "wsgi", "asgi"],
+            default="auto",
+            help="Execution mode: auto (default), wsgi, or asgi",
+        )
+        parser.add_argument(
+            "--no-fast-404",
+            action="store_true",
+            default=False,
+            help="Disable early fast-404 protection",
+        )
+        parser.add_argument(
+            "--fast-404",
+            type=str,
+            choices=["auto", "signature", "prefix", "off"],
+            default="auto",
+            help="Fast-404 protection strategy: auto (default), signature, prefix, or off",
+        )
+        parser.add_argument(
+            "--no-rate-limit",
+            action="store_true",
+            default=False,
+            help="Disable request rate limiter",
+        )
+        parser.add_argument(
+            "--rate-limit",
+            type=str,
+            default="10/s",
+            help="Max allowed requests per second per IP (default: 10/s, or off to disable)",
+        )
+        parser.add_argument(
+            "--rate-limit-burst",
+            type=int,
+            default=30,
+            help="Burst capacity for rate limiter (default: 30)",
+        )
+        parser.add_argument(
+            "--rate-limit-proxy-header",
+            type=str,
+            default="X-Forwarded-For",
+            help="Proxy header to extract client IP from (default: X-Forwarded-For)",
+        )
 
     def merge_option(
         self,
         option_name: str,
         option_descriptor: str,
         options: dict,
-        optional=False,
-        default=None,
+        optional: bool = False,
+        default: Any = None,
     ):
-        """
-        Merges a single option into the given option dictionary
-
-        Args:
-            option_name (str): Name of the option in the options dictionary
-            option_descriptor (str): Name of the option as env variable
-        """
-        # leave early if option is already set via cli argument - highest precedence
-        if options[option_name] is not None and options[option_name] != default:
+        if options.get(option_name) is not None and options[option_name] != default:
             return
-        try:  # first try to add option from django settings - second highest precedence
-            options.update(
-                {
-                    option_name: getattr(
-                        settings, option_descriptor.removeprefix("HURRICANE_")
-                    )
-                }
+
+        try:
+            options[option_name] = _get_setting_value(option_descriptor)
+            return
+        except AttributeError:
+            pass
+
+        env_val = _get_env_value(option_descriptor)
+        if env_val is not None:
+            options[option_name] = env_val
+            return
+
+        if options.get(option_name) is None and not optional:
+            raise ValueError(
+                f"Option {option_descriptor} must be set as environment variable,"
+                " in django settings or as a command line argument."
             )
-        except AttributeError:  # then add from env variables - lowest precedence
-            if option_descriptor not in os.environ and options[option_name] is None:
-                if optional:  # if optional, just return and do not raise an error
-                    return
-                raise ValueError(
-                    (
-                        f"Option {option_descriptor} must be set as environment variable,"
-                        " in django settings or as a command line argument."
-                    )
-                )
-            # try parsing int in general because we can't know the type of env vars
-            try:
-                options.update(
-                    {option_name: int(str(os.environ.get(option_descriptor)))}
-                )
-            except (TypeError, ValueError):
-                options.update(
-                    {
-                        option_name: os.environ.get(option_descriptor)
-                        if option_descriptor in os.environ
-                        else options[option_name]
-                    }
-                )
 
     def merge_options(self, options: dict):
-        """
-        Merges options with django settings. Precedence is the following:
-        - ENV variables
-        - Django settings
-        - Command line arguments
-        """
         self.merge_option("static", "HURRICANE_STATIC", options, default=False)
         self.merge_option("media", "HURRICANE_MEDIA", options, default=False)
         self.merge_option("autoreload", "HURRICANE_AUTORELOAD", options, default=False)
         self.merge_option("debug", "HURRICANE_DEBUG", options, default=False)
         self.merge_option("port", "HURRICANE_PORT", options, default=8000)
-        self.merge_option(
-            "metrics_path", "HURRICANE_METRICS", options, default="/metrics"
-        )
-        self.merge_option(
-            "liveness_probe", "HURRICANE_LIVENESS_PROBE", options, default="/alive"
-        )
-        self.merge_option(
-            "readiness_probe", "HURRICANE_READINESS_PROBE", options, default="/ready"
-        )
-        self.merge_option(
-            "startup_probe", "HURRICANE_STARTUP_PROBE", options, default="/startup"
-        )
+        self.merge_option("metrics_path", "HURRICANE_METRICS", options, default="/metrics")
+        self.merge_option("liveness_probe", "HURRICANE_LIVENESS_PROBE", options, default="/alive")
+        self.merge_option("readiness_probe", "HURRICANE_READINESS_PROBE", options, default="/ready")
+        self.merge_option("startup_probe", "HURRICANE_STARTUP_PROBE", options, default="/startup")
         self.merge_option("probe_port", "HURRICANE_PROBE_PORT", options, optional=True)
-        self.merge_option(
-            "req_queue_len", "HURRICANE_REQ_QUEUE_LEN", options, default=10
-        )
+        self.merge_option("req_queue_len", "HURRICANE_REQ_QUEUE_LEN", options, default=10)
         self.merge_option("no_probe", "HURRICANE_NO_PROBE", options, default=False)
         self.merge_option("no_metrics", "HURRICANE_NO_METRICS", options, default=False)
         self.merge_option("command", "HURRICANE_COMMAND", options, optional=True)
-        self.merge_option(
-            "check_migrations", "HURRICANE_CHECK_MIGRATIONS", options, default=False
-        )
+        self.merge_option("check_migrations", "HURRICANE_CHECK_MIGRATIONS", options, default=False)
         self.merge_option(
             "check_migrations_apply",
             "HURRICANE_CHECK_MIGRATIONS_APPLY",
@@ -288,12 +278,8 @@ class Command(BaseCommand):
             default=False,
         )
         self.merge_option("debugger", "HURRICANE_DEBUGGER", options, default=False)
-        self.merge_option(
-            "debugger_port", "HURRICANE_DEBUGGER_PORT", options, default=5678
-        )
-        self.merge_option(
-            "webhook_url", "HURRICANE_WEBHOOK_URL", options, optional=True
-        )
+        self.merge_option("debugger_port", "HURRICANE_DEBUGGER_PORT", options, default=5678)
+        self.merge_option("webhook_url", "HURRICANE_WEBHOOK_URL", options, optional=True)
         self.merge_option(
             "max_lifetime",
             "HURRICANE_MAX_LIFETIME",
@@ -301,15 +287,9 @@ class Command(BaseCommand):
             optional=True,
             default=None,
         )
-        self.merge_option(
-            "max_memory", "HURRICANE_MAX_MEMORY", options, optional=True, default=None
-        )
-        self.merge_option(
-            "workers", "HURRICANE_WORKERS", options, optional=True, default=None
-        )
-        self.merge_option(
-            "static_watch", "HURRICANE_STATIC_WATCH", options, optional=True
-        )
+        self.merge_option("max_memory", "HURRICANE_MAX_MEMORY", options, optional=True, default=None)
+        self.merge_option("workers", "HURRICANE_WORKERS", options, optional=True, default=None)
+        self.merge_option("static_watch", "HURRICANE_STATIC_WATCH", options, optional=True)
         self.merge_option(
             "pycharm_host",
             "HURRICANE_PYCHARM_HOST",
@@ -338,58 +318,64 @@ class Command(BaseCommand):
             optional=True,
             default=1024 * 1024 * 100,
         )
+        self.merge_option(
+            "mode",
+            "HURRICANE_MODE",
+            options,
+            optional=True,
+            default="auto",
+        )
+        # Fallback check for legacy INTERFACE / HURRICANE_INTERFACE
+        if options.get("mode") == "auto":
+            legacy_interface = getattr(
+                settings,
+                "HURRICANE_INTERFACE",
+                getattr(
+                    settings,
+                    "INTERFACE",
+                    os.environ.get("HURRICANE_INTERFACE", os.environ.get("INTERFACE")),
+                ),
+            )
+            if legacy_interface:
+                options["mode"] = legacy_interface
+        options["interface"] = options.get("mode", "auto")
 
     def handle(self, *args, **options):
-        """
-        Defines functionalities for different arguments. After all arguments were processed, it starts the async event
-        loop.
-        """
         self.merge_options(options)
+
+        os.environ["HURRICANE_SHM_NAME"] = f"hurricane_shm_{os.getpid()}_{options.get('port', 8000)}"
+        cleanup_shm()
+
         start_time = time.time()
         if STRUCTLOG_ENABLED:
             logger.info(
-                "Tornado-powered Django web server.",
+                "Granian-powered Django web server.",
                 hurricane=HURRICANE_DIST_VERSION,
             )
         else:
-            logger.info(
-                f"Tornado-powered Django web server. Version: {HURRICANE_DIST_VERSION}"
-            )
+            logger.info(f"Granian-powered Django web server. Version: {HURRICANE_DIST_VERSION}")
 
         if options["autoreload"]:
-            tornado.autoreload.start()
-            if options["static_watch"] and len(options["static_watch"]):
+            if options.get("static_watch"):
                 logger.info("Watching static files for any changes")
                 for path in options["static_watch"]:
                     if os.path.exists(path):
-                        logger.info("Watching path {}.".format(path))
-                        tornado.autoreload.watch(path)
+                        logger.info(f"Watching path {path}.")
                     else:
-                        logger.error(
-                            "Tried to watch {}, but it does not exist.".format(path)
-                        )
-                tornado.autoreload.add_reload_hook(static_watch)
+                        logger.error(f"Tried to watch {path}, but it does not exist.")
             logger.info("Autoreload was performed")
 
-        # set the probe port
-        # the probe port by default is supposed to run the next port of the application
-        probe_port = (
-            options["probe_port"] if options["probe_port"] else options["port"] + 1
-        )
+        probe_port = options["probe_port"] if options["probe_port"] else options["port"] + 1
         options["probe_port"] = probe_port
 
-        # sanitize probes: returns regexps for probes in options and their representations for logging
         options, probe_representations = sanitize_probes(options)
 
-        # set the probe routes
-        # if probe port is set to the application's port, add it to the application's routes
         include_probe = False
+        probe_server = None
         if not options["no_probe"]:
             if probe_port != options["port"]:
                 if STRUCTLOG_ENABLED:
-                    self.structlog_probe_configured(
-                        probe_port, probe_representations, options
-                    )
+                    self.structlog_probe_configured(probe_port, probe_representations, options)
                 else:
                     logger.info(
                         f"Starting probe application running on port {probe_port} with route liveness-probe: "
@@ -398,14 +384,12 @@ class Command(BaseCommand):
                         f"startup-probe: {probe_representations['startup_probe']}"
                     )
                 self.log_prometheus(options, probe_port)
-                probe_application = make_probe_server(options, self.check)
-                probe_application.listen(probe_port)
+                probe_server = make_probe_server(options, self.check)
+                probe_server.listen(probe_port)
             else:
                 include_probe = True
                 if STRUCTLOG_ENABLED:
-                    self.structlog_probe_configured(
-                        probe_port, probe_representations, options
-                    )
+                    self.structlog_probe_configured(probe_port, probe_representations, options)
                 else:
                     logger.info(
                         f"Starting probe application with routes "
@@ -415,65 +399,53 @@ class Command(BaseCommand):
                         f"running integrated on port {probe_port}"
                     )
                     self.log_prometheus(options, probe_port)
-
         else:
             if STRUCTLOG_ENABLED:
                 logger.info("Probes configured", active=False)
                 logger.info(PROMETHEUS_CONFIGURED_EVENT, active=False)
             else:
                 logger.info("No probe application running")
-                logger.info(
-                    "Running without Prometheus exporter, because --no-probe flag was set"
-                )
+                logger.info("Running without Prometheus exporter, because --no-probe flag was set")
             options["no_metrics"] = True
 
         setup_debugging(options)
 
-        loop = asyncio.get_event_loop()
+        # Determine WSGI vs ASGI mode
+        mode = options.get("mode") or options.get("interface") or "auto"
+        if mode == "asgi":
+            is_asgi = True
+        elif mode == "wsgi":
+            is_asgi = False
+        else:
+            is_asgi = bool(getattr(settings, "ASGI_APPLICATION", None))
 
-        make_http_server_wrapper = functools.partial(
-            make_http_server_and_listen,
+        configure_granian(
+            options=options,
+            check_func=self.check,
+            is_asgi=is_asgi,
+            include_probe=include_probe,
+        )
+
+        # Pre-flight tasks execution
+        if options.get("command"):
+            command_task(
+                commands=options["command"],
+                webhook_url=options.get("webhook_url") or None,
+            )
+        if options.get("check_migrations") or options.get("check_migrations_apply"):
+            check_db_and_migrations(
+                webhook_url=options.get("webhook_url") or None,
+                apply_migration=bool(options.get("check_migrations_apply")),
+            )
+
+        make_http_server_and_listen(
             start_time=start_time,
             options=options,
             check=self.check,
             include_probe=include_probe,
         )
 
-        # all commands, that should be executed before starting http server should be added to this list
-        exec_list = []
-        if options["command"]:
-            # wrap function to use additional variables
-            management_commands_wrapper = functools.partial(
-                command_task,
-                commands=options["command"],
-                webhook_url=options["webhook_url"] or None,
-                loop=loop,
-            )
-            exec_list.append(management_commands_wrapper)
-        if options["check_migrations"] or options["check_migrations_apply"]:
-            check_db_and_migrations_wrapper = functools.partial(
-                check_db_and_migrations,
-                webhook_url=options["webhook_url"] or None,
-                loop=loop,
-                apply_migration=True if options["check_migrations_apply"] else False,
-            )
-            exec_list.append(check_db_and_migrations_wrapper)
-
-        def bundle_func(exec_list, loop, make_http_server_wrapper):
-            # executes functions from exec_list sequentially
-            for func in exec_list:
-                func(*args)
-            # after all functions were executed http server is started in the main thread
-            # call_soon_threadsafe puts http server into the main loop of the program
-            loop.call_soon_threadsafe(make_http_server_wrapper)
-
-        executor = ThreadPoolExecutor(max_workers=1)
-        # bundle_func is executed in a separate thread. Main thread has an active probe server, which should not be
-        # interrupted
-        loop.run_in_executor(
-            executor, bundle_func, exec_list, loop, make_http_server_wrapper
-        )
-        if options["max_memory"]:
+        if options.get("max_memory"):
             if STRUCTLOG_ENABLED:
                 logger.info(
                     "Memory allocation check",
@@ -481,26 +453,82 @@ class Command(BaseCommand):
                     active=True,
                 )
             else:
-                logger.info(
-                    f"Starting memory allocation check with maximum memory set to {options['max_memory']} Mb"
-                )
-            loop.create_task(check_mem_allocations(options["max_memory"]))
+                logger.info(f"Starting memory allocation check with maximum memory set to {options['max_memory']} Mb")
+
+            def mem_monitor():
+                restarts = 0
+                max_mem = options["max_memory"]
+                import psutil
+
+                main_proc = psutil.Process()
+                while True:
+                    time.sleep(0.5)
+                    try:
+                        total_bytes = main_proc.memory_info().rss
+                        for child in main_proc.children(recursive=True):
+                            try:
+                                total_bytes += child.memory_info().rss
+                            except (psutil.NoSuchProcess, psutil.AccessDenied):
+                                pass
+                        current_mb = total_bytes / (1024 * 1024)
+                        if current_mb > max_mem:
+                            restarts += 1
+                            if STRUCTLOG_ENABLED:
+                                logger.warning(
+                                    "Memory (rss) usage is too high. Restarting",
+                                    current_mb=current_mb,
+                                    maximum_memory_mb=max_mem,
+                                    restarts=restarts,
+                                    active=True,
+                                )
+                            else:
+                                logger.warning(
+                                    f"Memory (rss) usage is too high. Restarting. Current memory usage is {current_mb}MB; "
+                                    f"Maximum memory allowed is {max_mem}MB (restart #{restarts})"
+                                )
+                            break
+                    except Exception:
+                        break
+
+            threading.Thread(target=mem_monitor, daemon=True).start()
         else:
             if STRUCTLOG_ENABLED:
                 logger.warning("Memory allocation check", active=False)
             else:
                 logger.warning("Starting without memory allocation check")
 
-        def ask_exit(signame):
-            logger.info(f"Received signal {signame}. Shutting down now.")
-            loop.stop()
+        workers = 1
+        threads = options.get("workers") or min(32, (os.cpu_count() or 1) + 4)
 
-        for signame in ("SIGINT", "SIGTERM"):
-            loop.add_signal_handler(
-                getattr(signal, signame), functools.partial(ask_exit, signame)
-            )
+        reload_paths = None
+        if options.get("autoreload") and options.get("static_watch"):
+            reload_paths = [p for p in options["static_watch"] if os.path.exists(p)]
 
-        loop.run_forever()
+        server = Granian(
+            target="hurricane.server.granian:get_application",
+            factory=True,
+            address="0.0.0.0",
+            port=options["port"],
+            interface=Interfaces.ASGI if is_asgi else Interfaces.WSGI,
+            workers=workers,
+            blocking_threads=threads,
+            runtime_mode="mt",
+            backlog=1024,
+            log_access=False,
+            log_enabled=False,
+            reload=bool(options.get("autoreload")),
+            reload_paths=reload_paths,
+            workers_max_rss=options.get("max_memory"),
+        )
+
+        try:
+            server.serve()
+        except KeyboardInterrupt:
+            logger.info("Received signal SIGINT. Shutting down now.")
+        finally:
+            if probe_server:
+                probe_server.stop()
+            cleanup_shm()
 
     def structlog_probe_configured(self, probe_port, probe_representations, options):
         logger.info(
@@ -524,13 +552,10 @@ class Command(BaseCommand):
                 )
             else:
                 logger.info(
-                    f"Starting Prometheus metrics exporter on port {probe_port} with "
-                    f"route {options['metrics_path']}"
+                    f"Starting Prometheus metrics exporter on port {probe_port} with route {options['metrics_path']}"
                 )
         else:
             if STRUCTLOG_ENABLED:
                 logger.info(PROMETHEUS_CONFIGURED_EVENT, active=False)
             else:
-                logger.info(
-                    "Running without Prometheus exporter, because --no-metrics flag was set"
-                )
+                logger.info("Running without Prometheus exporter, because --no-metrics flag was set")

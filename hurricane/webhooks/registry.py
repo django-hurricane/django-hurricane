@@ -2,7 +2,6 @@ from hurricane.webhooks.exceptions import WebhookCodeAlreadyRegistered
 
 
 class WebhookRegistry:
-
     """
     Registering webhooks and storing them in a webhooks dictionary.
     """
@@ -12,9 +11,7 @@ class WebhookRegistry:
 
     def register(self, webhook_cls):
         if webhook_cls.code in self.webhooks:
-            raise WebhookCodeAlreadyRegistered(
-                f"Webhook Code ({webhook_cls.code}) is already registered."
-            )
+            raise WebhookCodeAlreadyRegistered(f"Webhook Code ({webhook_cls.code}) is already registered.")
         self.webhooks[webhook_cls.code] = webhook_cls()
 
     def unregister(self, webhook_cls):

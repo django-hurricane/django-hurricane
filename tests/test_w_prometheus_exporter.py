@@ -1,64 +1,90 @@
 from prometheus_client.parser import text_string_to_metric_families
 
+from hurricane.server.loggers import STRUCTLOG_ENABLED
 from hurricane.testing.testcases import HurricanServerTest
 
 
 class HurricanStartServerTests(HurricanServerTest):
     metrics_route = "/metrics"
-    starting_message = "Tornado-powered Django web server"
+    starting_message = "Granian-powered Django web server"
     starting_http_message = "Starting Prometheus metrics exporter on port "
 
     @HurricanServerTest.cycle_server
     def test_default_startup_with_prometheues(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
-            out,
-        )
-        self.assertIn(self.starting_http_message, out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("Probe configured", out)
+            self.assertIn("Prometheus configured", out)
+        else:
+            self.assertIn(
+                "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+                out,
+            )
+            self.assertIn(self.starting_http_message, out)
 
     @HurricanServerTest.cycle_server(args=["--no-metrics"])
     def test_default_startup_without_prometheues(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn(
-            "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
-            out,
-        )
-        self.assertIn(
-            "Running without Prometheus exporter, because --no-metrics flag was set",
-            out,
-        )
+        if STRUCTLOG_ENABLED:
+            self.assertIn("Probe configured", out)
+            self.assertIn("Prometheus configured", out)
+            self.assertIn("active=False", out)
+        else:
+            self.assertIn(
+                "Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup",
+                out,
+            )
+            self.assertIn(
+                "Running without Prometheus exporter, because --no-metrics flag was set",
+                out,
+            )
         res = self.probe_client.get(self.metrics_route)
         self.assertEqual(res.status, 404)
 
     @HurricanServerTest.cycle_server(args=["--probe-port", "8085"])
     def test_startup_port(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(self.starting_http_message + "8085", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("port=8085", out)
+            self.assertIn("Prometheus configured", out)
+        else:
+            self.assertIn(self.starting_http_message + "8085", out)
 
     @HurricanServerTest.cycle_server(args=["--probe-port", "8000"])
     def test_startup_integrated(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(self.starting_http_message + "8000", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("port=8000", out)
+            self.assertIn("integrated=True", out)
+        else:
+            self.assertIn(self.starting_http_message + "8000", out)
 
     @HurricanServerTest.cycle_server(args=["--probe-port", "8000", "--no-metrics"])
     def test_startup_integrated_no_exporter(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn("Running without Prometheus exporter, because", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("active=False", out)
+        else:
+            self.assertIn("Running without Prometheus exporter, because", out)
 
     @HurricanServerTest.cycle_server(args=["--no-probe"])
     def test_startup_exporter_integrated_no_probe(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(
-            "Running without Prometheus exporter, because --no-probe flag was set", out
-        )
+        if STRUCTLOG_ENABLED:
+            self.assertIn("active=False", out)
+        else:
+            self.assertIn("Running without Prometheus exporter, because --no-probe flag was set", out)
 
     @HurricanServerTest.cycle_server(args=["--metrics", "/metrics1"])
     def test_startup_path(self):
         out, err = self.driver.get_output(read_all=True)
-        self.assertIn(self.starting_http_message + "8001 with route /metrics1", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("route=/metrics1", out)
+            self.assertIn("Prometheus configured", out)
+        else:
+            self.assertIn(self.starting_http_message + "8001 with route /metrics1", out)
 
     @HurricanServerTest.cycle_server()
     def test_export_families_len(self):
@@ -135,9 +161,7 @@ class HurricanStartServerTests(HurricanServerTest):
                 self.assertEqual(family.samples[0].labels["serve_static"], "false")
                 self.assertEqual(family.samples[0].labels["serve_media"], "false")
 
-    @HurricanServerTest.cycle_server(
-        args=["--probe-port", "8090", "--port", "8010", "--static", "--media"]
-    )
+    @HurricanServerTest.cycle_server(args=["--probe-port", "8090", "--port", "8010", "--static", "--media"])
     def test_exporter_hurricane_ports_selected(self):
         res = self.probe_client.get(self.metrics_route)
         families = text_string_to_metric_families(res.text)

@@ -9,9 +9,7 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
     def test_reload_on_max_memory(self):
         out, err = self.driver.get_output(read_all=True)
         if STRUCTLOG_ENABLED:
-            self.assertIn(
-                "Memory allocation check        active=True max_memory_mb=200", out
-            )
+            self.assertIn("Memory allocation check        active=True max_memory_mb=200", out)
         else:
             self.assertIn(
                 "Starting memory allocation check with maximum memory set to 200 Mb",
@@ -29,10 +27,7 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
                 if "Memory (rss) usage is too high. Restarting" in out:
                     break
             else:
-                if (
-                    "Memory (rss) usage is too high. Restarting. Current memory usage is"
-                    in out
-                ):
+                if "Memory (rss) usage is too high. Restarting. Current memory usage is" in out:
                     break
             sleep(1)
         else:
@@ -67,9 +62,6 @@ class HurricanMemoryAllocationTests(HurricanServerTest):
                 if "Memory (rss) usage is too high. Restarting" in out:
                     raise AssertionError("Reload detected although not requested")
             else:
-                if (
-                    "Memory (rss) usage is too high. Restarting. Current memory usage is"
-                    in out
-                ):
+                if "Memory (rss) usage is too high. Restarting. Current memory usage is" in out:
                     raise AssertionError("Reload detected although not requested")
             sleep(1)

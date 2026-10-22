@@ -7,16 +7,13 @@ except ImportError:
 
     logger = logging.getLogger(__name__)
 
-import tornado.ioloop
-
 from hurricane.testing.actors import WebhookReceiverServer
 
 
 def start_receiver():
     logger.info("Started webhook receiver server")
-    app = WebhookReceiverServer().make_http_receiver_app()
-    app.listen(8074)
-    tornado.ioloop.IOLoop.current().start()
+    server = WebhookReceiverServer().make_http_receiver_server(8074)
+    server.serve_forever()
 
 
 if __name__ == "__main__":

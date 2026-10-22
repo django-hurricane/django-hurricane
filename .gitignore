@@ -38,6 +38,7 @@ pip-delete-this-directory.txt
 # Unit test / coverage reports
 htmlcov/
 .tox/
+uploaded_file
 .coverage
 .coverage.*
 .cache
@@ -116,6 +117,10 @@ build/Release
 # Dependency directories
 node_modules/
 jspm_packages/
+.nuxt/
+.output/
+dist/
+docs/dist
 
 # Typescript v1 declaration files
 typings/

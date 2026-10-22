@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hurricane-happy-path
+  labels:
+    app: hurricane-happy-path
+spec:
+  containers:
+  - name: hurricane
+    image: django-hurricane-test:latest
+    imagePullPolicy: Never
+    ports:
+    - containerPort: 8000
+    command: ["python", "manage.py", "serve", "--port=8000", "--probe-port=8000"]
+    startupProbe:
+      httpGet:
+        path: /startup
+        port: 8000
+      initialDelaySeconds: 1
+      periodSeconds: 1
+      failureThreshold: 60
+    livenessProbe:
+      httpGet:
+        path: /alive
+        port: 8000
+      periodSeconds: 2
+      timeoutSeconds: 1
+    readinessProbe:
+      httpGet:
+        path: /ready
+        port: 8000
+      periodSeconds: 2
+      timeoutSeconds: 1

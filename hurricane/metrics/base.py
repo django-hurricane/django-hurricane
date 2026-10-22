@@ -1,3 +1,4 @@
+import math
 from typing import Any, Optional
 
 from prometheus_client import Counter, Gauge, Histogram
@@ -34,22 +35,50 @@ class StoredMetric(HurricaneMetric):
         return registry.get(cls.code)
 
     @classmethod
+    def _get_shared(cls):
+        if not hasattr(cls, "_shared_storage"):
+            import multiprocessing
+
+            cls._shared_storage = multiprocessing.Value("d", 0.0)
+        return cls._shared_storage
+
+    @classmethod
     def set(cls, value):
         """
-        Setting new value for metric.
+        Setting new value for metric in registry and shared memory.
         """
 
         metric = cls.get_from_registry()
         metric.value = value
+        try:
+            shared = cls._get_shared()
+            with shared.get_lock():
+                shared.value = float(value if value is not None else 0.0)
+        except Exception:
+            pass
 
     @classmethod
     def get(cls):
         """
-        Getting value of metric from registry.
+        Getting value of metric from registry or shared memory.
         """
 
         metric = cls.get_from_registry()
-        return metric.value
+        try:
+            shared = cls._get_shared()
+            with shared.get_lock():
+                raw = shared.value
+            if isinstance(metric.value, bool):
+                return bool(raw)
+            if isinstance(metric.value, int):
+                return int(raw)
+            if isinstance(metric.value, float):
+                return raw
+            if not math.isclose(raw, 0.0, abs_tol=1e-9):
+                return raw
+            return metric.value
+        except Exception:
+            return metric.value
 
 
 class CalculatedMetric(HurricaneMetric):
@@ -81,7 +110,6 @@ class CalculatedMetric(HurricaneMetric):
 
 
 class CounterMetric(StoredMetric):
-
     """
     Metric, that can be incremented and decremented.
     """
@@ -108,7 +136,6 @@ class CounterMetric(StoredMetric):
 
 
 class AverageMetric(StoredMetric):
-
     """
     Calculating average of a metric.
     """
@@ -118,20 +145,42 @@ class AverageMetric(StoredMetric):
     prometheus: Optional[Gauge] = None
 
     @classmethod
+    def _get_shared_counter(cls):
+        if not hasattr(cls, "_shared_counter"):
+            import multiprocessing
+
+            cls._shared_counter = multiprocessing.Value("i", 0)
+        return cls._shared_counter
+
+    @classmethod
     def add_value(cls, value):
         """
-        Implements the running (online) average of a metric.
+        Implements the running (online) average of a metric across processes.
         """
 
+        shared_val = cls._get_shared()
+        shared_cnt = cls._get_shared_counter()
+        try:
+            with shared_cnt.get_lock(), shared_val.get_lock():
+                shared_cnt.value += 1
+                shared_val.value = shared_val.value + (value - shared_val.value) / shared_cnt.value
+                current_val = shared_val.value
+                current_cnt = shared_cnt.value
+        except Exception:
+            metric = cls.get_from_registry()
+            metric.counter += 1
+            metric.value = metric.value + (value - metric.value) / metric.counter
+            current_val = metric.value
+            current_cnt = metric.counter
+
         metric = cls.get_from_registry()
-        metric.counter += 1
-        metric.value = metric.value + (value - metric.value) / metric.counter
+        metric.counter = current_cnt
+        metric.value = current_val
         if cls.prometheus:
-            cls.prometheus.set(metric.value)
+            cls.prometheus.set(current_val)
 
 
 class ObservedMetric(StoredMetric):
-
     """
     Metric, that can be oberserved.
     """

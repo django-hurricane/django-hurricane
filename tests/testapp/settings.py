@@ -3,6 +3,7 @@ import sys
 
 DEBUG = True
 SECRET_KEY = "thisisnotneeded"
+ALLOWED_HOSTS = ["*"]
 
 
 INSTALLED_APPS = [
@@ -46,7 +47,9 @@ TEMPLATES = [
 SITE_ID = 1
 
 MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "tests/testapp/test_media/")
 STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "tests/testapp/test_media/")
 
 ROOT_URLCONF = "tests.testapp.urls"
 
@@ -54,9 +57,7 @@ ROOT_URLCONF = "tests.testapp.urls"
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": True,
-    "formatters": {
-        "console": {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}
-    },
+    "formatters": {"console": {"format": "%(asctime)s %(levelname)-8s %(name)-12s %(message)s"}},
     "handlers": {
         "console": {
             "class": "logging.StreamHandler",

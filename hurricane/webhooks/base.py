@@ -1,6 +1,7 @@
 import asyncio
 import functools
 import socket
+import threading
 import time
 import typing
 from concurrent.futures.thread import ThreadPoolExecutor
@@ -69,24 +70,31 @@ class Webhook:
             self.set_timestamp()
             self.set_podname()
             self.set_version()
-            current_loop = loop or asyncio.get_event_loop()
-            executor = ThreadPoolExecutor(max_workers=1)
-            fut = current_loop.run_in_executor(
-                executor, self._send_webhook, self.get_message(), url, close_loop
-            )
-            # callback runs after run_in_executor is done
-            callback_wrapper = functools.partial(
-                self._callback_webhook_exception_check,
-                url=url,
-                close_loop=close_loop,
-                loop=loop,
-            )
-            fut.add_done_callback(callback_wrapper)
+
+            def send_task():
+                fut_exc = None
+                try:
+                    self._send_webhook(self.get_message(), url, close_loop)
+                except Exception as e:
+                    fut_exc = e
+
+                class DummyFuture:
+                    def result(self):
+                        if fut_exc:
+                            raise fut_exc
+                        return None
+
+                self._callback_webhook_exception_check(
+                    future=DummyFuture(),
+                    url=url,
+                    close_loop=close_loop,
+                    loop=loop,
+                )
+
+            threading.Thread(target=send_task, daemon=True).start()
         if not url and close_loop:
             logger.warning("No webhook can be sent, as no url is specified")
-            self._callback_webhook_exception_check(
-                future=None, url="", close_loop=True, loop=loop
-            )
+            self._callback_webhook_exception_check(future=None, url="", close_loop=True, loop=loop)
 
     def _send_webhook(self, data: dict, webhook_url: str, close_loop: bool):
         # sending webhook request to the specified url
@@ -110,6 +118,8 @@ class Webhook:
     def set_version(self):
         if hasattr(settings, "HURRICANE_VERSION"):
             self.data["version"] = settings.HURRICANE_VERSION
+        elif hasattr(settings, "VERSION"):
+            self.data["version"] = settings.VERSION
         else:
             self.data["version"] = None
 

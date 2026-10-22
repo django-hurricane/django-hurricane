@@ -1,18 +1,45 @@
 [tool.poe.tasks.code]
-shell  = """
-poetry run black . &&
-poetry run isort . &&
-poetry run mypy . &&
-poetry run flake8 .
+shell = """
+uv run ruff format . &&
+uv run ruff check --fix . &&
+uv run mypy .
 """
-help = "Maintain the codebase to ensure good code climate with black, isort, mypy, flake8"
+help = "Maintain the codebase to ensure good code climate with ruff and mypy"
 
 [tool.poe.tasks.lint]
-shell  = """
-poetry run black --check . &&
-poetry run isort --check . &&
-pip install types-setuptools &&
-poetry run mypy . &&
-poetry run flake8 .
+shell = """
+uv run ruff format --check . &&
+uv run ruff check . &&
+uv run mypy .
 """
-help = "Run check on code climate (black, isort, mypy, flake8)"
+help = "Run check on code climate with ruff and mypy"
+
+[tool.poe.tasks.format]
+shell = """
+uv run ruff format . &&
+uv run ruff check --fix .
+"""
+help = "Auto-format and fix lint errors using ruff"
+
+[tool.poe.tasks.benchmark]
+shell = "uv run python benchmarks/run_baseline.py --engine granian"
+help = "Run the Granian benchmark and record performance & probe metrics"
+
+[tool.poe.tasks.benchmark-compare]
+shell = "uv run python benchmarks/compare.py"
+help = "Compare Granian benchmark results against the stored Tornado baseline"
+
+[tool.poe.tasks.test-k8s]
+shell = """
+docker build -t django-hurricane-test:latest . &&
+uv run pytest tests/k8s/test_k8s_e2e.py -v -x
+"""
+help = "Build Docker image and execute Kubernetes end-to-end tests with k3d"
+
+[tool.poe.tasks.docs-dev]
+shell = "cd docs && npm run dev"
+help = "Start the Docus local documentation development server"
+
+[tool.poe.tasks.docs-build]
+shell = "cd docs && npm run generate"
+help = "Generate static production documentation build in docs/.output/public"

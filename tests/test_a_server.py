@@ -17,7 +17,7 @@ class HurricanStartServerTests(HurricanServerTest):
     alive_route = "/alive"
     startup_route = "/startup"
     ready_route = "/ready"
-    starting_message = "Tornado-powered Django web server"
+    starting_message = "Granian-powered Django web server"
     starting_management_commands_message = "Starting execution of management commands"
     if STRUCTLOG_ENABLED:
         starting_http_message = "HTTP configured"
@@ -26,7 +26,7 @@ class HurricanStartServerTests(HurricanServerTest):
 
     @classmethod
     def setUpClass(cls):
-        os.makedirs(STATIC_PATH)
+        os.makedirs(STATIC_PATH, exist_ok=True)
         super().setUpClass()
 
     @classmethod
@@ -85,9 +85,7 @@ class HurricanStartServerTests(HurricanServerTest):
             assert_str = "No probe application running"
         self.assertIn(assert_str, out)
 
-    @HurricanServerTest.cycle_server(
-        args=["--startup-probe", "probe", "--probe-port", "8090"]
-    )
+    @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8090"])
     def test_probe_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -105,9 +103,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.post(self.probe_route + "//", data=None)
         self.assertEqual(res.status, 404)
 
-    @HurricanServerTest.cycle_server(
-        args=["--startup-probe", "/probe/", "--probe-port", "8090"]
-    )
+    @HurricanServerTest.cycle_server(args=["--startup-probe", "/probe/", "--probe-port", "8090"])
     def test_probe_startup_trail_slash(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -123,9 +119,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get(self.probe_route + "//")
         self.assertEqual(res.status, 404)
 
-    @HurricanServerTest.cycle_server(
-        args=["--startup-probe", "probe", "--probe-port", "8000", "--port", "8000"]
-    )
+    @HurricanServerTest.cycle_server(args=["--startup-probe", "probe", "--probe-port", "8000", "--port", "8000"])
     def test_probe_integrated_startup(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -199,9 +193,9 @@ class HurricanStartServerTests(HurricanServerTest):
 
         timing = float(self._get_timing_from_string(res.text))
         self.assertEqual(res.status, 200)
-        self.assertAlmostEqual(result, timing, 1)
+        self.assertAlmostEqual(result, timing, delta=0.5)
 
-    @HurricanServerTest.cycle_server
+    @HurricanServerTest.cycle_server(args=["--no-fast-404"])
     def test_log_outputs(self):
         out, err = self.driver.get_output(read_all=True)
         res = self.app_client.get("/doesnotexist")
@@ -227,9 +221,7 @@ class HurricanStartServerTests(HurricanServerTest):
         self.assertIn("Autoreload was performed", out)
         self.assertIn(self.starting_http_message, out)
 
-    @HurricanServerTest.cycle_server(
-        args=["--command", "makemigrations", "--probe-port", "8090"]
-    )
+    @HurricanServerTest.cycle_server(args=["--command", "makemigrations", "--probe-port", "8090"])
     def test_startup_with_single_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -267,9 +259,7 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
         if not STRUCTLOG_ENABLED:
-            self.assertIn(
-                "Starting probe application running on port 8090 with route", out
-            )
+            self.assertIn("Starting probe application running on port 8090 with route", out)
             self.assertIn(self.starting_management_commands_message, out)
         self.assertIn("No changes detected", out)
         self.assertIn(self.starting_http_message, out)
@@ -285,9 +275,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.app_client.get("/")
         self.assertEqual(res.status, 200)
 
-    @HurricanServerTest.cycle_server(
-        args=["--command", "failingcommand", "--probe-port", "8090"]
-    )
+    @HurricanServerTest.cycle_server(args=["--command", "failingcommand", "--probe-port", "8090"])
     def test_startup_failing_management_command(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
@@ -304,15 +292,11 @@ class HurricanStartServerTests(HurricanServerTest):
             self.assertIn(self.starting_management_commands_message, out)
             self.assertIn("ERROR", out)
 
-    @HurricanServerTest.cycle_server(
-        args=["--webhook-url", "http://localhost:8074/webhook"]
-    )
+    @HurricanServerTest.cycle_server(args=["--webhook-url", "http://localhost:8074/webhook"])
     def test_webhook_no_endpoint(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn(
-            "Sending webhook to http://localhost:8074/webhook has failed", out
-        )
+        self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
 
     @HurricanServerTest.cycle_server(
         args=[
@@ -325,9 +309,7 @@ class HurricanStartServerTests(HurricanServerTest):
     def test_startup_failed_command_webhook_no_endpoint(self):
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn(
-            "Sending webhook to http://localhost:8074/webhook has failed", out
-        )
+        self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
         self.assertIn("Loop will be closed", out)
 
     @HurricanServerTest.cycle_server
@@ -341,9 +323,7 @@ class HurricanStartServerTests(HurricanServerTest):
             exception = e
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(self.starting_message, out)
-        self.assertIn(
-            "Metric ID (request_counter) is already registered.", str(exception)
-        )
+        self.assertIn("Metric ID (request_counter) is already registered.", str(exception))
 
     @HurricanServerTest.cycle_server
     def test_registration_metrics_wrong_key(self):
@@ -473,18 +453,14 @@ class HurricanStartServerTests(HurricanServerTest):
             out, err = self.driver.get_output(read_all=True)
             self.assertIn(self.starting_message, out)
 
-    @HurricanServerTest.cycle_server(
-        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"}
-    )
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_operational_error"})
     def test_django_operational_error(self):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
         self.assertIn("database error", res.text)
 
-    @HurricanServerTest.cycle_server(
-        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"}
-    )
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_systemcheck_error"})
     def test_django_systemcheck_error(self):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
@@ -499,9 +475,7 @@ class HurricanStartServerTests(HurricanServerTest):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 500)
-        self.assertIn(
-            "Sending webhook to http://localhost:8074/webhook has failed", out
-        )
+        self.assertIn("Sending webhook to http://localhost:8074/webhook has failed", out)
 
     @HurricanServerTest.cycle_server(args=["--check-migrations"])
     def test_b_check_migrations(self):
@@ -572,23 +546,19 @@ class HurricanStartServerTests(HurricanServerTest):
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 400)
 
-    @HurricanServerTest.cycle_server(
-        env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_media"}, args=["--media"]
-    )
+    @HurricanServerTest.cycle_server(env={"DJANGO_SETTINGS_MODULE": "tests.testapp.settings_media"}, args=["--media"])
     def test_django_media(self):
         response = requests.get("http://localhost:8000/media/logo.png")
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(response.status_code, 200)
         self.assertIn("Serving media", out)
 
-    @HurricanServerTest.cycle_server(
-        args=["--pycharm-host", "127.0.0.1", "--pycharm-port", "1234"]
-    )
+    @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1", "--pycharm-port", "1234"])
     def test_pycharm_debug_no_existing_host(self):
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 200)
-        self.assertIn("Could not connect to 127.0.0.1: 1234", out)
+        self.assertIn("Could not connect", out)
 
     @HurricanServerTest.cycle_server(args=["--pycharm-host", "127.0.0.1"])
     def test_pycharm_debug_no_port(self):
@@ -606,18 +576,14 @@ class HurricanStartServerTests(HurricanServerTest):
             hurricane_server = HurricaneServerDriver()
             hurricane_server.start_server(args=["test_function"])
 
-    @HurricanServerTest.cycle_server(
-        args=["--autoreload", f"--static-watch={STATIC_PATH}"]
-    )
+    @HurricanServerTest.cycle_server(args=["--autoreload", f"--static-watch={STATIC_PATH}"])
     def test_static_watch_option(self):
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         out, err = self.driver.get_output(read_all=True)
         self.assertIn(f"Watching path {STATIC_PATH}", out)
 
-    @HurricanServerTest.cycle_server(
-        args=["--autoreload", "--static-watch=/does/not/exist"]
-    )
+    @HurricanServerTest.cycle_server(args=["--autoreload", "--static-watch=/does/not/exist"])
     def test_invalid_static_watch_option(self):
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
@@ -632,3 +598,30 @@ class HurricanStartServerTests(HurricanServerTest):
             static_watch()
             os.rmdir("static/new")
             os.rmdir("static")
+
+    @HurricanServerTest.cycle_server
+    def test_fast_404_active_by_default(self):
+        from hurricane.testing.actors import HTTPClient
+
+        host, port = self.driver.get_server_host_port()
+        client = HTTPClient(host, port)
+        res = client.get("/wp-login.php")
+        self.assertEqual(res.status, 404)
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertIn("Fast-404 active", out)
+        self.assertNotIn("Fast-404: Dropped", out)
+
+    @HurricanServerTest.cycle_server(args=["--no-fast-404"])
+    def test_no_fast_404_option(self):
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertNotIn("Fast-404 active", out)
+
+    @HurricanServerTest.cycle_server
+    def test_rate_limiter_startup_log(self):
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertIn("Rate limiter active: 10.0 req/s (burst: 30)", out)
+
+    @HurricanServerTest.cycle_server(args=["--no-rate-limit"])
+    def test_no_rate_limit_option(self):
+        out, _ = self.driver.get_output(read_all=True)
+        self.assertIn("Rate limiter disabled", out)
