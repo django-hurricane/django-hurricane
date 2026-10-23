@@ -67,3 +67,6 @@ python manage.py serve --port=8000 --probe-port=8001
 - [Rate Limiting](https://django-hurricane.io/concepts/rate-limiting): DoS and flood prevention.
 - [POSIX Shared Memory Metrics](https://django-hurricane.io/concepts/shared-memory-metrics): Cross-process atomic metrics architecture.
 - [Webhooks](https://django-hurricane.io/concepts/webhooks): Cluster notification lifecycle webhooks.
+- [Benchmark Suite Overview](https://django-hurricane.io/performance/benchmark-suite): Empirical benchmarks evaluating WSGI and ASGI deployments across 7 workload routes.
+- [Kubernetes Scaling & Pod Constraints](https://django-hurricane.io/performance/kubernetes-scaling-findings): Impact of small pod resource constraints (1-2 vCPUs), thread starvation, and probe flapping prevention.
+- [Conclusions & Architecture Recommendations](https://django-hurricane.io/performance/architecture-recommendations): Architectural decision tree, partial async trap, and production deployment checklists.
