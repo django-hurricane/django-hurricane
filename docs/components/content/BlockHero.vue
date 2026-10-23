@@ -78,17 +78,26 @@ defineProps({
 </template>
 
 <style scoped>
+:global(body) {
+  overflow-x: hidden;
+}
+
 .block-hero {
   position: relative;
   overflow: hidden;
-  border-radius: 1.5rem;
-  margin: 1.5rem 0 3rem 0;
-  border: 1px solid rgba(156, 163, 175, 0.25);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.08);
+  width: 100vw;
+  margin-left: calc(50% - 50vw);
+  margin-right: calc(50% - 50vw);
+  margin-top: 0;
+  margin-bottom: 2.5rem;
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid rgba(156, 163, 175, 0.2);
+  box-shadow: none;
 }
 html.dark .block-hero {
-  border-color: rgba(75, 85, 99, 0.35);
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.35);
+  border-bottom-color: rgba(75, 85, 99, 0.3);
+  box-shadow: none;
 }
 
 .hero-bg-stage {
@@ -97,19 +106,31 @@ html.dark .block-hero {
   z-index: 0;
   background-image: url('/bg_clouds1.png');
   background-size: cover;
-  background-position: center;
+  background-position: center top;
   background-repeat: no-repeat;
 }
 
 .hero-bg-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.88) 50%, rgba(255, 255, 255, 0.82) 100%);
-  backdrop-filter: blur(2px);
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 255, 255, 0.88) 60%,
+    rgba(255, 255, 255, 0.98) 95%,
+    rgba(255, 255, 255, 1) 100%
+  );
+  backdrop-filter: blur(1px);
 }
 html.dark .hero-bg-overlay {
-  background: linear-gradient(135deg, rgba(15, 23, 42, 0.94) 0%, rgba(15, 23, 42, 0.88) 50%, rgba(15, 23, 42, 0.82) 100%);
-  backdrop-filter: blur(2px);
+  background: linear-gradient(
+    180deg,
+    rgba(15, 23, 42, 0.78) 0%,
+    rgba(15, 23, 42, 0.88) 60%,
+    rgba(15, 23, 42, 0.98) 95%,
+    rgba(15, 23, 42, 1) 100%
+  );
+  backdrop-filter: blur(1px);
 }
 
 .layout {
@@ -117,18 +138,21 @@ html.dark .hero-bg-overlay {
   z-index: 1;
   display: grid;
   gap: 2.5rem;
-  padding: 3rem 2rem;
+  max-width: 80rem;
+  margin: 0 auto;
+  padding: 3.5rem 1.5rem 4.5rem 1.5rem;
+  box-sizing: border-box;
 }
 @media (min-width: 640px) {
   .layout {
-    padding: 4rem 3rem;
+    padding: 4.5rem 2.5rem 5.5rem 2.5rem;
   }
 }
 @media (min-width: 1024px) {
   .layout {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 2rem;
-    padding: 4.5rem 3.5rem;
+    gap: 2.5rem;
+    padding: 5.5rem 3rem 6.5rem 3rem;
   }
 }
 

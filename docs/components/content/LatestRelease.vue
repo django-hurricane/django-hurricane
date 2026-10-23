@@ -83,7 +83,7 @@ const copyCommand = async () => {
         <div class="highlight-item">
           <div class="highlight-icon">⚡</div>
           <div class="highlight-text">
-            <strong>Granian Rust Engine</strong>
+            <strong>Rust HTTP Engine (<a href="https://github.com/emmett-framework/granian" target="_blank" rel="noopener noreferrer" class="engine-link">Granian</a>)</strong>
             <span>High-throughput HTTP runtime replacing Tornado with native ASGI & WSGI handling.</span>
           </div>
         </div>
@@ -372,6 +372,16 @@ html.dark .highlight-item {
 .highlight-text strong {
   color: #111827;
   font-weight: 700;
+}
+
+.engine-link {
+  color: #0d9488;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+html.dark .engine-link {
+  color: #2dd4bf;
 }
 
 html.dark .highlight-text strong {
