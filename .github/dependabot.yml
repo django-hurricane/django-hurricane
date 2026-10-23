@@ -7,6 +7,10 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "ci(deps)"
+    groups:
+      codeql:
+        patterns:
+          - "github/codeql-action/*"
 
   # Maintain dependencies for Python project
   - package-ecosystem: "pip"
