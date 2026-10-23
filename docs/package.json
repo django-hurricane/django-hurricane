@@ -2,6 +2,7 @@
   "name": "django-hurricane-docs",
   "version": "2.0.0-rc.1",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "nuxi dev",
     "build": "nuxi build",
@@ -11,7 +12,7 @@
   "devDependencies": {
     "@nuxt-themes/docus": "^1.15.1",
     "mermaid": "^12.2.0",
-    "nuxt": "^4.6.2"
+    "nuxt": "^3.21.11"
   },
   "dependencies": {
     "simple-analytics-vue": "^3.1.0"

@@ -23,3 +23,6 @@ updates:
       interval: "weekly"
     commit-message:
       prefix: "docs(deps)"
+    ignore:
+      - dependency-name: "nuxt"
+        update-types: ["version-update:semver-major"]
