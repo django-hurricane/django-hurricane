@@ -366,8 +366,11 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
 
-        self.assertIn("HTTP configured", out)
+        if STRUCTLOG_ENABLED:
+            self.assertIn("HTTP configured", out)
+        else:
+            self.assertIn("Starting HTTP Server on port 8125", out)
         self.assertIn("Runtime configuration", out)
         self.assertIn("mode=asgi", out)
         self.assertNotIn("ConfigurationError", out)
-        self.assertNotIn("blocking_threads is undefined", out)
+        self.assertNotIn("Traceback", out)
