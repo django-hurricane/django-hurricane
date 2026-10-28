@@ -44,41 +44,63 @@ def _get_granian_target() -> str:
     return "hurricane.server.granian:get_application"
 
 
+def _read_cgroup_v2_cpu() -> Optional[int]:
+    cgroup_v2 = "/sys/fs/cgroup/cpu.max"
+    if not os.path.exists(cgroup_v2):
+        return None
+    try:
+        with open(cgroup_v2, "r") as f:
+            parts = f.read().strip().split()
+        if len(parts) != 2 or parts[0] == "max":
+            return None
+        quota, period = int(parts[0]), int(parts[1])
+        if period > 0 and quota > 0:
+            return max(1, math.ceil(quota / period))
+    except Exception:
+        pass
+    return None
+
+
+def _read_cgroup_v1_cpu() -> Optional[int]:
+    for prefix in ["/sys/fs/cgroup/cpu", "/sys/fs/cgroup/cpu,cpuacct"]:
+        quota_path = f"{prefix}/cpu.cfs_quota_us"
+        period_path = f"{prefix}/cpu.cfs_period_us"
+        if not (os.path.exists(quota_path) and os.path.exists(period_path)):
+            continue
+        try:
+            with open(quota_path, "r") as f_q, open(period_path, "r") as f_p:
+                quota = int(f_q.read().strip())
+                period = int(f_p.read().strip())
+            if quota > 0 and period > 0:
+                return max(1, math.ceil(quota / period))
+        except Exception:
+            continue
+    return None
+
+
+def _read_affinity_cpu() -> Optional[int]:
+    if not hasattr(os, "sched_getaffinity"):
+        return None
+    try:
+        aff = len(os.sched_getaffinity(0))
+        if aff > 0:
+            return aff
+    except Exception:
+        pass
+    return None
+
+
 def _get_container_cpu_count() -> int:
     """
     Determine the effective CPU quota for the container by inspecting cgroup limits.
     Falls back to os.sched_getaffinity or os.cpu_count.
     """
-    try:
-        # 1. cgroup v2
-        cgroup_v2 = "/sys/fs/cgroup/cpu.max"
-        if os.path.exists(cgroup_v2):
-            with open(cgroup_v2, "r") as f:
-                parts = f.read().strip().split()
-                if len(parts) == 2 and parts[0] != "max":
-                    quota, period = int(parts[0]), int(parts[1])
-                    if period > 0 and quota > 0:
-                        return max(1, math.ceil(quota / period))
-
-        # 2. cgroup v1
-        for prefix in ["/sys/fs/cgroup/cpu", "/sys/fs/cgroup/cpu,cpuacct"]:
-            q_path = f"{prefix}/cpu.cfs_quota_us"
-            p_path = f"{prefix}/cpu.cfs_period_us"
-            if os.path.exists(q_path) and os.path.exists(p_path):
-                with open(q_path, "r") as f_q, open(p_path, "r") as f_p:
-                    quota = int(f_q.read().strip())
-                    period = int(f_p.read().strip())
-                    if quota > 0 and period > 0:
-                        return max(1, math.ceil(quota / period))
-
-        # 3. Process affinity (e.g. taskset or cpuset)
-        if hasattr(os, "sched_getaffinity"):
-            aff = len(os.sched_getaffinity(0))
-            if aff > 0:
-                return aff
-    except Exception:
-        pass
-
+    if (cpu := _read_cgroup_v2_cpu()) is not None:
+        return cpu
+    if (cpu := _read_cgroup_v1_cpu()) is not None:
+        return cpu
+    if (cpu := _read_affinity_cpu()) is not None:
+        return cpu
     return max(1, os.cpu_count() or 1)
 
 
