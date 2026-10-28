@@ -262,3 +262,53 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         self.assertIsNotNone(gateway.fast_404.should_drop("/secret.custombak"))
         # Allow route starting with extra prefix
         self.assertIsNone(gateway.fast_404.should_drop("/unprefixed-custom-route/data/"))
+
+    def test_from_options_mode_off_and_log_drop(self):
+        self.assertIsNone(Fast404Engine.from_options({"fast_404": "off"}))
+        self.assertIsNone(Fast404Engine.from_options({"no_fast_404": True}))
+
+        engine = Fast404Engine(mode="signature")
+        # Ensure log_drop executes cleanly
+        engine.log_drop({"REMOTE_ADDR": "1.2.3.4", "REQUEST_METHOD": "POST"}, "/.env", "signature", "/.env")
+
+    def test_middleware_prerender_wrapping_variations(self):
+        from django.core.exceptions import MiddlewareNotUsed
+
+        from hurricane.server.fast_404 import _wrap_middleware
+
+        def chain(req):
+            return None
+
+        # 1. Non-existent middleware path
+        wrapped = _wrap_middleware(chain, "invalid.module.Path")
+        self.assertIs(wrapped, chain)
+
+        # 2. Middleware raising MiddlewareNotUsed
+        class NotUsedMiddleware:
+            def __init__(self, get_response):
+                raise MiddlewareNotUsed()
+
+        with patch("django.utils.module_loading.import_string", return_value=NotUsedMiddleware):
+            wrapped = _wrap_middleware(chain, "fake.NotUsedMiddleware")
+            self.assertIs(wrapped, chain)
+
+        # 3. Old-style middleware with process_request / process_response
+        class OldStyleMiddleware:
+            def process_request(self, req):
+                return None
+
+            def process_response(self, req, res):
+                return res
+
+        with patch("django.utils.module_loading.import_string", return_value=OldStyleMiddleware):
+            wrapped = _wrap_middleware(chain, "fake.OldStyleMiddleware")
+            self.assertIsNot(wrapped, chain)
+
+        # 4. Middleware raising generic Exception during instantiation
+        class BrokenMiddleware:
+            def __init__(self, get_response):
+                raise RuntimeError("Boom")
+
+        with patch("django.utils.module_loading.import_string", return_value=BrokenMiddleware):
+            wrapped = _wrap_middleware(chain, "fake.BrokenMiddleware")
+            self.assertIs(wrapped, chain)

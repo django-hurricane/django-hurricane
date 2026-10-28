@@ -251,3 +251,145 @@ class HurricaneASGIGatewayTests(unittest.IsolatedAsyncioTestCase):
         status, body = gateway.evaluate_readiness()
         self.assertEqual(status, 400)
         self.assertIn(b"Event loop lag limit exceeded", body)
+
+    async def test_asgi_rate_limiter_interception(self):
+        gateway = HurricaneASGIGateway(
+            django_app=dummy_asgi_app,
+            options={"rate_limit": "1/s", "rate_limit_burst": 1, "no_fast_404": True},
+            include_probe=False,
+        )
+        scope = {
+            "type": "http",
+            "path": "/",
+            "method": "GET",
+            "headers": [(b"x-forwarded-for", b"198.51.100.1")],
+        }
+        messages = []
+
+        async def send(msg):
+            messages.append(msg)
+
+        async def receive():
+            return {}
+
+        # First request consumes token
+        await gateway(scope, receive, send)
+        self.assertEqual(messages[0]["status"], 200)
+
+        # Immediate second request should be rejected with 429
+        messages2 = []
+
+        async def send2(msg):
+            messages2.append(msg)
+
+        await gateway(scope, receive, send2)
+        self.assertEqual(messages2[0]["status"], 429)
+
+    async def test_asgi_concurrency_gate_readiness_failure(self):
+        gateway = HurricaneASGIGateway(
+            django_app=dummy_asgi_app,
+            options={"req_queue_len": 5},
+            check_func=lambda **kwargs: [],
+            include_probe=True,
+        )
+        with patch.object(type(gateway.async_backlog_tracker), "current_backlog", new=10):
+            status, body = gateway.evaluate_readiness()
+            self.assertEqual(status, 400)
+            self.assertIn(b"Request queue limit exceeded", body)
+
+    async def test_asgi_max_body_size_enforced(self):
+        gateway = HurricaneASGIGateway(
+            django_app=dummy_asgi_app,
+            options={"max_body_size": 100},
+            include_probe=False,
+        )
+        scope = {
+            "type": "http",
+            "path": "/upload",
+            "method": "POST",
+            "headers": [(b"content-length", b"500")],
+        }
+
+        async def send(msg):
+            pass
+
+        async def receive():
+            return {}
+
+        with self.assertRaises(ConnectionResetError):
+            await gateway(scope, receive, send)
+
+    async def test_asgi_static_serving(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            static_file = os.path.join(tmpdir, "test.css")
+            with open(static_file, "w") as f:
+                f.write("body { color: red; }")
+
+            gateway = HurricaneASGIGateway(
+                django_app=dummy_asgi_app,
+                options={"static": True},
+                include_probe=False,
+            )
+            gateway.static_enabled = True
+            gateway.static_root = tmpdir
+            gateway.static_url = "/static/"
+
+            # 1. Valid file
+            messages = []
+
+            async def send(msg):
+                messages.append(msg)
+
+            async def receive():
+                return {}
+
+            scope = {"type": "http", "path": "/static/test.css", "method": "GET"}
+            await gateway(scope, receive, send)
+            self.assertEqual(messages[0]["status"], 200)
+            self.assertEqual(messages[1]["body"], b"body { color: red; }")
+
+            # 2. Non-existent file
+            messages_404 = []
+
+            async def send_404(msg):
+                messages_404.append(msg)
+
+            scope_404 = {"type": "http", "path": "/static/missing.css", "method": "GET"}
+            await gateway(scope_404, receive, send_404)
+            self.assertEqual(messages_404[0]["status"], 404)
+
+            # 3. Directory traversal attempt
+            messages_traversal = []
+
+            async def send_traversal(msg):
+                messages_traversal.append(msg)
+
+            scope_traversal = {"type": "http", "path": "/static/../../etc/passwd", "method": "GET"}
+            await gateway(scope_traversal, receive, send_traversal)
+            self.assertEqual(messages_traversal[0]["status"], 404)
+
+    def test_run_custom_check_exceptions(self):
+        from django.core.management.base import SystemCheckError
+        from django.db.utils import OperationalError
+
+        from hurricane.metrics import HealthMetric
+
+        gateway = HurricaneASGIGateway(django_app=dummy_asgi_app, options={})
+
+        # SystemCheckError
+        with patch.object(gateway, "check_func", side_effect=SystemCheckError("System check failed")):
+            status, body = gateway._run_custom_check("health", HealthMetric)
+            self.assertEqual(status, 500)
+
+        # OperationalError
+        with patch.object(gateway, "check_func", side_effect=OperationalError("DB down")):
+            status, body = gateway._run_custom_check("health", HealthMetric)
+            self.assertEqual(status, 500)
+
+        # Generic Exception
+        with patch.object(gateway, "check_func", side_effect=ValueError("Unexpected")):
+            status, body = gateway._run_custom_check("health", HealthMetric)
+            self.assertEqual(status, 500)
