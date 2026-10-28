@@ -48,48 +48,61 @@ DEFAULT_ANTI_DJANGO_PATTERNS: List[str] = [
 ]
 
 
+def _extract_first_segment(pat: Any) -> str:
+    pat_str = str(pat).strip("^").lstrip("/")
+    segment = pat_str.split("/")[0] if pat_str else ""
+    if segment in ("$", "?$", "\\Z"):
+        return ""
+    return segment
+
+
+def _matches_root(pat: Any) -> bool:
+    return bool(hasattr(pat, "regex") and (pat.regex.match("") or pat.regex.match("/")))
+
+
+def _is_root_catchall(pat: Any, pat_str: str) -> bool:
+    regex_str = pat.regex.pattern if hasattr(pat, "regex") else ""
+    return bool(pat_str.startswith(("<path:", "<slug:", "<str:")) or regex_str.startswith(("^.*", "^.+", "^(?P<")))
+
+
+def _process_pattern(p: Any, is_root: bool, prefixes: Set[str]) -> bool:
+    from django.urls.resolvers import URLPattern, URLResolver
+
+    pat = getattr(p, "pattern", None)
+    if not pat:
+        return False
+
+    first_segment = _extract_first_segment(pat)
+    if _matches_root(pat):
+        prefixes.add("")
+
+    pat_str = str(pat).strip("^").lstrip("/")
+    has_catchall = is_root and _is_root_catchall(pat, pat_str)
+
+    if isinstance(p, URLResolver):
+        if first_segment == "":
+            sub_prefixes, sub_catchall = extract_prefixes(p.url_patterns, is_root=is_root)
+            prefixes.update(sub_prefixes)
+            return has_catchall or sub_catchall
+        prefixes.add(first_segment)
+    elif isinstance(p, URLPattern):
+        prefixes.add(first_segment)
+
+    return has_catchall
+
+
 def extract_prefixes(patterns: Any, is_root: bool = True) -> Tuple[Set[str], bool]:
     """
     Recursively inspect Django URL patterns to extract:
     1. Valid top-level path segments (e.g. {'', 'admin', 'api', 'media'}).
     2. has_root_catchall: True if any root pattern can match arbitrary paths.
     """
-    from django.urls.resolvers import URLPattern, URLResolver
-
     prefixes: Set[str] = set()
     has_root_catchall = False
 
     for p in patterns:
-        pat = getattr(p, "pattern", None)
-        if not pat:
-            continue
-
-        pat_str = str(pat).strip("^").lstrip("/")
-        first_segment = pat_str.split("/")[0] if pat_str else ""
-
-        # Normalize regex anchors representing root route
-        if first_segment in ("$", "?$", "\\Z"):
-            first_segment = ""
-
-        # If pattern regex matches empty string or slash, the root route is defined
-        if hasattr(pat, "regex") and (pat.regex.match("") or pat.regex.match("/")):
-            prefixes.add("")
-
-        if is_root:
-            regex_str = pat.regex.pattern if hasattr(pat, "regex") else ""
-            if pat_str.startswith(("<path:", "<slug:", "<str:")) or regex_str.startswith(("^.*", "^.+", "^(?P<")):
-                has_root_catchall = True
-
-        if isinstance(p, URLResolver):
-            if first_segment == "":
-                sub_prefixes, sub_catchall = extract_prefixes(p.url_patterns, is_root=is_root)
-                prefixes.update(sub_prefixes)
-                if sub_catchall:
-                    has_root_catchall = True
-            else:
-                prefixes.add(first_segment)
-        elif isinstance(p, URLPattern):
-            prefixes.add(first_segment)
+        if _process_pattern(p, is_root, prefixes):
+            has_root_catchall = True
 
     return prefixes, has_root_catchall
 
@@ -274,6 +287,40 @@ def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], byte
         return _get_fallback_404_response()
 
 
+def _verify_root_route(valid_prefixes: Set[str], urlconf: Any = None) -> None:
+    from django.urls import Resolver404, resolve
+
+    for root_cand in ["/", ""]:
+        try:
+            resolve(root_cand, urlconf=urlconf)
+            valid_prefixes.add("")
+            break
+        except Resolver404:
+            pass
+        except Exception:
+            valid_prefixes.add("")
+            break
+
+
+def _determine_effective_mode(mode: str, has_root_catchall: bool, valid_prefixes_len: int, patterns_len: int) -> str:
+    if mode == "auto":
+        if has_root_catchall:
+            logger.info(
+                "Root catch-all pattern detected in urls.py (CMS/dynamic routing). Fast-404 operating in signature-only mode"
+            )
+            return "signature"
+        logger.info(f"Fast-404 active in prefix mode ({valid_prefixes_len} prefixes, {patterns_len} signatures)")
+        return "prefix"
+    if mode == "signature":
+        logger.info(f"Fast-404 active in signature-only mode ({patterns_len} signatures)")
+        return "signature"
+    if mode == "prefix":
+        logger.info(f"Fast-404 forced in prefix mode ({valid_prefixes_len} prefixes)")
+        return "prefix"
+    logger.info("Fast-404 protection disabled")
+    return "off"
+
+
 class Fast404Engine:
     """
     High-performance early 404 protection engine for Hurricane Gateway.
@@ -309,40 +356,12 @@ class Fast404Engine:
             self.valid_prefixes.update(extra_prefixes)
 
         # Verify root route resolution using Django's resolver
-        from django.urls import Resolver404, resolve
-
-        for root_cand in ["/", ""]:
-            try:
-                resolve(root_cand, urlconf=urlconf)
-                self.valid_prefixes.add("")
-                break
-            except Resolver404:
-                pass
-            except Exception:
-                self.valid_prefixes.add("")
-                break
+        _verify_root_route(self.valid_prefixes, urlconf=urlconf)
 
         # Determine effective operating mode
-        if self.mode == "auto":
-            if self.has_root_catchall:
-                self.effective_mode = "signature"
-                logger.info(
-                    "Root catch-all pattern detected in urls.py (CMS/dynamic routing). Fast-404 operating in signature-only mode"
-                )
-            else:
-                self.effective_mode = "prefix"
-                logger.info(
-                    f"Fast-404 active in prefix mode ({len(self.valid_prefixes)} prefixes, {len(patterns)} signatures)"
-                )
-        elif self.mode == "signature":
-            self.effective_mode = "signature"
-            logger.info(f"Fast-404 active in signature-only mode ({len(patterns)} signatures)")
-        elif self.mode == "prefix":
-            self.effective_mode = "prefix"
-            logger.info(f"Fast-404 forced in prefix mode ({len(self.valid_prefixes)} prefixes)")
-        else:
-            self.effective_mode = "off"
-            logger.info("Fast-404 protection disabled")
+        self.effective_mode = _determine_effective_mode(
+            self.mode, self.has_root_catchall, len(self.valid_prefixes), len(patterns)
+        )
 
         # Pre-render 404 error response
         self.status, self.headers, self.body = prerender_404(urlconf)
