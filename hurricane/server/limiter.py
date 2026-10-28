@@ -16,16 +16,16 @@ def extract_client_ip_asgi(scope: Dict[str, Any], proxy_header_raw: str = "HTTP_
     Extract the real client IP address from ASGI scope headers.
     """
     # Convert HTTP_X_FORWARDED_FOR to x-forwarded-for bytes
-    header_name = proxy_header_raw.lower()
-    if header_name.startswith("http_"):
-        header_name = header_name[5:]
-    header_name = header_name.replace("_", "-").encode("utf-8")
+    header_str = proxy_header_raw.lower()
+    if header_str.startswith("http_"):
+        header_str = header_str[5:]
+    header_bytes = header_str.replace("_", "-").encode("utf-8")
 
     headers = dict(scope.get("headers", []))
 
     # 1. Configured primary proxy header
-    if header_name in headers and headers[header_name]:
-        raw = headers[header_name].decode("utf-8")
+    if header_bytes in headers and headers[header_bytes]:
+        raw = headers[header_bytes].decode("utf-8")
         client = raw.split(",")[0].strip()
         if client:
             return client
