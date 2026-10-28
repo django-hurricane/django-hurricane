@@ -6,12 +6,12 @@ import signal
 import sys
 import threading
 import time
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Tuple
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
 from granian import Granian
-from granian.constants import Interfaces
+from granian.constants import Interfaces, RuntimeModes
 
 from hurricane.management.commands import HURRICANE_DIST_VERSION
 from hurricane.metrics.shared import cleanup_shm
@@ -410,13 +410,10 @@ class Command(BaseCommand):
                 options["mode"] = legacy_interface
         options["interface"] = options.get("mode", "auto")
 
-    def handle(self, *args, **options):
-        self.merge_options(options)
-
+    def _init_server_bootstrap(self, options: dict) -> None:
         os.environ["HURRICANE_SHM_NAME"] = f"hurricane_shm_{os.getpid()}_{options.get('port', 8000)}"
         cleanup_shm()
 
-        start_time = time.time()
         if STRUCTLOG_ENABLED:
             logger.info(
                 "Granian-powered Django web server.",
@@ -425,62 +422,73 @@ class Command(BaseCommand):
         else:
             logger.info(f"Granian-powered Django web server. Version: {HURRICANE_DIST_VERSION}")
 
-        if options["autoreload"]:
-            if options.get("static_watch"):
-                logger.info("Watching static files for any changes")
-                for path in options["static_watch"]:
-                    if os.path.exists(path):
-                        logger.info(f"Watching path {path}.")
-                    else:
-                        logger.error(f"Tried to watch {path}, but it does not exist.")
-            logger.info("Autoreload was performed")
+    def _setup_autoreload(self, options: dict) -> None:
+        if not options.get("autoreload"):
+            return
 
-        probe_port = options["probe_port"] if options["probe_port"] else options["port"] + 1
+        if options.get("static_watch"):
+            logger.info("Watching static files for any changes")
+            for path in options["static_watch"]:
+                if os.path.exists(path):
+                    logger.info(f"Watching path {path}.")
+                else:
+                    logger.error(f"Tried to watch {path}, but it does not exist.")
+        logger.info("Autoreload was performed")
+
+    def _setup_probes_and_metrics(self, options: dict) -> Tuple[Optional[Any], bool]:
+        if options.get("no_probe"):
+            self._log_no_probes(options)
+            return None, False
+
+        probe_port = options["probe_port"] if options.get("probe_port") else options["port"] + 1
         options["probe_port"] = probe_port
 
         options, probe_representations = sanitize_probes(options)
 
-        include_probe = False
-        probe_server = None
-        if not options["no_probe"]:
-            if probe_port != options["port"]:
-                if STRUCTLOG_ENABLED:
-                    self.structlog_probe_configured(probe_port, probe_representations, options)
-                else:
-                    logger.info(
-                        f"Starting probe application running on port {probe_port} with route liveness-probe: "
-                        f"{probe_representations['liveness_probe']}, "
-                        f"readiness-probe: {probe_representations['readiness_probe']}, "
-                        f"startup-probe: {probe_representations['startup_probe']}"
-                    )
-                self.log_prometheus(options, probe_port)
-                probe_server = make_probe_server(options, self.check)
-                probe_server.listen(probe_port)
-            else:
-                include_probe = True
-                if STRUCTLOG_ENABLED:
-                    self.structlog_probe_configured(probe_port, probe_representations, options)
-                else:
-                    logger.info(
-                        f"Starting probe application with routes "
-                        f"liveness-probe: {probe_representations['liveness_probe']}, "
-                        f"readiness-probe: {probe_representations['readiness_probe']}, "
-                        f"startup-probe: {probe_representations['startup_probe']} "
-                        f"running integrated on port {probe_port}"
-                    )
-                    self.log_prometheus(options, probe_port)
+        if probe_port != options["port"]:
+            self._log_separate_probe(probe_port, probe_representations, options)
+            probe_server = make_probe_server(options, self.check)
+            probe_server.listen(probe_port)
+            return probe_server, False
+
+        self._log_integrated_probe(probe_port, probe_representations, options)
+        return None, True
+
+    def _log_no_probes(self, options: dict) -> None:
+        if STRUCTLOG_ENABLED:
+            logger.info("Probes configured", active=False)
+            logger.info(PROMETHEUS_CONFIGURED_EVENT, active=False)
         else:
-            if STRUCTLOG_ENABLED:
-                logger.info("Probes configured", active=False)
-                logger.info(PROMETHEUS_CONFIGURED_EVENT, active=False)
-            else:
-                logger.info("No probe application running")
-                logger.info("Running without Prometheus exporter, because --no-probe flag was set")
-            options["no_metrics"] = True
+            logger.info("No probe application running")
+            logger.info("Running without Prometheus exporter, because --no-probe flag was set")
+        options["no_metrics"] = True
 
-        setup_debugging(options)
+    def _log_separate_probe(self, probe_port: int, probe_reps: dict, options: dict) -> None:
+        if STRUCTLOG_ENABLED:
+            self.structlog_probe_configured(probe_port, probe_reps, options)
+        else:
+            logger.info(
+                f"Starting probe application running on port {probe_port} with route liveness-probe: "
+                f"{probe_reps['liveness_probe']}, "
+                f"readiness-probe: {probe_reps['readiness_probe']}, "
+                f"startup-probe: {probe_reps['startup_probe']}"
+            )
+        self.log_prometheus(options, probe_port)
 
-        # Determine WSGI vs ASGI mode
+    def _log_integrated_probe(self, probe_port: int, probe_reps: dict, options: dict) -> None:
+        if STRUCTLOG_ENABLED:
+            self.structlog_probe_configured(probe_port, probe_reps, options)
+        else:
+            logger.info(
+                f"Starting probe application with routes "
+                f"liveness-probe: {probe_reps['liveness_probe']}, "
+                f"readiness-probe: {probe_reps['readiness_probe']}, "
+                f"startup-probe: {probe_reps['startup_probe']} "
+                f"running integrated on port {probe_port}"
+            )
+            self.log_prometheus(options, probe_port)
+
+    def _determine_asgi_mode(self, options: dict) -> bool:
         mode = options.get("mode") or options.get("interface") or "auto"
         if mode == "asgi":
             is_asgi = True
@@ -490,26 +498,25 @@ class Command(BaseCommand):
             is_asgi = bool(getattr(settings, "ASGI_APPLICATION", None))
 
         if is_asgi and options.get("req_queue_len_explicit"):
-            if STRUCTLOG_ENABLED:
-                logger.warning(
-                    "The '--req-queue-len' option is ignored when running in ASGI mode. "
-                    "Event loop lag tracking is used instead for readiness probing.",
-                    req_queue_len=options.get("req_queue_len"),
-                )
-            else:
-                logger.warning(
-                    f"The '--req-queue-len' option ({options.get('req_queue_len')}) is ignored when running in ASGI mode. "
-                    "Event loop lag tracking is used instead for readiness probing."
-                )
+            self._log_asgi_queue_len_warning(options.get("req_queue_len"))
 
-        configure_granian(
-            options=options,
-            check_func=self.check,
-            is_asgi=is_asgi,
-            include_probe=include_probe,
+        return is_asgi
+
+    def _log_asgi_queue_len_warning(self, req_queue_len: Any) -> None:
+        msg = (
+            f"The '--req-queue-len' option ({req_queue_len}) is ignored when running in ASGI mode. "
+            "Event loop lag tracking is used instead for readiness probing."
         )
+        if STRUCTLOG_ENABLED:
+            logger.warning(
+                "The '--req-queue-len' option is ignored when running in ASGI mode. "
+                "Event loop lag tracking is used instead for readiness probing.",
+                req_queue_len=req_queue_len,
+            )
+        else:
+            logger.warning(msg)
 
-        # Pre-flight tasks execution
+    def _run_preflight_tasks(self, options: dict) -> None:
         if options.get("command"):
             command_task(
                 commands=options["command"],
@@ -521,83 +528,81 @@ class Command(BaseCommand):
                 apply_migration=bool(options.get("check_migrations_apply")),
             )
 
-        make_http_server_and_listen(
-            start_time=start_time,
-            options=options,
-            check=self.check,
-            include_probe=include_probe,
-        )
-
-        if options.get("max_memory"):
-            if STRUCTLOG_ENABLED:
-                logger.info(
-                    "Memory allocation check",
-                    max_memory_mb=options["max_memory"],
-                    active=True,
-                )
-            else:
-                logger.info(f"Starting memory allocation check with maximum memory set to {options['max_memory']} Mb")
-
-            def mem_monitor():
-                restarts = 0
-                max_mem = options["max_memory"]
-                import psutil
-
-                main_proc = psutil.Process()
-                while True:
-                    time.sleep(0.5)
-                    try:
-                        total_bytes = main_proc.memory_info().rss
-                        for child in main_proc.children(recursive=True):
-                            try:
-                                total_bytes += child.memory_info().rss
-                            except (psutil.NoSuchProcess, psutil.AccessDenied):
-                                pass
-                        current_mb = total_bytes / (1024 * 1024)
-                        if current_mb > max_mem:
-                            restarts += 1
-                            if STRUCTLOG_ENABLED:
-                                logger.warning(
-                                    "Memory (rss) usage is too high. Restarting",
-                                    current_mb=current_mb,
-                                    maximum_memory_mb=max_mem,
-                                    restarts=restarts,
-                                    active=True,
-                                )
-                            else:
-                                logger.warning(
-                                    f"Memory (rss) usage is too high. Restarting. Current memory usage is {current_mb}MB; "
-                                    f"Maximum memory allowed is {max_mem}MB (restart #{restarts})"
-                                )
-                            break
-                    except Exception:
-                        break
-
-            threading.Thread(target=mem_monitor, daemon=True).start()
-        else:
+    def _start_memory_monitor(self, options: dict) -> None:
+        max_mem = options.get("max_memory")
+        if not max_mem:
             if STRUCTLOG_ENABLED:
                 logger.warning("Memory allocation check", active=False)
             else:
                 logger.warning("Starting without memory allocation check")
+            return
 
-        container_cpus = _get_container_cpu_count()
-        workers = 1
-        threads = options.get("workers") or min(32, container_cpus + 4)
-        blocking_threads = 1 if is_asgi else threads
+        if STRUCTLOG_ENABLED:
+            logger.info("Memory allocation check", max_memory_mb=max_mem, active=True)
+        else:
+            logger.info(f"Starting memory allocation check with maximum memory set to {max_mem} Mb")
 
+        threading.Thread(target=self._monitor_memory_loop, args=(max_mem,), daemon=True).start()
+
+    def _monitor_memory_loop(self, max_mem: int) -> None:
+        import psutil
+
+        main_proc = psutil.Process()
+        restarts = 0
+        while True:
+            time.sleep(0.5)
+            try:
+                total_bytes = main_proc.memory_info().rss
+                for child in main_proc.children(recursive=True):
+                    try:
+                        total_bytes += child.memory_info().rss
+                    except (psutil.NoSuchProcess, psutil.AccessDenied):
+                        pass
+                current_mb = total_bytes / (1024 * 1024)
+                if current_mb > max_mem:
+                    restarts += 1
+                    self._log_memory_restart(current_mb, max_mem, restarts)
+                    break
+            except Exception:
+                break
+
+    def _log_memory_restart(self, current_mb: float, max_mem: int, restarts: int) -> None:
+        if STRUCTLOG_ENABLED:
+            logger.warning(
+                "Memory (rss) usage is too high. Restarting",
+                current_mb=current_mb,
+                maximum_memory_mb=max_mem,
+                restarts=restarts,
+                active=True,
+            )
+        else:
+            logger.warning(
+                f"Memory (rss) usage is too high. Restarting. Current memory usage is {current_mb}MB; "
+                f"Maximum memory allowed is {max_mem}MB (restart #{restarts})"
+            )
+
+    def _resolve_runtime_threads(self, options: dict, is_asgi: bool, container_cpus: int) -> int:
         if options.get("runtime_threads") is not None:
-            runtime_threads = int(options["runtime_threads"])
-        elif is_asgi:
-            runtime_threads = max(1, min(4, container_cpus))
-        else:
-            runtime_threads = 1
+            return int(options["runtime_threads"])
+        if is_asgi:
+            return max(1, min(4, container_cpus))
+        return 1
 
-        cli_runtime_mode = options.get("runtime_mode", "auto")
-        if cli_runtime_mode == "auto":
-            runtime_mode = "st" if runtime_threads == 1 else "mt"
-        else:
-            runtime_mode = cli_runtime_mode
+    def _resolve_runtime_mode(self, options: dict, runtime_threads: int) -> str:
+        cli_mode = options.get("runtime_mode", "auto")
+        if cli_mode == "auto":
+            return "st" if runtime_threads == 1 else "mt"
+        return cli_mode
 
+    def _log_runtime_config(
+        self,
+        is_asgi: bool,
+        runtime_mode: str,
+        runtime_threads: int,
+        blocking_threads: int,
+        cpus_detected: int,
+        port: int,
+    ) -> None:
         mode_str = "asgi" if is_asgi else "wsgi"
         if STRUCTLOG_ENABLED:
             logger.info(
@@ -606,8 +611,8 @@ class Command(BaseCommand):
                 runtime_mode=runtime_mode,
                 runtime_threads=runtime_threads,
                 blocking_threads=blocking_threads,
-                cpus_detected=container_cpus,
-                port=options["port"],
+                cpus_detected=cpus_detected,
+                port=port,
             )
         else:
             logger.info(
@@ -615,24 +620,35 @@ class Command(BaseCommand):
                 f"runtime_mode={runtime_mode}, "
                 f"runtime_threads={runtime_threads}, "
                 f"blocking_threads={blocking_threads}, "
-                f"cpus_detected={container_cpus}, "
-                f"port={options['port']}"
+                f"cpus_detected={cpus_detected}, "
+                f"port={port}"
             )
+
+    def _build_granian_server(self, options: dict, is_asgi: bool) -> Any:
+        container_cpus = _get_container_cpu_count()
+        threads = options.get("workers") or min(32, container_cpus + 4)
+        blocking_threads = 1 if is_asgi else threads
+        runtime_threads = self._resolve_runtime_threads(options, is_asgi, container_cpus)
+        runtime_mode = self._resolve_runtime_mode(options, runtime_threads)
+
+        self._log_runtime_config(
+            is_asgi, runtime_mode, runtime_threads, blocking_threads, container_cpus, options["port"]
+        )
 
         reload_paths = None
         if options.get("autoreload") and options.get("static_watch"):
             reload_paths = [p for p in options["static_watch"] if os.path.exists(p)]
 
-        server = Granian(
+        return Granian(
             target=_get_granian_target(),
             factory=True,
             address="0.0.0.0",
             port=options["port"],
             interface=Interfaces.ASGI if is_asgi else Interfaces.WSGI,
-            workers=workers,
+            workers=1,
             blocking_threads=blocking_threads,
             runtime_threads=runtime_threads,
-            runtime_mode=runtime_mode,
+            runtime_mode=RuntimeModes(runtime_mode),
             backlog=1024,
             log_access=False,
             log_enabled=False,
@@ -640,6 +656,35 @@ class Command(BaseCommand):
             reload_paths=reload_paths,
             workers_max_rss=options.get("max_memory"),
         )
+
+    def handle(self, *args, **options):
+        self.merge_options(options)
+
+        start_time = time.time()
+        self._init_server_bootstrap(options)
+        self._setup_autoreload(options)
+
+        probe_server, include_probe = self._setup_probes_and_metrics(options)
+        setup_debugging(options)
+
+        is_asgi = self._determine_asgi_mode(options)
+        configure_granian(
+            options=options,
+            check_func=self.check,
+            is_asgi=is_asgi,
+            include_probe=include_probe,
+        )
+
+        self._run_preflight_tasks(options)
+        make_http_server_and_listen(
+            start_time=start_time,
+            options=options,
+            check=self.check,
+            include_probe=include_probe,
+        )
+
+        self._start_memory_monitor(options)
+        server = self._build_granian_server(options, is_asgi)
 
         try:
             server.serve()
