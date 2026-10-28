@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 try:
     import structlog
@@ -86,45 +86,144 @@ def extract_prefixes(patterns: Any, is_root: bool = True) -> Tuple[Set[str], boo
     return prefixes, has_root_catchall
 
 
-def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
-    """
-    Pre-renders Django's configured 404 handler with a synthetic request.
-    Falls back gracefully to standard HTML if rendering fails.
-    """
-    from django.test import RequestFactory
+def _resolve_404_handler(urlconf: Any = None) -> Callable[..., Any]:
     from django.urls import get_resolver
+    from django.utils.module_loading import import_string
     from django.views.defaults import page_not_found
 
+    resolver = get_resolver(urlconf)
+    handler = getattr(resolver.urlconf_module, "handler404", page_not_found)
+    if isinstance(handler, str):
+        handler = import_string(handler)
+    return handler
+
+
+def _invoke_404_handler(handler: Callable[..., Any], request: Any) -> Any:
     try:
-        resolver = get_resolver(urlconf)
-        handler = getattr(resolver.urlconf_module, "handler404", page_not_found)
-        if isinstance(handler, str):
-            from django.utils.module_loading import import_string
+        response = handler(request, exception=Exception("Page not found"))
+    except TypeError:
+        response = handler(request)
 
-            handler = import_string(handler)
+    if hasattr(response, "render") and callable(response.render):
+        response = response.render()
+    return response
 
-        rf = RequestFactory()
-        req = rf.get("/__hurricane_fast_404_bootstrap__")
-        resp = handler(req, exception=Exception("Page not found"))
-        if hasattr(resp, "render") and callable(resp.render):
-            resp = resp.render()
 
-        status_code = getattr(resp, "status_code", 404)
-        status_line = f"{status_code} Not Found" if status_code == 404 else f"{status_code} OK"
-        headers = [(k, v) for k, v in resp.items()]
-        body = resp.content
-        return status_line, headers, body
+def _wrap_middleware(chain: Callable, mw_path: str) -> Callable:
+    from django.core.exceptions import MiddlewareNotUsed
+    from django.core.handlers.exception import convert_exception_to_response
+    from django.utils.module_loading import import_string
+
+    try:
+        mw_class = import_string(mw_path)
+    except Exception as err:
+        logger.debug(f"Fast-404: Cannot import middleware {mw_path}: {err}")
+        return chain
+
+    try:
+        mw_instance = mw_class(chain)
+    except MiddlewareNotUsed:
+        return chain
+    except TypeError:
+        mw_instance = mw_class()
+        if not hasattr(mw_instance, "process_request"):
+            return chain
+
+        def _wrapped(req: Any) -> Any:
+            res = mw_instance.process_request(req)
+            if res:
+                return res
+            res = chain(req)
+            if hasattr(mw_instance, "process_response"):
+                res = mw_instance.process_response(req, res)
+            return res
+
+        return convert_exception_to_response(_wrapped)
+    except Exception as err:
+        logger.debug(f"Fast-404: Skipping middleware {mw_path} during prerender: {err}")
+        return chain
+
+    return convert_exception_to_response(mw_instance) if mw_instance else chain
+
+
+def _build_prerender_chain(handler: Callable[..., Any]) -> Callable:
+    from django.conf import settings
+    from django.core.handlers.exception import convert_exception_to_response
+
+    chain = convert_exception_to_response(lambda req: _invoke_404_handler(handler, req))
+    middleware_list = getattr(settings, "MIDDLEWARE", None)
+    if middleware_list is None:
+        middleware_list = getattr(settings, "MIDDLEWARE_CLASSES", [])
+
+    for mw_path in reversed(middleware_list):
+        chain = _wrap_middleware(chain, mw_path)
+    return chain
+
+
+def _build_prerender_request() -> Any:
+    from django.test import RequestFactory
+
+    rf = RequestFactory()
+    req = rf.get("/__hurricane_fast_404_bootstrap__")
+
+    if not hasattr(req, "user"):
+        try:
+            from django.contrib.auth.models import AnonymousUser
+
+            req.user = AnonymousUser()
+        except Exception:
+            pass
+
+    if not hasattr(req, "session"):
+        try:
+            from django.contrib.sessions.backends.base import SessionBase
+
+            req.session = SessionBase()
+        except Exception:
+            pass
+
+    return req
+
+
+def _format_prerender_response(resp: Any) -> Tuple[str, List[Tuple[str, str]], bytes]:
+    if hasattr(resp, "render") and callable(resp.render):
+        resp = resp.render()
+
+    status_code = getattr(resp, "status_code", 404)
+    status_line = f"{status_code} Not Found" if status_code == 404 else f"{status_code} OK"
+    headers = [(k, v) for k, v in resp.items()] if hasattr(resp, "items") else []
+    body = getattr(resp, "content", b"")
+    return status_line, headers, body
+
+
+def _get_fallback_404_response() -> Tuple[str, List[Tuple[str, str]], bytes]:
+    fallback_body = (
+        b'<!doctype html>\n<html lang="en">\n<head><title>Not Found</title></head>\n'
+        b"<body><h1>Not Found</h1><p>The requested resource was not found on this server.</p></body>\n</html>"
+    )
+    return (
+        "404 Not Found",
+        [("Content-Type", "text/html; charset=utf-8"), ("Content-Length", str(len(fallback_body)))],
+        fallback_body,
+    )
+
+
+def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
+    """
+    Pre-renders Django's configured 404 handler with a synthetic request traversing
+    the configured middleware stack so that request attributes (e.g. request.user,
+    request.session, and custom middleware attributes) are properly populated.
+    Falls back gracefully to standard HTML if rendering fails.
+    """
+    try:
+        handler = _resolve_404_handler(urlconf)
+        chain = _build_prerender_chain(handler)
+        req = _build_prerender_request()
+        resp = chain(req)
+        return _format_prerender_response(resp)
     except Exception as e:
         logger.warning(f"Fast-404 pre-render fallback used ({e})")
-        fallback_body = (
-            b'<!doctype html>\n<html lang="en">\n<head><title>Not Found</title></head>\n'
-            b"<body><h1>Not Found</h1><p>The requested resource was not found on this server.</p></body>\n</html>"
-        )
-        return (
-            "404 Not Found",
-            [("Content-Type", "text/html; charset=utf-8"), ("Content-Length", str(len(fallback_body)))],
-            fallback_body,
-        )
+        return _get_fallback_404_response()
 
 
 class Fast404Engine:

@@ -294,3 +294,83 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         options = vars(parser.parse_args([]))
         cmd.merge_options(options)
         self.assertEqual(options["runtime_threads"], 6)
+
+    def test_runtime_mode_cli_argument(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args(["--runtime-mode", "st"]))
+        cmd.merge_options(options)
+        self.assertEqual(options["runtime_mode"], "st")
+
+    @override_settings(HURRICANE_RUNTIME_MODE="mt")
+    def test_runtime_mode_prefixed_setting(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["runtime_mode"], "mt")
+
+    @override_settings(RUNTIME_MODE="st")
+    def test_runtime_mode_unprefixed_setting(self):
+        import argparse
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        parser = argparse.ArgumentParser()
+        cmd.add_arguments(parser)
+        options = vars(parser.parse_args([]))
+        cmd.merge_options(options)
+        self.assertEqual(options["runtime_mode"], "st")
+
+    def test_container_cpu_detection_cgroup_v2(self):
+        from unittest.mock import mock_open, patch
+
+        from hurricane.management.commands.serve import _get_container_cpu_count
+
+        # 2 cores quota: 200000 quota, 100000 period
+        with patch("os.path.exists", side_effect=lambda path: path == "/sys/fs/cgroup/cpu.max"):
+            with patch("builtins.open", mock_open(read_data="200000 100000")):
+                self.assertEqual(_get_container_cpu_count(), 2)
+
+    def test_container_cpu_detection_cgroup_v1(self):
+        from unittest.mock import mock_open, patch
+
+        from hurricane.management.commands.serve import _get_container_cpu_count
+
+        def fake_exists(path):
+            return path in ("/sys/fs/cgroup/cpu/cpu.cfs_quota_us", "/sys/fs/cgroup/cpu/cpu.cfs_period_us")
+
+        def fake_open(path, *args, **kwargs):
+            if "quota" in path:
+                return mock_open(read_data="100000")()
+            return mock_open(read_data="100000")()
+
+        with patch("os.path.exists", side_effect=fake_exists):
+            with patch("builtins.open", side_effect=fake_open):
+                self.assertEqual(_get_container_cpu_count(), 1)
+
+    def test_serve_in_asgi_mode_starts_cleanly(self):
+        self.server = HurricaneServerDriver()
+        self.server.start_server(params=["--mode", "asgi", "--no-probe", "--port", "8125"])
+        out, _ = self.server.get_output(read_all=True)
+        self.server.stop_server()
+
+        if STRUCTLOG_ENABLED:
+            self.assertIn("HTTP configured", out)
+        else:
+            self.assertIn("Starting HTTP Server on port 8125", out)
+        self.assertIn("Runtime configuration", out)
+        self.assertIn("mode=asgi", out)
+        self.assertNotIn("ConfigurationError", out)
+        self.assertNotIn("Traceback", out)
