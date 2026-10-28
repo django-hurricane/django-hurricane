@@ -141,6 +141,7 @@ class Webhook:
             except RequestException as e:
                 logger.warning(f"Sending webhook to {url} has failed due to {e}")
 
-        if close_loop and loop is not None:
+        if close_loop:
             logger.info("Loop will be closed")
-            loop.stop()
+            if loop:
+                loop.stop()
