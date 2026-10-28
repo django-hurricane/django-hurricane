@@ -672,13 +672,24 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
 
         return self._run_custom_check("readiness", ReadinessMetric)
 
+    async def _evaluate_liveness_probe(self) -> Tuple[int, bytes]:
+        from asgiref.sync import sync_to_async
+
+        try:
+
+            async def _check():
+                async with self.async_backlog_tracker.track_request():
+                    return await sync_to_async(self.evaluate_liveness, thread_sensitive=False)()
+
+            return await asyncio.wait_for(_check(), timeout=0.9)
+        except (asyncio.TimeoutError, TimeoutError):
+            return 500, b"Liveness check timed out: worker deadlock detected"
+
     async def _try_handle_probe(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
         if not self.include_probe or self.options.get("no_probe", False):
             return False
         if self._matches_path(path, self.liveness_path):
-            from asgiref.sync import sync_to_async
-
-            status, body = await sync_to_async(self.evaluate_liveness, thread_sensitive=False)()
+            status, body = await self._evaluate_liveness_probe()
             await self._send_response(scope, send, status, body, start_time)
             return True
         if self._matches_path(path, self.readiness_path):
