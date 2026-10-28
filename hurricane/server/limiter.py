@@ -11,9 +11,42 @@ except ImportError:
     logger = logging.getLogger("hurricane.server.limiter")
 
 
-def normalize_proxy_header(header: str) -> str:
+def extract_client_ip_asgi(scope: Dict[str, Any], proxy_header_raw: str = "HTTP_X_FORWARDED_FOR") -> str:
+    """
+    Extract the real client IP address from ASGI scope headers.
+    """
+    # Convert HTTP_X_FORWARDED_FOR to x-forwarded-for bytes
+    header_name = proxy_header_raw.lower()
+    if header_name.startswith("http_"):
+        header_name = header_name[5:]
+    header_name = header_name.replace("_", "-").encode("utf-8")
+
+    headers = dict(scope.get("headers", []))
+
+    # 1. Configured primary proxy header
+    if header_name in headers and headers[header_name]:
+        raw = headers[header_name].decode("utf-8")
+        client = raw.split(",")[0].strip()
+        if client:
+            return client
+
+    # 2. X-Real-IP fallback
+    if b"x-real-ip" in headers and headers[b"x-real-ip"]:
+        client = headers[b"x-real-ip"].decode("utf-8").strip()
+        if client:
+            return client
+
+    # 3. Socket remote addr fallback
+    client_info = scope.get("client")
+    if client_info and len(client_info) > 0 and client_info[0]:
+        return str(client_info[0]).strip()
+
+    return "unknown"
+
+
+def normalize_proxy_header(header_name: str) -> str:
     """Normalize header name to WSGI format (e.g. 'X-Forwarded-For' -> 'HTTP_X_FORWARDED_FOR')."""
-    clean = header.upper().replace("-", "_")
+    clean = header_name.upper().replace("-", "_")
     if not clean.startswith("HTTP_") and clean != "REMOTE_ADDR":
         clean = f"HTTP_{clean}"
     return clean
@@ -249,6 +282,11 @@ class RateLimiterEngine:
     def is_allowed(self, environ: Dict[str, Any]) -> bool:
         """Check if incoming request is allowed under rate limits."""
         client_ip = extract_client_ip(environ, self.proxy_header)
+        return self.limiter.allow(client_ip)
+
+    def is_allowed_asgi(self, scope: Dict[str, Any]) -> bool:
+        """Check if incoming ASGI request is allowed under rate limits."""
+        client_ip = extract_client_ip_asgi(scope, self.proxy_header)
         return self.limiter.allow(client_ip)
 
     def get_response(self) -> Tuple[str, List[Tuple[str, str]], bytes]:
