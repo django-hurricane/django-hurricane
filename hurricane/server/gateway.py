@@ -824,13 +824,27 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         start_time: float,
     ) -> None:
         status_code_container = [200]
+        response_started = False
 
         async def logging_send(message: Mapping[str, Any]) -> None:
+            nonlocal response_started
             if message["type"] == ASGI_HTTP_RESPONSE_START:
+                response_started = True
                 status_code_container[0] = int(message.get("status", 200))
             await send(message)
 
-        await self.django_app(scope, receive, logging_send)
+        try:
+            await self.django_app(scope, receive, logging_send)
+        except Exception as e:
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            logger.error(
+                f"Unhandled exception while processing {method} {path}: {e}",
+                exc_info=True,
+            )
+            self._log_asgi_request(scope, method, path, 500, elapsed_ms, is_probe=False)
+            if not response_started:
+                await self._send_response(scope, send, 500, b"Internal Server Error", start_time, is_probe=False)
+            return
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         if self.collect_metrics:

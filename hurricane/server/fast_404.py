@@ -67,6 +67,14 @@ def extract_prefixes(patterns: Any, is_root: bool = True) -> Tuple[Set[str], boo
         pat_str = str(pat).strip("^").lstrip("/")
         first_segment = pat_str.split("/")[0] if pat_str else ""
 
+        # Normalize regex anchors representing root route
+        if first_segment in ("$", "?$", "\\Z"):
+            first_segment = ""
+
+        # If pattern regex matches empty string or slash, the root route is defined
+        if hasattr(pat, "regex") and (pat.regex.match("") or pat.regex.match("/")):
+            prefixes.add("")
+
         if is_root:
             regex_str = pat.regex.pattern if hasattr(pat, "regex") else ""
             if pat_str.startswith(("<path:", "<slug:", "<str:")) or regex_str.startswith(("^.*", "^.+", "^(?P<")):
@@ -160,11 +168,25 @@ def _build_prerender_chain(handler: Callable[..., Any]) -> Callable:
     return chain
 
 
-def _build_prerender_request() -> Any:
+def _resolve_prerender_host() -> str:
+    from django.conf import settings
+
+    allowed_hosts = getattr(settings, "ALLOWED_HOSTS", None) or []
+    for host in allowed_hosts:
+        if host and host != "*":
+            clean = host.lstrip(".*")
+            if clean:
+                return clean
+    return "localhost"
+
+
+def _build_prerender_request(handler: Optional[Callable] = None) -> Any:
     from django.test import RequestFactory
 
-    rf = RequestFactory()
-    req = rf.get("/__hurricane_fast_404_bootstrap__")
+    host = _resolve_prerender_host()
+    rf = RequestFactory(SERVER_NAME=host)
+    # secure=True prevents SecurityMiddleware (SECURE_SSL_REDIRECT=True) from issuing 301 redirects during prerender
+    req: Any = rf.get("/__hurricane_fast_404_bootstrap__", HTTP_HOST=host, secure=True)
 
     if not hasattr(req, "user"):
         try:
@@ -182,6 +204,28 @@ def _build_prerender_request() -> Any:
         except Exception:
             pass
 
+    # Ensure messages framework context processor does not fail
+    if not hasattr(req, "_messages"):
+        try:
+            from django.contrib.messages.storage.fallback import FallbackStorage
+
+            req._messages = FallbackStorage(req)
+        except Exception:
+            pass
+
+    # Ensure resolver_match is populated so breadcrumbs/navigation/tags don't crash with AttributeError
+    if not hasattr(req, "resolver_match") or getattr(req, "resolver_match", None) is None:
+        try:
+            from django.urls import ResolverMatch
+
+            req.resolver_match = ResolverMatch(handler or (lambda r: None), (), {}, url_name="page_not_found")
+        except Exception:
+            pass
+
+    # Ensure CSRF token cookie is present for @requires_csrf_token
+    req.META.setdefault("CSRF_COOKIE", "1")
+    req.META.setdefault("CSRF_COOKIE_USED", True)
+
     return req
 
 
@@ -190,7 +234,11 @@ def _format_prerender_response(resp: Any) -> Tuple[str, List[Tuple[str, str]], b
         resp = resp.render()
 
     status_code = getattr(resp, "status_code", 404)
-    status_line = f"{status_code} Not Found" if status_code == 404 else f"{status_code} OK"
+    if status_code != 404:
+        logger.warning(f"Fast-404 pre-render returned status {status_code}; using fallback 404")
+        return _get_fallback_404_response()
+
+    status_line = "404 Not Found"
     headers = [(k, v) for k, v in resp.items()] if hasattr(resp, "items") else []
     body = getattr(resp, "content", b"")
     return status_line, headers, body
@@ -218,7 +266,7 @@ def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], byte
     try:
         handler = _resolve_404_handler(urlconf)
         chain = _build_prerender_chain(handler)
-        req = _build_prerender_request()
+        req = _build_prerender_request(handler)
         resp = chain(req)
         return _format_prerender_response(resp)
     except Exception as e:
@@ -259,6 +307,20 @@ class Fast404Engine:
             self.valid_prefixes.add(settings.MEDIA_URL.strip("/"))
         if extra_prefixes:
             self.valid_prefixes.update(extra_prefixes)
+
+        # Verify root route resolution using Django's resolver
+        from django.urls import Resolver404, resolve
+
+        for root_cand in ["/", ""]:
+            try:
+                resolve(root_cand, urlconf=urlconf)
+                self.valid_prefixes.add("")
+                break
+            except Resolver404:
+                pass
+            except Exception:
+                self.valid_prefixes.add("")
+                break
 
         # Determine effective operating mode
         if self.mode == "auto":

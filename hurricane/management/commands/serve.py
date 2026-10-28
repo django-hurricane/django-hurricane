@@ -6,6 +6,7 @@ import signal
 import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from django.conf import settings
@@ -616,6 +617,7 @@ class Command(BaseCommand):
             blocking_threads=blocking_threads,
             runtime_threads=runtime_threads,
             runtime_mode=RuntimeModes(runtime_mode),
+            working_dir=Path(os.getcwd()),
             backlog=1024,
             log_access=False,
             log_enabled=False,

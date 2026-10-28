@@ -312,3 +312,64 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         with patch("django.utils.module_loading.import_string", return_value=BrokenMiddleware):
             wrapped = _wrap_middleware(chain, "fake.BrokenMiddleware")
             self.assertIs(wrapped, chain)
+
+    @override_settings(
+        ALLOWED_HOSTS=["production.mycompany.com", ".partner.org"],
+        MIDDLEWARE=["django.middleware.common.CommonMiddleware"],
+    )
+    def test_prerender_404_with_strict_production_allowed_hosts(self):
+        # Even with strict production ALLOWED_HOSTS, prerender must succeed without DisallowedHost error
+        status, headers, body = prerender_404()
+        self.assertEqual(status, "404 Not Found")
+        self.assertIn(b"Not Found", body)
+
+    def test_root_route_re_path_variations_not_dropped(self):
+        import types
+
+        from django.urls import include
+
+        # 1. Direct path with empty string
+        fake_mod_empty = types.ModuleType("fake_urls_empty")
+        fake_mod_empty.urlpatterns = [path("", lambda r: None)]
+
+        engine_empty = Fast404Engine(mode="prefix", urlconf=fake_mod_empty)
+        self.assertIn("", engine_empty.valid_prefixes)
+        self.assertIsNone(engine_empty.should_drop("/"))
+        self.assertIsNone(engine_empty.should_drop(""))
+
+        # 2. Included URLconf under empty string
+        fake_mod_sub = types.ModuleType("fake_urls_sub")
+        fake_mod_sub.urlpatterns = [path("dashboard/", lambda r: None)]
+
+        fake_mod_inc = types.ModuleType("fake_urls_inc")
+        fake_mod_inc.urlpatterns = [path("", include(fake_mod_sub))]
+
+        engine_inc = Fast404Engine(mode="prefix", urlconf=fake_mod_inc)
+        self.assertIn("", engine_inc.valid_prefixes)
+        self.assertIn("dashboard", engine_inc.valid_prefixes)
+
+        # 3. Test regex pattern re_path(r"^$")
+        fake_mod_anchor = types.ModuleType("fake_urls_anchor")
+        fake_mod_anchor.urlpatterns = [re_path(r"^$", lambda r: None)]
+
+        engine_anchor = Fast404Engine(mode="prefix", urlconf=fake_mod_anchor)
+        self.assertIn("", engine_anchor.valid_prefixes)
+        self.assertIsNone(engine_anchor.should_drop("/"))
+
+        # 4. Test regex pattern re_path(r"^/?$")
+        fake_mod_optional = types.ModuleType("fake_urls_optional")
+        fake_mod_optional.urlpatterns = [re_path(r"^/?$", lambda r: None)]
+
+        engine_optional = Fast404Engine(mode="prefix", urlconf=fake_mod_optional)
+        self.assertIn("", engine_optional.valid_prefixes)
+        self.assertIsNone(engine_optional.should_drop("/"))
+
+    def test_format_prerender_response_non_404_fallback(self):
+        from django.http import HttpResponseBadRequest
+
+        from hurricane.server.fast_404 import _format_prerender_response
+
+        bad_resp = HttpResponseBadRequest("Invalid request")
+        status, headers, body = _format_prerender_response(bad_resp)
+        self.assertEqual(status, "404 Not Found")
+        self.assertIn(b"Not Found", body)
