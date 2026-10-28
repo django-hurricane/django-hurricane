@@ -30,6 +30,8 @@ if STRUCTLOG_ENABLED:
 
 STARTUP_NOT_FINISHED_MESSAGE: bytes = b"Startup is not finished yet"
 STATUS_200_OK: str = "200 OK"
+ASGI_HTTP_RESPONSE_START: str = "http.response.start"
+ASGI_HTTP_RESPONSE_BODY: str = "http.response.body"
 
 
 class WorkerBacklogTracker:
@@ -700,8 +702,8 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             (b"content-length", str(len(payload)).encode("utf-8")),
             (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
         ]
-        await send({"type": "http.response.start", "status": 200, "headers": headers})
-        await send({"type": "http.response.body", "body": payload})
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": 200, "headers": headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": payload})
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(scope, "GET", path, 200, elapsed_ms, is_probe=True)
         return True
@@ -719,8 +721,8 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
 
         # Convert header list to bytes tuples for ASGI
         asgi_headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers]
-        await send({"type": "http.response.start", "status": status_code_int, "headers": asgi_headers})
-        await send({"type": "http.response.body", "body": body})
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code_int, "headers": asgi_headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(
@@ -782,14 +784,14 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             (b"content-type", content_type.encode("utf-8")),
             (b"content-length", str(file_size).encode("utf-8")),
         ]
-        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": 200, "headers": headers})
 
         def _read_file():
             with open(file_path, "rb") as f:
                 return f.read()
 
         content = await sync_to_async(_read_file, thread_sensitive=False)()
-        await send({"type": "http.response.body", "body": content})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": content})
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(
@@ -813,7 +815,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         status_code_container = [200]
 
         async def logging_send(message: Mapping[str, Any]) -> None:
-            if message["type"] == "http.response.start":
+            if message["type"] == ASGI_HTTP_RESPONSE_START:
                 status_code_container[0] = int(message.get("status", 200))
             await send(message)
 
@@ -872,8 +874,8 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             (b"content-length", str(len(body)).encode("utf-8")),
             (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
         ]
-        await send({"type": "http.response.start", "status": status_code, "headers": headers})
-        await send({"type": "http.response.body", "body": body})
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(
             scope,
