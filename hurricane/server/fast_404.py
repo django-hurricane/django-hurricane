@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 try:
@@ -62,7 +63,45 @@ def _matches_root(pat: Any) -> bool:
 
 def _is_root_catchall(pat: Any, pat_str: str) -> bool:
     regex_str = pat.regex.pattern if hasattr(pat, "regex") else ""
-    return bool(pat_str.startswith(("<path:", "<slug:", "<str:")) or regex_str.startswith(("^.*", "^.+", "^(?P<")))
+    return bool(
+        pat_str.startswith(("<path:", "<slug:", "<str:"))
+        or regex_str.startswith(("^.*", "^.+", "^(?P<"))
+        or regex_str in ("^", "^/", "^/?")
+    )
+
+
+def _is_i18n_pattern(pat: Any) -> bool:
+    try:
+        from django.urls.resolvers import LocalePrefixPattern
+
+        if isinstance(pat, LocalePrefixPattern):
+            return True
+    except ImportError:
+        pass
+    cls = getattr(pat, "__class__", None)
+    return bool(cls is not None and getattr(cls, "__name__", "") == "LocalePrefixPattern")
+
+
+def _add_i18n_prefixes(prefixes: Set[str]) -> None:
+    from django.conf import settings
+
+    prefixes.add("")
+    try:
+        for lang_code, _ in getattr(settings, "LANGUAGES", []):
+            prefixes.add(lang_code.lower())
+            prefixes.add(lang_code.split("-")[0].lower())
+    except Exception:
+        pass
+
+
+def _process_resolver(p: Any, first_segment: str, is_i18n: bool, is_root: bool, prefixes: Set[str]) -> bool:
+    sub_catchall = False
+    if first_segment == "" or is_i18n:
+        sub_prefixes, sub_catchall = extract_prefixes(p.url_patterns, is_root=is_root)
+        prefixes.update(sub_prefixes)
+    if first_segment:
+        prefixes.add(first_segment)
+    return sub_catchall
 
 
 def _process_pattern(p: Any, is_root: bool, prefixes: Set[str]) -> bool:
@@ -76,16 +115,17 @@ def _process_pattern(p: Any, is_root: bool, prefixes: Set[str]) -> bool:
     if _matches_root(pat):
         prefixes.add("")
 
+    is_i18n = _is_i18n_pattern(pat)
+    if is_i18n:
+        _add_i18n_prefixes(prefixes)
+
     pat_str = str(pat).strip("^").lstrip("/")
     has_catchall = is_root and _is_root_catchall(pat, pat_str)
 
     if isinstance(p, URLResolver):
-        if first_segment == "":
-            sub_prefixes, sub_catchall = extract_prefixes(p.url_patterns, is_root=is_root)
-            prefixes.update(sub_prefixes)
-            return has_catchall or sub_catchall
-        prefixes.add(first_segment)
-    elif isinstance(p, URLPattern):
+        sub_catchall = _process_resolver(p, first_segment, is_i18n, is_root, prefixes)
+        return has_catchall or sub_catchall
+    if isinstance(p, URLPattern):
         prefixes.add(first_segment)
 
     return has_catchall
@@ -119,38 +159,40 @@ def _resolve_404_handler(urlconf: Any = None) -> Callable[..., Any]:
     return handler
 
 
-def _invoke_404_handler(handler: Callable[..., Any], request: Any) -> Any:
-    try:
-        response = handler(request, exception=Exception("Page not found"))
-    except TypeError:
-        response = handler(request)
-
+def _render_404_response(response: Any) -> Any:
     if hasattr(response, "render") and callable(response.render):
-        response = response.render()
+        try:
+            return response.render()
+        except Exception as err:
+            logger.warning(
+                f"Fast-404 prerender: Response template render() raised an exception: {err}",
+                exc_info=True,
+            )
+            raise
     return response
 
 
-def _wrap_middleware(chain: Callable, mw_path: str) -> Callable:
-    from django.core.exceptions import MiddlewareNotUsed
-    from django.core.handlers.exception import convert_exception_to_response
-    from django.utils.module_loading import import_string
-
+def _invoke_404_handler(handler: Callable[..., Any], request: Any) -> Any:
+    handler_name = getattr(handler, "__name__", repr(handler))
+    logger.debug(f"Fast-404 prerender: Executing 404 handler {handler_name}")
     try:
-        mw_class = import_string(mw_path)
-    except Exception as err:
-        logger.debug(f"Fast-404: Cannot import middleware {mw_path}: {err}")
-        return chain
-
-    try:
-        mw_instance = mw_class(chain)
-    except MiddlewareNotUsed:
-        return chain
+        response = handler(request, exception=Exception("Page not found"))
     except TypeError:
-        mw_instance = mw_class()
-        if not hasattr(mw_instance, "process_request"):
-            return chain
+        try:
+            response = handler(request)
+        except Exception as err:
+            logger.warning(f"Fast-404 prerender: 404 handler {handler_name} failed: {err}", exc_info=True)
+            raise
+    except Exception as err:
+        logger.warning(f"Fast-404 prerender: 404 handler {handler_name} failed: {err}", exc_info=True)
+        raise
 
-        def _wrapped(req: Any) -> Any:
+    return _render_404_response(response)
+
+
+def _wrap_legacy_middleware(mw_instance: Any, chain: Callable, mw_path: str) -> Callable:
+    def _wrapped(req: Any) -> Any:
+        try:
             res = mw_instance.process_request(req)
             if res:
                 return res
@@ -158,13 +200,54 @@ def _wrap_middleware(chain: Callable, mw_path: str) -> Callable:
             if hasattr(mw_instance, "process_response"):
                 res = mw_instance.process_response(req, res)
             return res
+        except Exception as err:
+            logger.warning(f"Fast-404 prerender: Legacy middleware {mw_path} failed: {err}", exc_info=True)
+            raise
 
-        return convert_exception_to_response(_wrapped)
+    from django.core.handlers.exception import convert_exception_to_response
+
+    return convert_exception_to_response(_wrapped)
+
+
+def _wrap_standard_middleware(mw_instance: Any, mw_path: str) -> Callable:
+    def _wrapped(req: Any) -> Any:
+        try:
+            return mw_instance(req)
+        except Exception as err:
+            logger.warning(
+                f"Fast-404 prerender: Middleware {mw_path} failed during request processing: {err}",
+                exc_info=True,
+            )
+            raise
+
+    from django.core.handlers.exception import convert_exception_to_response
+
+    return convert_exception_to_response(_wrapped)
+
+
+def _wrap_middleware(chain: Callable, mw_path: str) -> Callable:
+    from django.core.exceptions import MiddlewareNotUsed
+    from django.utils.module_loading import import_string
+
+    try:
+        mw_class = import_string(mw_path)
     except Exception as err:
-        logger.debug(f"Fast-404: Skipping middleware {mw_path} during prerender: {err}")
+        logger.info(f"Fast-404 prerender: Cannot import middleware {mw_path}: {err}")
         return chain
 
-    return convert_exception_to_response(mw_instance) if mw_instance else chain
+    try:
+        mw_instance = mw_class(chain)
+        return _wrap_standard_middleware(mw_instance, mw_path)
+    except MiddlewareNotUsed:
+        return chain
+    except TypeError:
+        mw_instance = mw_class()
+        if not hasattr(mw_instance, "process_request"):
+            return chain
+        return _wrap_legacy_middleware(mw_instance, chain, mw_path)
+    except Exception as err:
+        logger.warning(f"Fast-404 prerender: Skipping middleware {mw_path} due to init failure: {err}", exc_info=True)
+        return chain
 
 
 def _build_prerender_chain(handler: Callable[..., Any]) -> Callable:
@@ -191,6 +274,65 @@ def _resolve_prerender_host() -> str:
             if clean:
                 return clean
     return "localhost"
+
+
+class _DefaultSite:
+    id = 1
+    pk = 1
+
+    def __init__(self, host: str):
+        self.domain = host
+        self.name = host
+
+
+class _DefaultToolbar:
+    edit_mode_active = False
+    show_toolbar = False
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+
+def _enrich_prerender_request(req: Any, host: str) -> None:
+    from django.conf import settings
+
+    if not hasattr(req, "site"):
+        try:
+            from django.contrib.sites.shortcuts import get_current_site
+
+            req.site = get_current_site(req)
+        except Exception:
+            req.site = _DefaultSite(host)
+
+    if getattr(req.site, "id", None) is None and getattr(req.site, "pk", None) is None:
+        try:
+            req.site.id = 1
+            req.site.pk = 1
+        except Exception:
+            req.site = _DefaultSite(host)
+
+    if not hasattr(req, "toolbar"):
+        try:
+            from cms.toolbar.toolbar import CMSToolbar
+
+            req.toolbar = CMSToolbar(req)
+        except Exception:
+            req.toolbar = _DefaultToolbar()
+
+    if not hasattr(req, "current_page"):
+        req.current_page = None
+
+    lang = getattr(settings, "LANGUAGE_CODE", "en")
+    req.LANGUAGE_CODE = lang
+    req.COOKIES[getattr(settings, "LANGUAGE_COOKIE_NAME", "django_language")] = lang
+
+    if not hasattr(req, "_sekizai"):
+        try:
+            from sekizai.context import Sekizai
+
+            req._sekizai = Sekizai()
+        except Exception:
+            pass
 
 
 def _build_prerender_request(handler: Optional[Callable] = None) -> Any:
@@ -239,6 +381,8 @@ def _build_prerender_request(handler: Optional[Callable] = None) -> Any:
     req.META.setdefault("CSRF_COOKIE", "1")
     req.META.setdefault("CSRF_COOKIE_USED", True)
 
+    _enrich_prerender_request(req, host)
+
     return req
 
 
@@ -248,19 +392,47 @@ def _format_prerender_response(resp: Any) -> Tuple[str, List[Tuple[str, str]], b
 
     status_code = getattr(resp, "status_code", 404)
     if status_code != 404:
-        logger.warning(f"Fast-404 pre-render returned status {status_code}; using fallback 404")
+        logger.warning(
+            f"Fast-404 pre-render returned non-404 status {status_code} ({resp.__class__.__name__}); using fallback 404"
+        )
         return _get_fallback_404_response()
 
     status_line = "404 Not Found"
     headers = [(k, v) for k, v in resp.items()] if hasattr(resp, "items") else []
+    if not any(k.lower() == "content-type" for k, _ in headers):
+        headers.append(("Content-Type", "text/html; charset=utf-8"))
+
     body = getattr(resp, "content", b"")
+    if not any(k.lower() == "content-length" for k, _ in headers):
+        headers.append(("Content-Length", str(len(body))))
+
     return status_line, headers, body
 
 
 def _get_fallback_404_response() -> Tuple[str, List[Tuple[str, str]], bytes]:
     fallback_body = (
-        b'<!doctype html>\n<html lang="en">\n<head><title>Not Found</title></head>\n'
-        b"<body><h1>Not Found</h1><p>The requested resource was not found on this server.</p></body>\n</html>"
+        b"<!doctype html>\n"
+        b'<html lang="en">\n'
+        b"<head>\n"
+        b'  <meta charset="utf-8">\n'
+        b"  <title>Page Not Found</title>\n"
+        b"  <style>\n"
+        b"    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 3rem; background: #f8fafc; color: #1e293b; }\n"
+        b"    .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }\n"
+        b"    h1 { margin-top: 0; color: #0f172a; font-size: 1.75rem; }\n"
+        b"    p { line-height: 1.6; color: #475569; }\n"
+        b"    a { color: #2563eb; text-decoration: none; font-weight: 500; }\n"
+        b"    a:hover { text-decoration: underline; }\n"
+        b"  </style>\n"
+        b"</head>\n"
+        b"<body>\n"
+        b'  <div class="container">\n'
+        b"    <h1>404 &mdash; Page Not Found</h1>\n"
+        b"    <p>The requested resource was not found on this server.</p>\n"
+        b'    <p><a href="/">&larr; Return to homepage</a></p>\n'
+        b"  </div>\n"
+        b"</body>\n"
+        b"</html>"
     )
     return (
         "404 Not Found",
@@ -276,6 +448,23 @@ def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], byte
     request.session, and custom middleware attributes) are properly populated.
     Falls back gracefully to standard HTML if rendering fails.
     """
+    orig_get_site = None
+    try:
+        from django.contrib.sites import shortcuts
+
+        orig_get_site = shortcuts.get_current_site
+        host = _resolve_prerender_host()
+
+        def safe_get_current_site(request):
+            try:
+                return orig_get_site(request)
+            except Exception:
+                return _DefaultSite(host)
+
+        shortcuts.get_current_site = safe_get_current_site
+    except Exception:
+        pass
+
     try:
         handler = _resolve_404_handler(urlconf)
         chain = _build_prerender_chain(handler)
@@ -283,8 +472,16 @@ def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], byte
         resp = chain(req)
         return _format_prerender_response(resp)
     except Exception as e:
-        logger.warning(f"Fast-404 pre-render fallback used ({e})")
+        logger.warning(f"Fast-404 pre-render fallback used ({e})", exc_info=True)
         return _get_fallback_404_response()
+    finally:
+        if orig_get_site is not None:
+            try:
+                from django.contrib.sites import shortcuts
+
+                shortcuts.get_current_site = orig_get_site
+            except Exception:
+                pass
 
 
 def _verify_root_route(valid_prefixes: Set[str], urlconf: Any = None) -> None:
@@ -363,8 +560,52 @@ class Fast404Engine:
             self.mode, self.has_root_catchall, len(self.valid_prefixes), len(patterns)
         )
 
-        # Pre-render 404 error response
-        self.status, self.headers, self.body = prerender_404(urlconf)
+        # On-demand response cache: key -> (status, headers, body)
+        self._cache: Dict[str, Tuple[str, List[Tuple[str, str]], bytes]] = {}
+        self._cache_lock = threading.Lock()
+        self._fallback_response = _get_fallback_404_response()
+        self.status, self.headers, self.body = self._fallback_response
+
+        # Optional startup pre-warmup attempt (safe fallback on failure)
+        try:
+            status, headers, body = prerender_404(urlconf)
+            host = _resolve_prerender_host()
+            self.store_response(f"{host}:default:http", status, headers, body)
+            self.store_response(f"{host}:default:https", status, headers, body)
+        except Exception:
+            pass
+
+    def compute_cache_key_asgi(self, scope: Dict[str, Any]) -> str:
+        headers = dict(scope.get("headers", []))
+        host = headers.get(b"host", b"localhost").decode("utf-8", errors="replace").split(":")[0].lower()
+        path = scope.get("path", "")
+        parts = path.strip("/").split("/")
+        lang = (
+            parts[0].lower() if parts and len(parts[0]) <= 5 and ("-" in parts[0] or len(parts[0]) == 2) else "default"
+        )
+        scheme = scope.get("scheme", "http")
+        return f"{host}:{lang}:{scheme}"
+
+    def compute_cache_key_wsgi(self, environ: Dict[str, Any]) -> str:
+        host = str(environ.get("HTTP_HOST", "localhost")).split(":")[0].lower()
+        path = str(environ.get("PATH_INFO", ""))
+        parts = path.strip("/").split("/")
+        lang = (
+            parts[0].lower() if parts and len(parts[0]) <= 5 and ("-" in parts[0] or len(parts[0]) == 2) else "default"
+        )
+        scheme = str(environ.get("wsgi.url_scheme", "http"))
+        return f"{host}:{lang}:{scheme}"
+
+    def get_cached(self, key: str) -> Optional[Tuple[str, List[Tuple[str, str]], bytes]]:
+        with self._cache_lock:
+            return self._cache.get(key)
+
+    def store_response(self, key: str, status: str, headers: List[Tuple[str, str]], body: bytes) -> None:
+        with self._cache_lock:
+            if len(self._cache) >= 128:
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[key] = (status, headers, body)
+            self.status, self.headers, self.body = status, headers, body
 
     @classmethod
     def from_options(cls, options: Dict[str, Any]) -> Optional["Fast404Engine"]:
@@ -433,6 +674,10 @@ class Fast404Engine:
         method = environ.get("REQUEST_METHOD", "GET")
         logger.warning(f"Fast-404: Dropped {remote_addr} {method} {path} ({reason_type} match: {detail})")
 
-    def get_response(self) -> Tuple[str, List[Tuple[str, str]], bytes]:
-        """Return pre-rendered 404 response tuple (status_line, headers, body_bytes)."""
+    def get_response(self, key: Optional[str] = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
+        """Return cached 404 response if available, or fallback HTML response."""
+        if key:
+            cached = self.get_cached(key)
+            if cached is not None:
+                return cached
         return self.status, self.headers, self.body

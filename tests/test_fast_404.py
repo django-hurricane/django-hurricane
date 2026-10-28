@@ -373,3 +373,145 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         status, headers, body = _format_prerender_response(bad_resp)
         self.assertEqual(status, "404 Not Found")
         self.assertIn(b"Not Found", body)
+
+    def test_i18n_patterns_with_nested_cms_urls_and_root_route(self):
+        import types
+
+        from django.conf.urls.i18n import i18n_patterns
+        from django.urls import include, path, re_path
+
+        cms_mod = types.ModuleType("cms_urls")
+        cms_mod.urlpatterns = [
+            re_path(r"^(?P<slug>.*)$", lambda r, slug: None, name="pages-root"),
+        ]
+
+        filer_mod = types.ModuleType("filer_urls")
+        filer_mod.urlpatterns = [
+            path("canonical/", lambda r: None),
+        ]
+
+        portal_mod = types.ModuleType("portal_urls")
+        portal_mod.urlpatterns = [path("", lambda r: None)]
+
+        layouter_mod = types.ModuleType("layouter_urls")
+        layouter_mod.urlpatterns = [path("", lambda r: None)]
+
+        root_mod = types.ModuleType("root_urls")
+        root_mod.urlpatterns = i18n_patterns(
+            path("portal-static/", include((portal_mod, "portal"), namespace="portal")),
+            path("layouter/", include((layouter_mod, "layouter"), namespace="layouter")),
+            path("", include(filer_mod)),
+            path("", include(cms_mod)),
+        )
+
+        engine = Fast404Engine(mode="auto", urlconf=root_mod)
+
+        # 1. CMS root catchall must be detected, causing auto mode to switch to signature-only
+        self.assertTrue(engine.has_root_catchall)
+        self.assertEqual(engine.effective_mode, "signature")
+
+        # 2. Both / and empty string must NOT be dropped
+        self.assertIsNone(engine.should_drop("/"))
+        self.assertIsNone(engine.should_drop(""))
+
+        # 3. All valid application endpoints must NOT be dropped
+        self.assertIsNone(engine.should_drop("/portal-static/"))
+        self.assertIsNone(engine.should_drop("/layouter/"))
+        self.assertIsNone(engine.should_drop("/canonical/"))
+        self.assertIsNone(engine.should_drop("/my-dynamic-cms-page/"))
+
+        # 4. Scanner attacks must still be dropped instantly!
+        self.assertEqual(engine.should_drop("/wp-login.php"), ("signature", "/wp-login.php"))
+        self.assertEqual(engine.should_drop("/.env"), ("signature", "/.env"))
+
+    def test_re_path_unprefixed_mount_with_nested_frontpage_view(self):
+        import types
+
+        from django.urls import include, path, re_path
+        from django.utils.translation import gettext_lazy as _
+
+        shop_frontpage_mod = types.ModuleType("shop_frontpage_urls")
+        shop_frontpage_mod.urlpatterns = [
+            path("", lambda r: None, name="frontpage"),
+        ]
+
+        root_mod = types.ModuleType("shop_root_urls")
+        root_mod.urlpatterns = [
+            re_path(_(r"^"), include((shop_frontpage_mod, "frontpage"), namespace="frontpage")),
+        ]
+
+        engine = Fast404Engine(mode="auto", urlconf=root_mod)
+
+        # 1. re_path(r'^') is an unprefixed mount that matches any incoming path, so has_root_catchall is True
+        self.assertTrue(engine.has_root_catchall)
+        self.assertEqual(engine.effective_mode, "signature")
+
+        # 2. Both / and empty string must NOT be dropped
+        self.assertIsNone(engine.should_drop("/"))
+        self.assertIsNone(engine.should_drop(""))
+
+        # 3. Scanner attacks must still be dropped
+        self.assertEqual(engine.should_drop("/wp-login.php"), ("signature", "/wp-login.php"))
+        self.assertEqual(engine.should_drop("/.env"), ("signature", "/.env"))
+
+    def test_on_demand_fallthrough_and_caching(self):
+        import asyncio
+
+        from hurricane.server.gateway import HurricaneASGIGateway
+
+        django_calls = 0
+
+        async def fake_django(scope, receive, send):
+            nonlocal django_calls
+            django_calls += 1
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [(b"content-type", b"text/html; charset=utf-8")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b"<html>Custom 404 from CMS</html>"})
+
+        engine = Fast404Engine(mode="signature")
+        engine._cache.clear()
+
+        gateway = HurricaneASGIGateway(django_app=fake_django, options={"no_fast_404": False})
+        gateway.fast_404 = engine
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/wp-login.php",
+            "headers": [(b"host", b"shop.example.com")],
+        }
+
+        # 1. First request is a cache miss: falls through into Django!
+        msgs1: list = []
+
+        async def send1(m):
+            msgs1.append(m)
+
+        async def recv1():
+            return {}
+
+        asyncio.run(gateway(scope, recv1, send1))
+
+        self.assertEqual(django_calls, 1)
+        self.assertEqual(msgs1[0]["status"], 404)
+        self.assertEqual(msgs1[1]["body"], b"<html>Custom 404 from CMS</html>")
+
+        # 2. Second request is a cache hit: served from memory directly in microseconds!
+        msgs2: list = []
+
+        async def send2(m):
+            msgs2.append(m)
+
+        async def recv2():
+            return {}
+
+        asyncio.run(gateway(scope, recv2, send2))
+
+        self.assertEqual(django_calls, 1)  # Django was NOT invoked a second time!
+        self.assertEqual(msgs2[0]["status"], 404)
+        self.assertEqual(msgs2[1]["body"], b"<html>Custom 404 from CMS</html>")

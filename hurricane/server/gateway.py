@@ -449,11 +449,15 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         path: str,
     ) -> Optional[Any]:
         if self.fast_404 and self.fast_404.should_drop(path):
-            status, headers, body = self.fast_404.get_response()
-            if self.collect_metrics:
-                RequestCounterMetric.increment()
-            start_response(status, headers)
-            return [body]
+            cache_key = self.fast_404.compute_cache_key_wsgi(environ)
+            if cached := self.fast_404.get_cached(cache_key):
+                status, headers, body = cached
+                if self.collect_metrics:
+                    RequestCounterMetric.increment()
+                start_response(status, headers)
+                return [body]
+            environ["_hurricane_fast_404_cache_key"] = cache_key
+            return None
 
         if self.rate_limiter and not self.rate_limiter.is_allowed(environ):
             status, headers, body = self.rate_limiter.get_response()
@@ -487,6 +491,14 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             status_code = int(status_container[0].split()[0])
         except (ValueError, IndexError):
             status_code = 200
+
+        if status_code == 404 and self.fast_404:
+            cache_key = environ.get("_hurricane_fast_404_cache_key") or self.fast_404.compute_cache_key_wsgi(environ)
+            body_chunks = list(response_iter)
+            full_body = b"".join(body_chunks)
+            if full_body:
+                self.fast_404.store_response(cache_key, status_container[0], headers_container[0], full_body)
+            response_iter = iter(body_chunks)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_request(environ, method, path, status_code, elapsed_ms, is_probe=False)
@@ -744,11 +756,28 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
     async def _try_handle_fast_404(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
         if not (self.fast_404 and self.fast_404.should_drop(path)):
             return False
-        _, _, body = self.fast_404.get_response()
-        if self.collect_metrics:
-            RequestCounterMetric.increment()
-        await self._send_response(scope, send, 404, body, start_time, is_probe=False)
-        return True
+
+        cache_key = self.fast_404.compute_cache_key_asgi(scope)
+        cached_resp = self.fast_404.get_cached(cache_key)
+        if cached_resp is not None:
+            status_line, headers, body = cached_resp
+            if self.collect_metrics:
+                RequestCounterMetric.increment()
+            try:
+                status_code = int(status_line.split()[0])
+            except (ValueError, IndexError):
+                status_code = 404
+
+            asgi_headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers]
+            await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": asgi_headers})
+            await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
+
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            self._log_asgi_request(scope, scope.get("method", "GET"), path, status_code, elapsed_ms, is_probe=False)
+            return True
+
+        scope["_hurricane_fast_404_cache_key"] = cache_key
+        return False
 
     async def _try_handle_static_or_media(
         self,
@@ -825,12 +854,24 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
     ) -> None:
         status_code_container = [200]
         response_started = False
+        captured_headers: List[Tuple[str, str]] = []
+        captured_body_chunks: List[bytes] = []
 
         async def logging_send(message: Mapping[str, Any]) -> None:
             nonlocal response_started
             if message["type"] == ASGI_HTTP_RESPONSE_START:
                 response_started = True
                 status_code_container[0] = int(message.get("status", 200))
+                if status_code_container[0] == 404 and self.fast_404:
+                    raw_headers = message.get("headers", [])
+                    for k, v in raw_headers:
+                        k_str = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+                        v_str = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+                        captured_headers.append((k_str, v_str))
+            elif message["type"] == ASGI_HTTP_RESPONSE_BODY and status_code_container[0] == 404 and self.fast_404:
+                if body_chunk := message.get("body", b""):
+                    captured_body_chunks.append(body_chunk)
+
             await send(message)
 
         try:
@@ -845,6 +886,12 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             if not response_started:
                 await self._send_response(scope, send, 500, b"Internal Server Error", start_time, is_probe=False)
             return
+
+        if status_code_container[0] == 404 and self.fast_404:
+            cache_key = scope.get("_hurricane_fast_404_cache_key") or self.fast_404.compute_cache_key_asgi(scope)
+            full_body = b"".join(captured_body_chunks)
+            if full_body:
+                self.fast_404.store_response(cache_key, "404 Not Found", captured_headers, full_body)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         if self.collect_metrics:
@@ -893,9 +940,10 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         body: bytes,
         start_time: float,
         is_probe: bool = True,
+        content_type: bytes = b"text/plain",
     ):
         headers = [
-            (b"content-type", b"text/plain"),
+            (b"content-type", content_type),
             (b"content-length", str(len(body)).encode("utf-8")),
             (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
         ]
