@@ -1,3 +1,5 @@
+import time
+
 from prometheus_client.parser import text_string_to_metric_families
 
 from hurricane.server.loggers import STRUCTLOG_ENABLED
@@ -102,6 +104,7 @@ class HurricanStartServerTests(HurricanServerTest):
                 self.assertEqual(family.samples[0].value, 0.0)
         # make a request
         res = self.app_client.get("/")
+        time.sleep(0.1)
         # get the new metrics
         res = self.probe_client.get(self.metrics_route)
         families = text_string_to_metric_families(res.text)
@@ -119,6 +122,7 @@ class HurricanStartServerTests(HurricanServerTest):
                 self.assertEqual(len(family.samples), 0)
         # make a request
         res = self.app_client.get("/")
+        time.sleep(0.1)
         # get the new metrics
         res = self.probe_client.get(self.metrics_route)
         families = text_string_to_metric_families(res.text)

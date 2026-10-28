@@ -833,11 +833,11 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         await self.django_app(scope, receive, logging_send)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-        self._log_asgi_request(scope, method, path, status_code_container[0], elapsed_ms, is_probe=False)
-
         if self.collect_metrics:
             RequestCounterMetric.increment()
             ResponseTimeAverageMetric.add_value(elapsed_ms)
+
+        self._log_asgi_request(scope, method, path, status_code_container[0], elapsed_ms, is_probe=False)
 
     async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
         if self.loop_lag_tracker:
