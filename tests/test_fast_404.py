@@ -125,6 +125,58 @@ class Fast404EngineTests(SimpleTestCase):
             self.assertEqual(status, "404 Not Found")
             self.assertIn(b"Not Found", body)
 
+    def test_prerender_404_with_custom_view_accessing_request_user(self):
+        from types import ModuleType
+
+        from django.http import HttpResponse
+
+        dummy_urls = ModuleType("dummy_urls")
+        dummy_urls.urlpatterns = []
+
+        def custom_404_view(request, exception=None):
+            return HttpResponse(
+                f"Custom 404 for user:{request.user} (auth:{request.user.is_authenticated})",
+                status=404,
+            )
+
+        dummy_urls.handler404 = custom_404_view
+
+        with patch("django.urls.get_resolver") as mock_resolver:
+            mock_resolver.return_value.urlconf_module = dummy_urls
+            status, headers, body = prerender_404()
+            self.assertEqual(status, "404 Not Found")
+            self.assertIn(b"Custom 404 for user:AnonymousUser (auth:False)", body)
+
+    def test_prerender_404_traverses_custom_middleware(self):
+        from types import ModuleType
+
+        from django.http import HttpResponse
+
+        dummy_urls = ModuleType("dummy_urls")
+        dummy_urls.urlpatterns = []
+
+        def custom_tenant_404(request, exception=None):
+            tenant = getattr(request, "tenant_id", "none")
+            return HttpResponse(f"Tenant: {tenant}", status=404)
+
+        dummy_urls.handler404 = custom_tenant_404
+
+        with patch("django.urls.get_resolver") as mock_resolver:
+            mock_resolver.return_value.urlconf_module = dummy_urls
+            with override_settings(MIDDLEWARE=["tests.test_fast_404.TenantTestMiddleware"]):
+                status, headers, body = prerender_404()
+                self.assertEqual(status, "404 Not Found")
+                self.assertIn(b"Tenant: tenant_404", body)
+
+
+class TenantTestMiddleware:
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        request.tenant_id = "tenant_404"
+        return self.get_response(request)
+
 
 class Fast404GatewayIntegrationTests(SimpleTestCase):
     def setUp(self):

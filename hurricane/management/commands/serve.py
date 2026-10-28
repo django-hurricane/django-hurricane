@@ -1,5 +1,6 @@
 import asyncio
 import functools
+import math
 import os
 import signal
 import sys
@@ -27,9 +28,58 @@ from hurricane.server import (
     sanitize_probes,
     static_watch,
 )
+from hurricane.server import granian as h_granian
 from hurricane.server.debugging import setup_debugging
 from hurricane.server.granian import configure_granian
 from hurricane.server.loggers import STRUCTLOG_ENABLED
+
+
+def _get_granian_target() -> str:
+    """Resolve the absolute file path target for Granian to avoid package resolution issues in CWD."""
+    target_file = h_granian.__file__ or ""
+    if target_file.endswith((".pyc", ".pyo")):
+        target_file = os.path.splitext(target_file)[0] + ".py"
+    if target_file and os.path.exists(target_file):
+        return f"{target_file}:get_application"
+    return "hurricane.server.granian:get_application"
+
+
+def _get_container_cpu_count() -> int:
+    """
+    Determine the effective CPU quota for the container by inspecting cgroup limits.
+    Falls back to os.sched_getaffinity or os.cpu_count.
+    """
+    try:
+        # 1. cgroup v2
+        cgroup_v2 = "/sys/fs/cgroup/cpu.max"
+        if os.path.exists(cgroup_v2):
+            with open(cgroup_v2, "r") as f:
+                parts = f.read().strip().split()
+                if len(parts) == 2 and parts[0] != "max":
+                    quota, period = int(parts[0]), int(parts[1])
+                    if period > 0 and quota > 0:
+                        return max(1, math.ceil(quota / period))
+
+        # 2. cgroup v1
+        for prefix in ["/sys/fs/cgroup/cpu", "/sys/fs/cgroup/cpu,cpuacct"]:
+            q_path = f"{prefix}/cpu.cfs_quota_us"
+            p_path = f"{prefix}/cpu.cfs_period_us"
+            if os.path.exists(q_path) and os.path.exists(p_path):
+                with open(q_path, "r") as f_q, open(p_path, "r") as f_p:
+                    quota = int(f_q.read().strip())
+                    period = int(f_p.read().strip())
+                    if quota > 0 and period > 0:
+                        return max(1, math.ceil(quota / period))
+
+        # 3. Process affinity (e.g. taskset or cpuset)
+        if hasattr(os, "sched_getaffinity"):
+            aff = len(os.sched_getaffinity(0))
+            if aff > 0:
+                return aff
+    except Exception:
+        pass
+
+    return max(1, os.cpu_count() or 1)
 
 
 def _get_setting_value(descriptor: str) -> Any:
@@ -155,6 +205,13 @@ class Command(BaseCommand):
             type=int,
             default=None,
             help="Number of Rust/Tokio runtime worker threads (default: CPU count for ASGI, 1 for WSGI)",
+        )
+        parser.add_argument(
+            "--runtime-mode",
+            type=str,
+            choices=["auto", "st", "mt"],
+            default="auto",
+            help="Async runtime mode in Granian: 'st' (single-threaded), 'mt' (multi-threaded), or 'auto' (default).",
         )
         parser.add_argument(
             "--static-watch",
@@ -301,6 +358,7 @@ class Command(BaseCommand):
         self.merge_option("max_memory", "HURRICANE_MAX_MEMORY", options, optional=True, default=None)
         self.merge_option("workers", "HURRICANE_WORKERS", options, optional=True, default=None)
         self.merge_option("runtime_threads", "HURRICANE_RUNTIME_THREADS", options, optional=True, default=None)
+        self.merge_option("runtime_mode", "HURRICANE_RUNTIME_MODE", options, optional=True, default="auto")
         self.merge_option("static_watch", "HURRICANE_STATIC_WATCH", options, optional=True)
         self.merge_option(
             "pycharm_host",
@@ -522,30 +580,59 @@ class Command(BaseCommand):
             else:
                 logger.warning("Starting without memory allocation check")
 
+        container_cpus = _get_container_cpu_count()
         workers = 1
-        threads = options.get("workers") or min(32, (os.cpu_count() or 1) + 4)
+        threads = options.get("workers") or min(32, container_cpus + 4)
+        blocking_threads = 1 if is_asgi else threads
 
         if options.get("runtime_threads") is not None:
             runtime_threads = int(options["runtime_threads"])
         elif is_asgi:
-            runtime_threads = max(1, min(16, os.cpu_count() or 1))
+            runtime_threads = max(1, min(4, container_cpus))
         else:
             runtime_threads = 1
+
+        cli_runtime_mode = options.get("runtime_mode", "auto")
+        if cli_runtime_mode == "auto":
+            runtime_mode = "st" if runtime_threads == 1 else "mt"
+        else:
+            runtime_mode = cli_runtime_mode
+
+        mode_str = "asgi" if is_asgi else "wsgi"
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                "Runtime configuration",
+                mode=mode_str,
+                runtime_mode=runtime_mode,
+                runtime_threads=runtime_threads,
+                blocking_threads=blocking_threads,
+                cpus_detected=container_cpus,
+                port=options["port"],
+            )
+        else:
+            logger.info(
+                f"Runtime configuration: mode={mode_str}, "
+                f"runtime_mode={runtime_mode}, "
+                f"runtime_threads={runtime_threads}, "
+                f"blocking_threads={blocking_threads}, "
+                f"cpus_detected={container_cpus}, "
+                f"port={options['port']}"
+            )
 
         reload_paths = None
         if options.get("autoreload") and options.get("static_watch"):
             reload_paths = [p for p in options["static_watch"] if os.path.exists(p)]
 
         server = Granian(
-            target="hurricane.server.granian:get_application",
+            target=_get_granian_target(),
             factory=True,
             address="0.0.0.0",
             port=options["port"],
             interface=Interfaces.ASGI if is_asgi else Interfaces.WSGI,
             workers=workers,
-            blocking_threads=threads,
+            blocking_threads=blocking_threads,
             runtime_threads=runtime_threads,
-            runtime_mode="mt",
+            runtime_mode=runtime_mode,
             backlog=1024,
             log_access=False,
             log_enabled=False,

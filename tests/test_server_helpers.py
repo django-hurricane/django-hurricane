@@ -1,9 +1,13 @@
+import os
+import tempfile
 import unittest
 from unittest.mock import MagicMock
 
+import granian._internal
 from django.test import SimpleTestCase
 from django.urls import include, path
 
+from hurricane.management.commands.serve import _get_granian_target
 from hurricane.metrics.base import StoredMetric
 from hurricane.metrics.exceptions import MetricIdAlreadyRegistered
 from hurricane.metrics.registry import MetricsRegistry
@@ -150,3 +154,24 @@ class ServerHelpersTests(SimpleTestCase):
 
         # Unregister non-existent metric should not raise
         reg.unregister(DummyMetric)
+
+    def test_granian_target_resolution_in_app_directory(self):
+        target = _get_granian_target()
+        self.assertTrue(target.endswith(":get_application"))
+        self.assertTrue(os.path.isabs(target.split(":")[0]))
+
+        # Simulate running inside a directory named 'app' containing an __init__.py
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_dir = os.path.join(tmpdir, "app")
+            os.makedirs(app_dir)
+            with open(os.path.join(app_dir, "__init__.py"), "w") as f:
+                f.write("")
+
+            old_cwd = os.getcwd()
+            try:
+                os.chdir(app_dir)
+                path, _ = granian._internal.get_import_components(target)
+                resolved_module = granian._internal.prepare_import(path)
+                self.assertEqual(resolved_module, "hurricane.server.granian")
+            finally:
+                os.chdir(old_cwd)

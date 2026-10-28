@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 try:
     import structlog
@@ -88,31 +88,101 @@ def extract_prefixes(patterns: Any, is_root: bool = True) -> Tuple[Set[str], boo
 
 def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
     """
-    Pre-renders Django's configured 404 handler with a synthetic request.
+    Pre-renders Django's configured 404 handler with a synthetic request traversing
+    the configured middleware stack so that request attributes (e.g. request.user,
+    request.session, and custom middleware attributes) are properly populated.
     Falls back gracefully to standard HTML if rendering fails.
     """
+    from django.conf import settings
+    from django.core.exceptions import MiddlewareNotUsed
+    from django.core.handlers.exception import convert_exception_to_response
     from django.test import RequestFactory
     from django.urls import get_resolver
+    from django.utils.module_loading import import_string
     from django.views.defaults import page_not_found
 
     try:
         resolver = get_resolver(urlconf)
         handler = getattr(resolver.urlconf_module, "handler404", page_not_found)
         if isinstance(handler, str):
-            from django.utils.module_loading import import_string
-
             handler = import_string(handler)
+
+        handler_callable: Callable[..., Any] = handler
+
+        def _invoke_view(request: Any) -> Any:
+            try:
+                response = handler_callable(request, exception=Exception("Page not found"))
+            except TypeError:
+                response = handler_callable(request)
+
+            if hasattr(response, "render") and callable(response.render):
+                response = response.render()
+            return response
+
+        # Construct middleware chain with the 404 handler at the core
+        chain = convert_exception_to_response(_invoke_view)
+        middleware_list = getattr(settings, "MIDDLEWARE", None)
+        if middleware_list is None:
+            middleware_list = getattr(settings, "MIDDLEWARE_CLASSES", [])
+
+        for mw_path in reversed(middleware_list):
+            try:
+                mw_class = import_string(mw_path)
+                try:
+                    mw_instance = mw_class(chain)
+                except TypeError:
+                    # Support old-style middleware without get_response in constructor
+                    mw_instance = mw_class()
+                    if hasattr(mw_instance, "process_request"):
+                        _prev_chain = chain
+
+                        def _wrapped(req, _inst=mw_instance, _nxt=_prev_chain):
+                            res = _inst.process_request(req)
+                            if res:
+                                return res
+                            res = _nxt(req)
+                            if hasattr(_inst, "process_response"):
+                                res = _inst.process_response(req, res)
+                            return res
+
+                        chain = convert_exception_to_response(_wrapped)
+                        continue
+            except MiddlewareNotUsed:
+                continue
+            except Exception as mw_err:
+                logger.debug(f"Fast-404: Skipping middleware {mw_path} during prerender: {mw_err}")
+                continue
+
+            if mw_instance is not None:
+                chain = convert_exception_to_response(mw_instance)
 
         rf = RequestFactory()
         req = rf.get("/__hurricane_fast_404_bootstrap__")
-        resp = handler(req, exception=Exception("Page not found"))
+
+        # Defensive fallbacks for user and session in case middleware is missing/omitted
+        if not hasattr(req, "user"):
+            try:
+                from django.contrib.auth.models import AnonymousUser
+
+                req.user = AnonymousUser()
+            except Exception:
+                pass
+        if not hasattr(req, "session"):
+            try:
+                from django.contrib.sessions.backends.base import SessionBase
+
+                req.session = SessionBase()
+            except Exception:
+                pass
+
+        resp: Any = chain(req)
         if hasattr(resp, "render") and callable(resp.render):
             resp = resp.render()
 
         status_code = getattr(resp, "status_code", 404)
         status_line = f"{status_code} Not Found" if status_code == 404 else f"{status_code} OK"
-        headers = [(k, v) for k, v in resp.items()]
-        body = resp.content
+        headers = [(k, v) for k, v in resp.items()] if hasattr(resp, "items") else []
+        body = getattr(resp, "content", b"")
         return status_line, headers, body
     except Exception as e:
         logger.warning(f"Fast-404 pre-render fallback used ({e})")
