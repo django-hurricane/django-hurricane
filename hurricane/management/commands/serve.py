@@ -6,6 +6,7 @@ import signal
 import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
 from django.conf import settings
@@ -266,15 +267,6 @@ class Command(BaseCommand):
             help="The maximum size of the buffer of a request in bytes",
         )
         parser.add_argument(
-            "--mode",
-            "--interface",
-            dest="mode",
-            type=str,
-            choices=["auto", "wsgi", "asgi"],
-            default="auto",
-            help="Execution mode: auto (default), wsgi, or asgi",
-        )
-        parser.add_argument(
             "--no-fast-404",
             action="store_true",
             default=False,
@@ -410,27 +402,6 @@ class Command(BaseCommand):
             optional=True,
             default=1024 * 1024 * 100,
         )
-        self.merge_option(
-            "mode",
-            "HURRICANE_MODE",
-            options,
-            optional=True,
-            default="auto",
-        )
-        # Fallback check for legacy INTERFACE / HURRICANE_INTERFACE
-        if options.get("mode") == "auto":
-            legacy_interface = getattr(
-                settings,
-                "HURRICANE_INTERFACE",
-                getattr(
-                    settings,
-                    "INTERFACE",
-                    os.environ.get("HURRICANE_INTERFACE", os.environ.get("INTERFACE")),
-                ),
-            )
-            if legacy_interface:
-                options["mode"] = legacy_interface
-        options["interface"] = options.get("mode", "auto")
 
     def _init_server_bootstrap(self, options: dict) -> None:
         os.environ["HURRICANE_SHM_NAME"] = f"hurricane_shm_{os.getpid()}_{options.get('port', 8000)}"
@@ -510,33 +481,13 @@ class Command(BaseCommand):
             )
             self.log_prometheus(options, probe_port)
 
-    def _determine_asgi_mode(self, options: dict) -> bool:
-        mode = options.get("mode") or options.get("interface") or "auto"
-        if mode == "asgi":
-            is_asgi = True
-        elif mode == "wsgi":
-            is_asgi = False
-        else:
-            is_asgi = bool(getattr(settings, "ASGI_APPLICATION", None))
-
-        if is_asgi and options.get("req_queue_len_explicit"):
-            self._log_asgi_queue_len_warning(options.get("req_queue_len"))
-
-        return is_asgi
-
-    def _log_asgi_queue_len_warning(self, req_queue_len: Any) -> None:
-        msg = (
-            f"The '--req-queue-len' option ({req_queue_len}) is ignored when running in ASGI mode. "
-            "Event loop lag tracking is used instead for readiness probing."
-        )
-        if STRUCTLOG_ENABLED:
-            logger.warning(
-                "The '--req-queue-len' option is ignored when running in ASGI mode. "
-                "Event loop lag tracking is used instead for readiness probing.",
-                req_queue_len=req_queue_len,
-            )
-        else:
-            logger.warning(msg)
+    def _setup_queue_limits(self, options: dict) -> None:
+        if not options.get("req_queue_len_explicit"):
+            # Auto-calculate a sensible default for the request queue length if not explicitly provided
+            # by matching the max thread pool size (workers) times an allowable queue depth factor
+            container_cpus = _get_container_cpu_count()
+            workers = options.get("workers") or min(32, container_cpus + 4)
+            options["req_queue_len"] = workers * 2
 
     def _run_preflight_tasks(self, options: dict) -> None:
         if options.get("command"):
@@ -603,12 +554,10 @@ class Command(BaseCommand):
                 f"Maximum memory allowed is {max_mem}MB (restart #{restarts})"
             )
 
-    def _resolve_runtime_threads(self, options: dict, is_asgi: bool, container_cpus: int) -> int:
+    def _resolve_runtime_threads(self, options: dict, container_cpus: int) -> int:
         if options.get("runtime_threads") is not None:
             return int(options["runtime_threads"])
-        if is_asgi:
-            return max(1, min(4, container_cpus))
-        return 1
+        return max(1, min(4, container_cpus))
 
     def _resolve_runtime_mode(self, options: dict, runtime_threads: int) -> str:
         cli_mode = options.get("runtime_mode", "auto")
@@ -618,18 +567,15 @@ class Command(BaseCommand):
 
     def _log_runtime_config(
         self,
-        is_asgi: bool,
         runtime_mode: str,
         runtime_threads: int,
         blocking_threads: int,
         cpus_detected: int,
         port: int,
     ) -> None:
-        mode_str = "asgi" if is_asgi else "wsgi"
         if STRUCTLOG_ENABLED:
             logger.info(
                 "Runtime configuration",
-                mode=mode_str,
                 runtime_mode=runtime_mode,
                 runtime_threads=runtime_threads,
                 blocking_threads=blocking_threads,
@@ -638,7 +584,7 @@ class Command(BaseCommand):
             )
         else:
             logger.info(
-                f"Runtime configuration: mode={mode_str}, "
+                f"Runtime configuration: "
                 f"runtime_mode={runtime_mode}, "
                 f"runtime_threads={runtime_threads}, "
                 f"blocking_threads={blocking_threads}, "
@@ -646,16 +592,16 @@ class Command(BaseCommand):
                 f"port={port}"
             )
 
-    def _build_granian_server(self, options: dict, is_asgi: bool) -> Any:
+    def _build_granian_server(self, options: dict) -> Any:
         container_cpus = _get_container_cpu_count()
-        threads = options.get("workers") or min(32, container_cpus + 4)
-        blocking_threads = 1 if is_asgi else threads
-        runtime_threads = self._resolve_runtime_threads(options, is_asgi, container_cpus)
+
+        # In ASGI mode, blocking_threads must be 1.
+        blocking_threads = 1
+
+        runtime_threads = self._resolve_runtime_threads(options, container_cpus)
         runtime_mode = self._resolve_runtime_mode(options, runtime_threads)
 
-        self._log_runtime_config(
-            is_asgi, runtime_mode, runtime_threads, blocking_threads, container_cpus, options["port"]
-        )
+        self._log_runtime_config(runtime_mode, runtime_threads, blocking_threads, container_cpus, options["port"])
 
         reload_paths = None
         if options.get("autoreload") and options.get("static_watch"):
@@ -666,11 +612,12 @@ class Command(BaseCommand):
             factory=True,
             address="0.0.0.0",
             port=options["port"],
-            interface=Interfaces.ASGI if is_asgi else Interfaces.WSGI,
+            interface=Interfaces.ASGI,
             workers=1,
             blocking_threads=blocking_threads,
             runtime_threads=runtime_threads,
             runtime_mode=RuntimeModes(runtime_mode),
+            working_dir=Path(os.getcwd()),
             backlog=1024,
             log_access=False,
             log_enabled=False,
@@ -689,11 +636,10 @@ class Command(BaseCommand):
         probe_server, include_probe = self._setup_probes_and_metrics(options)
         setup_debugging(options)
 
-        is_asgi = self._determine_asgi_mode(options)
+        self._setup_queue_limits(options)
         configure_granian(
             options=options,
             check_func=self.check,
-            is_asgi=is_asgi,
             include_probe=include_probe,
         )
 
@@ -706,7 +652,7 @@ class Command(BaseCommand):
         )
 
         self._start_memory_monitor(options)
-        server = self._build_granian_server(options, is_asgi)
+        server = self._build_granian_server(options)
 
         try:
             server.serve()

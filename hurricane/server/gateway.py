@@ -2,7 +2,7 @@ import asyncio
 import mimetypes
 import os
 import time
-from contextlib import contextmanager
+from contextlib import asynccontextmanager, contextmanager
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple
 
 from django.conf import settings
@@ -30,6 +30,8 @@ if STRUCTLOG_ENABLED:
 
 STARTUP_NOT_FINISHED_MESSAGE: bytes = b"Startup is not finished yet"
 STATUS_200_OK: str = "200 OK"
+ASGI_HTTP_RESPONSE_START: str = "http.response.start"
+ASGI_HTTP_RESPONSE_BODY: str = "http.response.body"
 
 
 class WorkerBacklogTracker:
@@ -49,6 +51,39 @@ class WorkerBacklogTracker:
             yield
         finally:
             SharedMetrics.track_request_end(self.max_threads)
+
+    @property
+    def current_backlog(self) -> int:
+        from hurricane.metrics.shared import SharedMetrics
+
+        return SharedMetrics.get_queue_length()
+
+
+class AsyncConcurrencyGate:
+    """
+    Concurrency gate to limit active Django execution slots.
+    Tracks waiting backlog and triggers readiness unready signal if queue exceeds limit.
+    """
+
+    def __init__(self, max_concurrency: int):
+        self.max_concurrency = max(1, max_concurrency)
+        self.semaphore = asyncio.Semaphore(self.max_concurrency)
+
+    @contextmanager
+    def _track_metric(self):
+        from hurricane.metrics.shared import SharedMetrics
+
+        SharedMetrics.track_request_start(self.max_concurrency)
+        try:
+            yield
+        finally:
+            SharedMetrics.track_request_end(self.max_concurrency)
+
+    @asynccontextmanager
+    async def track_request(self):
+        with self._track_metric():
+            async with self.semaphore:
+                yield
 
     @property
     def current_backlog(self) -> int:
@@ -95,6 +130,54 @@ class EventLoopLagTracker:
             self._task = None
 
 
+class FastWsgiToAsgiInstance:
+    """
+    Instance handler for FastWsgiToAsgi.
+    """
+
+    pass
+
+
+try:
+    from asgiref.sync import sync_to_async
+    from asgiref.wsgi import WsgiToAsgi, WsgiToAsgiInstance
+
+    class FastWsgiToAsgiInstance(WsgiToAsgiInstance):  # type: ignore[no-redef]
+        @sync_to_async(thread_sensitive=False)
+        def run_wsgi_app(self, body):
+            return super(FastWsgiToAsgiInstance, self.__class__).run_wsgi_app.__wrapped__(self, body)
+
+    class FastWsgiToAsgi(WsgiToAsgi):
+        """
+        Custom ASGI adapter for WSGI applications that disables thread_sensitive=True
+        so that synchronous Django requests can execute in parallel on a ThreadPoolExecutor
+        instead of bottlenecking on a single shared background thread.
+        """
+
+        duplicate_header_limit: int = 100
+
+        def __init__(self, wsgi_application, *args, **kwargs):
+            try:
+                super().__init__(wsgi_application, *args, **kwargs)
+            except TypeError:
+                super().__init__(wsgi_application)
+            if not hasattr(self, "duplicate_header_limit"):
+                self.duplicate_header_limit = kwargs.get("duplicate_header_limit", 100)
+
+        async def __call__(self, scope, receive, send):
+            dup_limit = getattr(self, "duplicate_header_limit", 100)
+            try:
+                instance = FastWsgiToAsgiInstance(self.wsgi_application, dup_limit)
+            except TypeError:
+                instance = FastWsgiToAsgiInstance(self.wsgi_application)
+            await instance(scope, receive, send)
+except ImportError:
+
+    class FastWsgiToAsgi:  # type: ignore[no-redef]
+        def __init__(self, *args, **kwargs):
+            raise ImproperlyConfigured("asgiref is required for FastWsgiToAsgi")
+
+
 class BaseHurricaneGateway:
     """
     Base gateway encapsulating protocol-agnostic probe evaluation,
@@ -124,6 +207,14 @@ class BaseHurricaneGateway:
         self.startup_path = self._normalize_path(self.options.get("startup_probe", "/startup"))
         self.metrics_path = self._normalize_path(self.options.get("metrics_path", "/metrics"))
         self.webhook_url = self.options.get("webhook_url")
+
+        # Static & Media
+        self.static_enabled = bool(self.options.get("static"))
+        self.media_enabled = bool(self.options.get("media"))
+        self.static_url = getattr(settings, "STATIC_URL", "/static/") or "/static/"
+        self.static_root = getattr(settings, "STATIC_ROOT", "") or ""
+        self.media_url = getattr(settings, "MEDIA_URL", "/media/") or "/media/"
+        self.media_root = getattr(settings, "MEDIA_ROOT", "") or ""
 
         # Initialize Fast-404 protection engine
         try:
@@ -261,6 +352,39 @@ class BaseHurricaneGateway:
             )
             webhook_cls().run(url=self.webhook_url, status=status)
 
+    def _check_max_body_size(self, environ: Dict[str, Any]) -> None:
+        max_body_size = self.options.get("max_body_size")
+        if not max_body_size:
+            return
+        try:
+            content_length = int(environ.get("CONTENT_LENGTH") or 0)
+            if content_length > max_body_size:
+                raise ConnectionResetError("Request body size exceeded max_body_size")
+        except (ValueError, TypeError):
+            pass
+
+    def _check_max_body_size_asgi(self, scope: Dict[str, Any]) -> None:
+        max_body_size = self.options.get("max_body_size")
+        if not max_body_size:
+            return
+        try:
+            for header_name, header_val in scope.get("headers", []):
+                if header_name.lower() == b"content-length":
+                    content_length = int(header_val)
+                    if content_length > max_body_size:
+                        raise ConnectionResetError("Request body size exceeded max_body_size")
+        except (ValueError, TypeError):
+            pass
+
+    @staticmethod
+    def _sanitize_header_value(value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        normalized_value = value.strip()
+        if not normalized_value:
+            return None
+        return normalized_value
+
 
 class HurricaneWSGIGateway(BaseHurricaneGateway):
     """
@@ -276,13 +400,6 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
     ):
         super().__init__(options=options, check_func=check_func, include_probe=include_probe)
         self.django_app = django_app or get_wsgi_application()
-
-        self.static_enabled = bool(self.options.get("static"))
-        self.media_enabled = bool(self.options.get("media"))
-        self.static_url = getattr(settings, "STATIC_URL", "/static/") or "/static/"
-        self.static_root = getattr(settings, "STATIC_ROOT", "") or ""
-        self.media_url = getattr(settings, "MEDIA_URL", "/media/") or "/media/"
-        self.media_root = getattr(settings, "MEDIA_ROOT", "") or ""
 
     def _try_handle_probe(
         self,
@@ -346,12 +463,25 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         start_response: Callable,
         path: str,
     ) -> Optional[Any]:
-        if self.fast_404 and self.fast_404.should_drop(path):
-            status, headers, body = self.fast_404.get_response()
-            if self.collect_metrics:
-                RequestCounterMetric.increment()
-            start_response(status, headers)
-            return [body]
+        if self.fast_404 and (drop_info := self.fast_404.should_drop(path)):
+            drop_type, _ = drop_info
+            cache_key = self.fast_404.compute_cache_key_wsgi(environ)
+            if cached := self.fast_404.get_cached(cache_key):
+                status, headers, body = cached
+                if self.collect_metrics:
+                    RequestCounterMetric.increment()
+                start_response(status, headers)
+                return [body]
+
+            if drop_type == "signature":
+                status, headers, body = self.fast_404.get_response()
+                if self.collect_metrics:
+                    RequestCounterMetric.increment()
+                start_response(status, headers)
+                return [body]
+
+            environ["_hurricane_fast_404_cache_key"] = cache_key
+            return None
 
         if self.rate_limiter and not self.rate_limiter.is_allowed(environ):
             status, headers, body = self.rate_limiter.get_response()
@@ -361,17 +491,6 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             return [body]
 
         return None
-
-    def _check_max_body_size(self, environ: Dict[str, Any]) -> None:
-        max_body_size = self.options.get("max_body_size")
-        if not max_body_size:
-            return
-        try:
-            content_length = int(environ.get("CONTENT_LENGTH") or 0)
-            if content_length > max_body_size:
-                raise ConnectionResetError("Request body size exceeded max_body_size")
-        except (ValueError, TypeError):
-            pass
 
     def _forward_to_django(
         self,
@@ -387,7 +506,9 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         def custom_start_response(status: str, headers: List[Tuple[str, str]], exc_info=None):
             status_container[0] = status
             headers_container[0] = headers
-            return start_response(status, headers, exc_info)
+            if exc_info is not None:
+                return start_response(status, headers, exc_info)
+            return start_response(status, headers)
 
         with self.backlog_tracker.track_request():
             response_iter = self.django_app(environ, custom_start_response)
@@ -396,6 +517,14 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             status_code = int(status_container[0].split()[0])
         except (ValueError, IndexError):
             status_code = 200
+
+        if status_code == 404 and self.fast_404:
+            cache_key = environ.get("_hurricane_fast_404_cache_key") or self.fast_404.compute_cache_key_wsgi(environ)
+            body_chunks = list(response_iter)
+            full_body = b"".join(body_chunks)
+            if full_body:
+                self.fast_404.store_response(cache_key, status_container[0], headers_container[0], full_body)
+            response_iter = iter(body_chunks)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_request(environ, method, path, status_code, elapsed_ms, is_probe=False)
@@ -536,6 +665,37 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             log_method(f"{status} {method} {path} ({remote_ip}) {elapsed_ms:.2f}ms")
 
 
+class _ASGIResponseRecorder:
+    """Helper for recording ASGI response status, headers, and body chunks."""
+
+    def __init__(self, send: Callable, capture_404: bool = False):
+        self.send = send
+        self.capture_404 = capture_404
+        self.status_code = 200
+        self.response_started = False
+        self.captured_headers: List[Tuple[str, str]] = []
+        self.captured_body_chunks: List[bytes] = []
+
+    def _record_headers(self, raw_headers: List[Any]) -> None:
+        for k, v in raw_headers:
+            k_str = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+            v_str = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+            self.captured_headers.append((k_str, v_str))
+
+    async def __call__(self, message: Mapping[str, Any]) -> None:
+        msg_type = message.get("type")
+        if msg_type == ASGI_HTTP_RESPONSE_START:
+            self.response_started = True
+            self.status_code = int(message.get("status", 200))
+            if self.status_code == 404 and self.capture_404:
+                self._record_headers(message.get("headers", []))
+        elif msg_type == ASGI_HTTP_RESPONSE_BODY and self.status_code == 404 and self.capture_404:
+            if body_chunk := message.get("body", b""):
+                self.captured_body_chunks.append(body_chunk)
+
+        await self.send(message)
+
+
 class HurricaneASGIGateway(BaseHurricaneGateway):
     """
     Unified ASGI gateway wrapping Django, probes, metrics, statics, and access logging.
@@ -560,6 +720,9 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         )
         self.loop_lag_tracker = EventLoopLagTracker(lag_threshold_ms=lag_threshold)
 
+        threads = self.options.get("workers") or min(32, (os.cpu_count() or 1) + 4)
+        self.async_backlog_tracker = AsyncConcurrencyGate(max_concurrency=threads)
+
     def evaluate_readiness(self) -> Tuple[int, bytes]:
         if not StartupTimeMetric.get():
             return 400, STARTUP_NOT_FINISHED_MESSAGE
@@ -571,15 +734,31 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
                 f"Event loop lag limit exceeded ({self.loop_lag_tracker.current_lag_ms:.1f}ms)".encode("utf-8"),
             )
 
+        current_backlog = self.async_backlog_tracker.current_backlog
+        if current_backlog >= self.req_queue_len:
+            self._update_webhook_and_metric(ReadinessMetric, status_succeeded=False)
+            return 400, f"Request queue limit exceeded ({current_backlog} queued)".encode("utf-8")
+
         return self._run_custom_check("readiness", ReadinessMetric)
+
+    async def _evaluate_liveness_probe(self) -> Tuple[int, bytes]:
+        from asgiref.sync import sync_to_async
+
+        try:
+
+            async def _check():
+                async with self.async_backlog_tracker.track_request():
+                    return await sync_to_async(self.evaluate_liveness, thread_sensitive=False)()
+
+            return await asyncio.wait_for(_check(), timeout=0.9)
+        except (asyncio.TimeoutError, TimeoutError):
+            return 500, b"Liveness check timed out: worker deadlock detected"
 
     async def _try_handle_probe(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
         if not self.include_probe or self.options.get("no_probe", False):
             return False
         if self._matches_path(path, self.liveness_path):
-            from asgiref.sync import sync_to_async
-
-            status, body = await sync_to_async(self.evaluate_liveness, thread_sensitive=False)()
+            status, body = await self._evaluate_liveness_probe()
             await self._send_response(scope, send, status, body, start_time)
             return True
         if self._matches_path(path, self.readiness_path):
@@ -603,20 +782,171 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             (b"content-length", str(len(payload)).encode("utf-8")),
             (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
         ]
-        await send({"type": "http.response.start", "status": 200, "headers": headers})
-        await send({"type": "http.response.body", "body": payload})
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": 200, "headers": headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": payload})
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(scope, "GET", path, 200, elapsed_ms, is_probe=True)
         return True
 
-    async def _try_handle_fast_404(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
-        if not (self.fast_404 and self.fast_404.should_drop(path)):
+    async def _try_handle_rate_limiter(self, scope: Dict[str, Any], send: Callable, start_time: float) -> bool:
+        if not (self.rate_limiter and not self.rate_limiter.is_allowed_asgi(scope)):
             return False
-        _, _, body = self.fast_404.get_response()
+        status_code, headers, body = self.rate_limiter.get_response()
         if self.collect_metrics:
             RequestCounterMetric.increment()
-        await self._send_response(scope, send, 404, body, start_time, is_probe=False)
+        try:
+            status_code_int = int(status_code.split()[0])
+        except (ValueError, IndexError, AttributeError):
+            status_code_int = 429
+
+        # Convert header list to bytes tuples for ASGI
+        asgi_headers = [(k.lower().encode("utf-8"), v.encode("utf-8")) for k, v in headers]
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code_int, "headers": asgi_headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_asgi_request(
+            scope, scope.get("method", "GET"), scope.get("path", ""), status_code_int, elapsed_ms, is_probe=False
+        )
         return True
+
+    async def _send_fast_404_response(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        path: str,
+        start_time: float,
+        status_line: str,
+        headers: List[Tuple[str, str]],
+        body: bytes,
+    ) -> bool:
+        if self.collect_metrics:
+            RequestCounterMetric.increment()
+        try:
+            status_code = int(status_line.split()[0])
+        except (ValueError, IndexError):
+            status_code = 404
+
+        asgi_headers = [(k.lower().encode("utf-8"), v.encode("utf-8")) for k, v in headers]
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": asgi_headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_asgi_request(scope, scope.get("method", "GET"), path, status_code, elapsed_ms, is_probe=False)
+        return True
+
+    async def _try_handle_fast_404(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
+        if not self.fast_404:
+            return False
+
+        drop_info = self.fast_404.should_drop(path)
+        if not drop_info:
+            return False
+
+        drop_type, _ = drop_info
+        cache_key = self.fast_404.compute_cache_key_asgi(scope)
+        if cached_resp := self.fast_404.get_cached(cache_key):
+            status_line, headers, body = cached_resp
+            return await self._send_fast_404_response(scope, send, path, start_time, status_line, headers, body)
+
+        if drop_type == "signature":
+            status_line, headers, body = self.fast_404.get_response()
+            return await self._send_fast_404_response(scope, send, path, start_time, status_line, headers, body)
+
+        scope["_hurricane_fast_404_cache_key"] = cache_key
+        return False
+
+    async def _try_handle_static_or_media(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        path: str,
+        start_time: float,
+    ) -> bool:
+        if self.static_enabled and path.startswith(self.static_url):
+            await self._handle_static_file(scope, send, path, self.static_url, self.static_root, start_time)
+            return True
+        if self.media_enabled and path.startswith(self.media_url):
+            await self._handle_static_file(scope, send, path, self.media_url, self.media_root, start_time)
+            return True
+        return False
+
+    async def _handle_static_file(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        request_path: str,
+        url_prefix: str,
+        root_dir: str,
+        start_time: float,
+    ) -> None:
+        from asgiref.sync import sync_to_async
+
+        relative_path = request_path[len(url_prefix) :].lstrip("/")
+        file_path = os.path.abspath(os.path.join(root_dir, relative_path))
+
+        # Directory traversal protection
+        is_safe = file_path.startswith(os.path.abspath(root_dir))
+        is_file = await sync_to_async(os.path.isfile, thread_sensitive=False)(file_path) if is_safe else False
+
+        if not is_safe or not is_file:
+            await self._send_response(scope, send, 404, b"Not Found", start_time, is_probe=False)
+            return
+
+        content_type, _ = mimetypes.guess_type(file_path)
+        content_type = content_type or "application/octet-stream"
+        file_size = await sync_to_async(os.path.getsize, thread_sensitive=False)(file_path)
+
+        headers = [
+            (b"content-type", content_type.encode("utf-8")),
+            (b"content-length", str(file_size).encode("utf-8")),
+        ]
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": 200, "headers": headers})
+
+        def _read_file():
+            with open(file_path, "rb") as f:
+                return f.read()
+
+        content = await sync_to_async(_read_file, thread_sensitive=False)()
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": content})
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_asgi_request(
+            scope,
+            scope.get("method", "GET"),
+            request_path,
+            200,
+            elapsed_ms,
+            is_probe=False,
+        )
+
+    def _cache_404_response(self, scope: Dict[str, Any], recorder: _ASGIResponseRecorder) -> None:
+        if recorder.status_code != 404 or not self.fast_404:
+            return
+        full_body = b"".join(recorder.captured_body_chunks)
+        if not full_body:
+            return
+        cache_key = scope.get("_hurricane_fast_404_cache_key") or self.fast_404.compute_cache_key_asgi(scope)
+        self.fast_404.store_response(cache_key, "404 Not Found", recorder.captured_headers, full_body)
+
+    async def _handle_django_exception(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        method: str,
+        path: str,
+        start_time: float,
+        response_started: bool,
+        exc: Exception,
+    ) -> None:
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        logger.error(
+            f"Unhandled exception while processing {method} {path}: {exc}",
+            exc_info=True,
+        )
+        self._log_asgi_request(scope, method, path, 500, elapsed_ms, is_probe=False)
+        if not response_started:
+            await self._send_response(scope, send, 500, b"Internal Server Error", start_time, is_probe=False)
 
     async def _forward_to_django(
         self,
@@ -627,21 +957,22 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         path: str,
         start_time: float,
     ) -> None:
-        status_code_container = [200]
+        recorder = _ASGIResponseRecorder(send, capture_404=bool(self.fast_404))
 
-        async def logging_send(message: Mapping[str, Any]) -> None:
-            if message["type"] == "http.response.start":
-                status_code_container[0] = int(message.get("status", 200))
-            await send(message)
+        try:
+            await self.django_app(scope, receive, recorder)
+        except Exception as exc:
+            await self._handle_django_exception(scope, send, method, path, start_time, recorder.response_started, exc)
+            return
 
-        await self.django_app(scope, receive, logging_send)
+        self._cache_404_response(scope, recorder)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-        self._log_asgi_request(scope, method, path, status_code_container[0], elapsed_ms, is_probe=False)
-
         if self.collect_metrics:
             RequestCounterMetric.increment()
             ResponseTimeAverageMetric.add_value(elapsed_ms)
+
+        self._log_asgi_request(scope, method, path, recorder.status_code, elapsed_ms, is_probe=False)
 
     async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
         if self.loop_lag_tracker:
@@ -650,6 +981,8 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         if scope["type"] != "http":
             await self.django_app(scope, receive, send)
             return
+
+        self._check_max_body_size_asgi(scope)
 
         path = scope.get("path", "")
         method = scope.get("method", "GET")
@@ -664,7 +997,14 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         if await self._try_handle_fast_404(scope, send, path, start_time):
             return
 
-        await self._forward_to_django(scope, receive, send, method, path, start_time)
+        if await self._try_handle_rate_limiter(scope, send, start_time):
+            return
+
+        if await self._try_handle_static_or_media(scope, send, path, start_time):
+            return
+
+        async with self.async_backlog_tracker.track_request():
+            await self._forward_to_django(scope, receive, send, method, path, start_time)
 
     async def _send_response(
         self,
@@ -674,14 +1014,15 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         body: bytes,
         start_time: float,
         is_probe: bool = True,
+        content_type: bytes = b"text/plain",
     ):
         headers = [
-            (b"content-type", b"text/plain"),
+            (b"content-type", content_type),
             (b"content-length", str(len(body)).encode("utf-8")),
             (b"cache-control", b"no-store, no-cache, must-revalidate, max-age=0"),
         ]
-        await send({"type": "http.response.start", "status": status_code, "headers": headers})
-        await send({"type": "http.response.body", "body": body})
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         self._log_asgi_request(
             scope,

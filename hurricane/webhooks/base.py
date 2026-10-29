@@ -143,4 +143,5 @@ class Webhook:
 
         if close_loop:
             logger.info("Loop will be closed")
-            loop.stop()
+            if loop:
+                loop.stop()
