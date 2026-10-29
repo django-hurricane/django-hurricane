@@ -497,7 +497,9 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         def custom_start_response(status: str, headers: List[Tuple[str, str]], exc_info=None):
             status_container[0] = status
             headers_container[0] = headers
-            return start_response(status, headers, exc_info)
+            if exc_info is not None:
+                return start_response(status, headers, exc_info)
+            return start_response(status, headers)
 
         with self.backlog_tracker.track_request():
             response_iter = self.django_app(environ, custom_start_response)

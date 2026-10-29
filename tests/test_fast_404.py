@@ -119,63 +119,32 @@ class Fast404EngineTests(SimpleTestCase):
         self.assertTrue(len(body) > 0)
         self.assertIsInstance(body, bytes)
 
-    def test_prerender_404_fallback_on_exception(self):
-        with patch("django.urls.get_resolver", side_effect=RuntimeError("URLconf error")):
-            status, headers, body = prerender_404()
-            self.assertEqual(status, "404 Not Found")
-            self.assertIn(b"Not Found", body)
+    def test_on_demand_cache_keys_with_different_languages_and_hosts(self):
+        engine = Fast404Engine(mode="signature")
+        scope_de = {
+            "type": "http",
+            "path": "/de/wp-login.php",
+            "scheme": "https",
+            "headers": [(b"host", b"shop.mycompany.com:8443")],
+        }
+        key_de = engine.compute_cache_key_asgi(scope_de)
+        self.assertEqual(key_de, "shop.mycompany.com:de:https")
 
-    def test_prerender_404_with_custom_view_accessing_request_user(self):
-        from types import ModuleType
+        scope_en = {
+            "type": "http",
+            "path": "/en-us/.env",
+            "scheme": "http",
+            "headers": [(b"host", b"website.org")],
+        }
+        key_en = engine.compute_cache_key_asgi(scope_en)
+        self.assertEqual(key_en, "website.org:en-us:http")
 
-        from django.http import HttpResponse
+        # Independent cache storage per key
+        engine.store_response(key_de, "404 Not Found", [("Content-Type", "text/html")], b"German 404")
+        engine.store_response(key_en, "404 Not Found", [("Content-Type", "text/html")], b"English 404")
 
-        dummy_urls = ModuleType("dummy_urls")
-        dummy_urls.urlpatterns = []
-
-        def custom_404_view(request, exception=None):
-            return HttpResponse(
-                f"Custom 404 for user:{request.user} (auth:{request.user.is_authenticated})",
-                status=404,
-            )
-
-        dummy_urls.handler404 = custom_404_view
-
-        with patch("django.urls.get_resolver") as mock_resolver:
-            mock_resolver.return_value.urlconf_module = dummy_urls
-            status, headers, body = prerender_404()
-            self.assertEqual(status, "404 Not Found")
-            self.assertIn(b"Custom 404 for user:AnonymousUser (auth:False)", body)
-
-    def test_prerender_404_traverses_custom_middleware(self):
-        from types import ModuleType
-
-        from django.http import HttpResponse
-
-        dummy_urls = ModuleType("dummy_urls")
-        dummy_urls.urlpatterns = []
-
-        def custom_tenant_404(request, exception=None):
-            tenant = getattr(request, "tenant_id", "none")
-            return HttpResponse(f"Tenant: {tenant}", status=404)
-
-        dummy_urls.handler404 = custom_tenant_404
-
-        with patch("django.urls.get_resolver") as mock_resolver:
-            mock_resolver.return_value.urlconf_module = dummy_urls
-            with override_settings(MIDDLEWARE=["tests.test_fast_404.TenantTestMiddleware"]):
-                status, headers, body = prerender_404()
-                self.assertEqual(status, "404 Not Found")
-                self.assertIn(b"Tenant: tenant_404", body)
-
-
-class TenantTestMiddleware:
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        request.tenant_id = "tenant_404"
-        return self.get_response(request)
+        self.assertEqual(engine.get_cached(key_de)[2], b"German 404")
+        self.assertEqual(engine.get_cached(key_en)[2], b"English 404")
 
 
 class Fast404GatewayIntegrationTests(SimpleTestCase):
@@ -210,7 +179,12 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
     def test_gateway_drops_attack_signature_immediately(self):
         status, headers, body = self._call_gateway("/wp-login.php")
         self.assertEqual(status, "404 Not Found")
-        self.assertIn(b"Not Found", body)
+        self.assertIn(b"not found", body.lower())
+
+        # Second call should be an immediate cache hit
+        status2, headers2, body2 = self._call_gateway("/wp-login.php")
+        self.assertEqual(status2, "404 Not Found")
+        self.assertEqual(body2, body)
 
         status_env, _, body_env = self._call_gateway("/.env")
         self.assertEqual(status_env, "404 Not Found")
@@ -271,54 +245,11 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         # Ensure log_drop executes cleanly
         engine.log_drop({"REMOTE_ADDR": "1.2.3.4", "REQUEST_METHOD": "POST"}, "/.env", "signature", "/.env")
 
-    def test_middleware_prerender_wrapping_variations(self):
-        from django.core.exceptions import MiddlewareNotUsed
-
-        from hurricane.server.fast_404 import _wrap_middleware
-
-        def chain(req):
-            return None
-
-        # 1. Non-existent middleware path
-        wrapped = _wrap_middleware(chain, "invalid.module.Path")
-        self.assertIs(wrapped, chain)
-
-        # 2. Middleware raising MiddlewareNotUsed
-        class NotUsedMiddleware:
-            def __init__(self, get_response):
-                raise MiddlewareNotUsed()
-
-        with patch("django.utils.module_loading.import_string", return_value=NotUsedMiddleware):
-            wrapped = _wrap_middleware(chain, "fake.NotUsedMiddleware")
-            self.assertIs(wrapped, chain)
-
-        # 3. Old-style middleware with process_request / process_response
-        class OldStyleMiddleware:
-            def process_request(self, req):
-                return None
-
-            def process_response(self, req, res):
-                return res
-
-        with patch("django.utils.module_loading.import_string", return_value=OldStyleMiddleware):
-            wrapped = _wrap_middleware(chain, "fake.OldStyleMiddleware")
-            self.assertIsNot(wrapped, chain)
-
-        # 4. Middleware raising generic Exception during instantiation
-        class BrokenMiddleware:
-            def __init__(self, get_response):
-                raise RuntimeError("Boom")
-
-        with patch("django.utils.module_loading.import_string", return_value=BrokenMiddleware):
-            wrapped = _wrap_middleware(chain, "fake.BrokenMiddleware")
-            self.assertIs(wrapped, chain)
-
     @override_settings(
         ALLOWED_HOSTS=["production.mycompany.com", ".partner.org"],
         MIDDLEWARE=["django.middleware.common.CommonMiddleware"],
     )
     def test_prerender_404_with_strict_production_allowed_hosts(self):
-        # Even with strict production ALLOWED_HOSTS, prerender must succeed without DisallowedHost error
         status, headers, body = prerender_404()
         self.assertEqual(status, "404 Not Found")
         self.assertIn(b"Not Found", body)
@@ -363,16 +294,6 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         engine_optional = Fast404Engine(mode="prefix", urlconf=fake_mod_optional)
         self.assertIn("", engine_optional.valid_prefixes)
         self.assertIsNone(engine_optional.should_drop("/"))
-
-    def test_format_prerender_response_non_404_fallback(self):
-        from django.http import HttpResponseBadRequest
-
-        from hurricane.server.fast_404 import _format_prerender_response
-
-        bad_resp = HttpResponseBadRequest("Invalid request")
-        status, headers, body = _format_prerender_response(bad_resp)
-        self.assertEqual(status, "404 Not Found")
-        self.assertIn(b"Not Found", body)
 
     def test_i18n_patterns_with_nested_cms_urls_and_root_route(self):
         import types

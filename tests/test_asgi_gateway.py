@@ -158,8 +158,18 @@ class HurricaneASGIGatewayTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(messages[1]["body"], b"Hello ASGI!")
 
     async def test_fast_404_interception(self):
+        async def not_found_asgi_app(scope, receive, send):
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [(b"content-type", b"text/plain")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b"Not Found"})
+
         gateway = HurricaneASGIGateway(
-            django_app=dummy_asgi_app,
+            django_app=not_found_asgi_app,
             options={"fast_404": "prefix"},
             include_probe=False,
         )
@@ -172,9 +182,20 @@ class HurricaneASGIGatewayTests(unittest.IsolatedAsyncioTestCase):
         async def receive():
             return {}
 
+        # 1. First request falls through to app, captures, and caches
         await gateway(scope, receive, send)
         self.assertEqual(messages[0]["status"], 404)
         self.assertIn(b"Not Found", messages[1]["body"])
+
+        # 2. Second request is an instant Fast-404 cache hit
+        messages2 = []
+
+        async def send2(msg):
+            messages2.append(msg)
+
+        await gateway(scope, receive, send2)
+        self.assertEqual(messages2[0]["status"], 404)
+        self.assertIn(b"Not Found", messages2[1]["body"])
 
     async def test_forward_standard_request(self):
         gateway = HurricaneASGIGateway(django_app=dummy_asgi_app, options={"no_fast_404": True}, include_probe=False)
