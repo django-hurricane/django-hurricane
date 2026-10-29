@@ -1180,6 +1180,8 @@ name = "django-hurricane"
 version = "2.0.0rc4"
 source = { editable = "." }
 dependencies = [
+    { name = "asgiref", version = "3.11.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
+    { name = "asgiref", version = "3.12.1", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10'" },
     { name = "django", version = "4.2.30", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.10'" },
     { name = "django", version = "5.2.18", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.10' and python_full_version < '3.12'" },
     { name = "django", version = "6.1.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
@@ -1232,6 +1234,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "asgiref", specifier = ">=3.8.0" },
     { name = "debugpy", marker = "extra == 'debug'", specifier = ">=1.5" },
     { name = "django", specifier = ">=2.2" },
     { name = "granian", extras = ["reload"], specifier = ">=2.0.0" },
