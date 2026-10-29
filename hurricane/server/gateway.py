@@ -154,8 +154,23 @@ try:
         instead of bottlenecking on a single shared background thread.
         """
 
+        duplicate_header_limit: int = 100
+
+        def __init__(self, wsgi_application, *args, **kwargs):
+            try:
+                super().__init__(wsgi_application, *args, **kwargs)
+            except TypeError:
+                super().__init__(wsgi_application)
+            if not hasattr(self, "duplicate_header_limit"):
+                self.duplicate_header_limit = kwargs.get("duplicate_header_limit", 100)
+
         async def __call__(self, scope, receive, send):
-            await FastWsgiToAsgiInstance(self.wsgi_application, self.duplicate_header_limit)(scope, receive, send)
+            dup_limit = getattr(self, "duplicate_header_limit", 100)
+            try:
+                instance = FastWsgiToAsgiInstance(self.wsgi_application, dup_limit)
+            except TypeError:
+                instance = FastWsgiToAsgiInstance(self.wsgi_application)
+            await instance(scope, receive, send)
 except ImportError:
 
     class FastWsgiToAsgi:  # type: ignore[no-redef]

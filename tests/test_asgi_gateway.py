@@ -393,3 +393,34 @@ class HurricaneASGIGatewayTests(unittest.IsolatedAsyncioTestCase):
         with patch.object(gateway, "check_func", side_effect=ValueError("Unexpected")):
             status, body = gateway._run_custom_check("health", HealthMetric)
             self.assertEqual(status, 500)
+
+    async def test_fast_wsgi_to_asgi_duplicate_header_limit(self):
+        from hurricane.server.gateway import FastWsgiToAsgi
+
+        def dummy_wsgi_app(environ, start_response):
+            start_response("200 OK", [("Content-Type", "text/plain")])
+            return [b"WSGI response"]
+
+        adapter = FastWsgiToAsgi(dummy_wsgi_app)
+        self.assertTrue(hasattr(adapter, "duplicate_header_limit"))
+        self.assertEqual(adapter.duplicate_header_limit, 100)
+
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/",
+            "query_string": b"",
+            "http_version": "1.1",
+            "headers": [(b"host", b"localhost")],
+        }
+        messages = []
+
+        async def send(msg):
+            messages.append(msg)
+
+        async def receive():
+            return {"type": "http.request", "body": b""}
+
+        await adapter(scope, receive, send)
+        self.assertEqual(messages[0]["status"], 200)
+        self.assertEqual(messages[1]["body"], b"WSGI response")
