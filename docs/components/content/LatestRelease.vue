@@ -11,12 +11,12 @@ const props = withDefaults(
     snippetPip?: string
   }>(),
   {
-    version: '2.0.0rc4',
+    version: '2.0.0rc5',
     date: 'October 2026',
-    githubUrl: 'https://github.com/django-hurricane/django-hurricane/releases/tag/2.0.0rc4',
-    pypiUrl: 'https://pypi.org/project/django-hurricane/2.0.0rc4/',
-    snippetUv: 'uv add django-hurricane==2.0.0rc4',
-    snippetPip: 'pip install django-hurricane==2.0.0rc4'
+    githubUrl: 'https://github.com/django-hurricane/django-hurricane/releases/tag/2.0.0rc5',
+    pypiUrl: 'https://pypi.org/project/django-hurricane/2.0.0rc5/',
+    snippetUv: 'uv add django-hurricane==2.0.0rc5',
+    snippetPip: 'pip install django-hurricane==2.0.0rc5'
   }
 )
 
