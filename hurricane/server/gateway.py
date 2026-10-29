@@ -654,6 +654,37 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             log_method(f"{status} {method} {path} ({remote_ip}) {elapsed_ms:.2f}ms")
 
 
+class _ASGIResponseRecorder:
+    """Helper for recording ASGI response status, headers, and body chunks."""
+
+    def __init__(self, send: Callable, capture_404: bool = False):
+        self.send = send
+        self.capture_404 = capture_404
+        self.status_code = 200
+        self.response_started = False
+        self.captured_headers: List[Tuple[str, str]] = []
+        self.captured_body_chunks: List[bytes] = []
+
+    def _record_headers(self, raw_headers: List[Any]) -> None:
+        for k, v in raw_headers:
+            k_str = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+            v_str = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+            self.captured_headers.append((k_str, v_str))
+
+    async def __call__(self, message: Mapping[str, Any]) -> None:
+        msg_type = message.get("type")
+        if msg_type == ASGI_HTTP_RESPONSE_START:
+            self.response_started = True
+            self.status_code = int(message.get("status", 200))
+            if self.status_code == 404 and self.capture_404:
+                self._record_headers(message.get("headers", []))
+        elif msg_type == ASGI_HTTP_RESPONSE_BODY and self.status_code == 404 and self.capture_404:
+            if body_chunk := message.get("body", b""):
+                self.captured_body_chunks.append(body_chunk)
+
+        await self.send(message)
+
+
 class HurricaneASGIGateway(BaseHurricaneGateway):
     """
     Unified ASGI gateway wrapping Django, probes, metrics, statics, and access logging.
@@ -858,6 +889,34 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             is_probe=False,
         )
 
+    def _cache_404_response(self, scope: Dict[str, Any], recorder: _ASGIResponseRecorder) -> None:
+        if recorder.status_code != 404 or not self.fast_404:
+            return
+        full_body = b"".join(recorder.captured_body_chunks)
+        if not full_body:
+            return
+        cache_key = scope.get("_hurricane_fast_404_cache_key") or self.fast_404.compute_cache_key_asgi(scope)
+        self.fast_404.store_response(cache_key, "404 Not Found", recorder.captured_headers, full_body)
+
+    async def _handle_django_exception(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        method: str,
+        path: str,
+        start_time: float,
+        response_started: bool,
+        exc: Exception,
+    ) -> None:
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        logger.error(
+            f"Unhandled exception while processing {method} {path}: {exc}",
+            exc_info=True,
+        )
+        self._log_asgi_request(scope, method, path, 500, elapsed_ms, is_probe=False)
+        if not response_started:
+            await self._send_response(scope, send, 500, b"Internal Server Error", start_time, is_probe=False)
+
     async def _forward_to_django(
         self,
         scope: Dict[str, Any],
@@ -867,53 +926,22 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         path: str,
         start_time: float,
     ) -> None:
-        status_code_container = [200]
-        response_started = False
-        captured_headers: List[Tuple[str, str]] = []
-        captured_body_chunks: List[bytes] = []
-
-        async def logging_send(message: Mapping[str, Any]) -> None:
-            nonlocal response_started
-            if message["type"] == ASGI_HTTP_RESPONSE_START:
-                response_started = True
-                status_code_container[0] = int(message.get("status", 200))
-                if status_code_container[0] == 404 and self.fast_404:
-                    raw_headers = message.get("headers", [])
-                    for k, v in raw_headers:
-                        k_str = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
-                        v_str = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
-                        captured_headers.append((k_str, v_str))
-            elif message["type"] == ASGI_HTTP_RESPONSE_BODY and status_code_container[0] == 404 and self.fast_404:
-                if body_chunk := message.get("body", b""):
-                    captured_body_chunks.append(body_chunk)
-
-            await send(message)
+        recorder = _ASGIResponseRecorder(send, capture_404=bool(self.fast_404))
 
         try:
-            await self.django_app(scope, receive, logging_send)
-        except Exception as e:
-            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-            logger.error(
-                f"Unhandled exception while processing {method} {path}: {e}",
-                exc_info=True,
-            )
-            self._log_asgi_request(scope, method, path, 500, elapsed_ms, is_probe=False)
-            if not response_started:
-                await self._send_response(scope, send, 500, b"Internal Server Error", start_time, is_probe=False)
+            await self.django_app(scope, receive, recorder)
+        except Exception as exc:
+            await self._handle_django_exception(scope, send, method, path, start_time, recorder.response_started, exc)
             return
 
-        if status_code_container[0] == 404 and self.fast_404:
-            cache_key = scope.get("_hurricane_fast_404_cache_key") or self.fast_404.compute_cache_key_asgi(scope)
-            full_body = b"".join(captured_body_chunks)
-            if full_body:
-                self.fast_404.store_response(cache_key, "404 Not Found", captured_headers, full_body)
+        self._cache_404_response(scope, recorder)
 
         elapsed_ms = (time.perf_counter() - start_time) * 1000.0
         if self.collect_metrics:
             RequestCounterMetric.increment()
             ResponseTimeAverageMetric.add_value(elapsed_ms)
 
-        self._log_asgi_request(scope, method, path, status_code_container[0], elapsed_ms, is_probe=False)
+        self._log_asgi_request(scope, method, path, recorder.status_code, elapsed_ms, is_probe=False)
 
     async def __call__(self, scope: Dict[str, Any], receive: Callable, send: Callable) -> None:
         if self.loop_lag_tracker:

@@ -290,6 +290,7 @@ class _DefaultToolbar:
     show_toolbar = False
 
     def __init__(self, *args, **kwargs):
+        # Empty initializer satisfying CMSToolbar interface without requiring django-cms runtime
         pass
 
 
