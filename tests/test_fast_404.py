@@ -18,6 +18,7 @@ class Fast404EngineTests(SimpleTestCase):
 
         attack_paths = [
             "/wp-login.php",
+            "/wp-admin/",
             "/wordpress/wp-admin/",
             "/.env",
             "/.env.production",
@@ -27,10 +28,24 @@ class Fast404EngineTests(SimpleTestCase):
             "/phpmyadmin/index.php",
             "/cgi-bin/script.cgi",
             "/actuator/health",
+            "/actuator/env",
             "/solr/admin",
             "/app.aspx",
             "/index.jsp",
             "/config.action",
+            "/_ignition/execute-solution",
+            "/telescope/requests",
+            "/core/install.php",
+            "/administrator/index.php",
+            "/manager/html",
+            "/package.json",
+            "/database.yml",
+            "/backup.sql.gz",
+            "/elmah.axd",
+            "/c99.php",
+            "/phpinfo.php",
+            "/de/wp-admin/",
+            "/en/.env",
         ]
         for attack_path in attack_paths:
             drop = engine.should_drop(attack_path)
@@ -40,11 +55,16 @@ class Fast404EngineTests(SimpleTestCase):
 
         safe_paths = [
             "/",
+            "/admin/",
+            "/admin/login/",
+            "/admin/auth/user/",
             "/medium",
             "/api/v1/users/",
             "/upload",
             "/media/test.png",
             "/static/css/style.css",
+            "/.well-known/acme-challenge/token123",
+            "/.well-known/openid-configuration",
         ]
         for safe_path in safe_paths:
             drop = engine.should_drop(safe_path)
@@ -394,7 +414,7 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
             )
             await send({"type": "http.response.body", "body": b"<html>Custom 404 from CMS</html>"})
 
-        engine = Fast404Engine(mode="signature")
+        engine = Fast404Engine(mode="prefix")
         engine._cache.clear()
 
         gateway = HurricaneASGIGateway(django_app=fake_django, options={"no_fast_404": False})
@@ -403,7 +423,7 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         scope = {
             "type": "http",
             "method": "GET",
-            "path": "/wp-login.php",
+            "path": "/unknown-prefix/page",
             "headers": [(b"host", b"shop.example.com")],
         }
 
@@ -436,3 +456,64 @@ class Fast404GatewayIntegrationTests(SimpleTestCase):
         self.assertEqual(django_calls, 1)  # Django was NOT invoked a second time!
         self.assertEqual(msgs2[0]["status"], 404)
         self.assertEqual(msgs2[1]["body"], b"<html>Custom 404 from CMS</html>")
+
+    def test_signature_attack_serves_cached_custom_404_when_cache_is_warm(self):
+        import asyncio
+
+        from hurricane.server.gateway import HurricaneASGIGateway
+
+        django_calls = 0
+
+        async def fake_django(scope, receive, send):
+            nonlocal django_calls
+            django_calls += 1
+            await send(
+                {
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [(b"content-type", b"text/html; charset=utf-8")],
+                }
+            )
+            await send({"type": "http.response.body", "body": b"<html>Custom CMS 404</html>"})
+
+        engine = Fast404Engine(mode="signature")
+        gateway = HurricaneASGIGateway(django_app=fake_django, options={"no_fast_404": False})
+        gateway.fast_404 = engine
+
+        scope_attack = {
+            "type": "http",
+            "method": "GET",
+            "path": "/wp-admin/",
+            "headers": [(b"host", b"shop.example.com")],
+        }
+
+        # 1. Cold cache: signature attack is dropped immediately with fallback HTML without touching Django
+        msgs1: list = []
+
+        async def send1(m):
+            msgs1.append(m)
+
+        async def recv1():
+            return {}
+
+        asyncio.run(gateway(scope_attack, recv1, send1))
+        self.assertEqual(django_calls, 0)
+        self.assertEqual(msgs1[0]["status"], 404)
+        self.assertIn(b"Page Not Found", msgs1[1]["body"])
+
+        # 2. Warm up the cache for this host & language
+        cache_key = engine.compute_cache_key_asgi(scope_attack)
+        engine.store_response(
+            cache_key, "404 Not Found", [("Content-Type", "text/html; charset=utf-8")], b"<html>Custom CMS 404</html>"
+        )
+
+        # 3. Warm cache: signature attack is served the authentic custom rendered 404 content!
+        msgs2: list = []
+
+        async def send2(m):
+            msgs2.append(m)
+
+        asyncio.run(gateway(scope_attack, recv1, send2))
+        self.assertEqual(django_calls, 0)  # Still 0 calls to Django!
+        self.assertEqual(msgs2[0]["status"], 404)
+        self.assertEqual(msgs2[1]["body"], b"<html>Custom CMS 404</html>")

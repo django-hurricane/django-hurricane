@@ -11,41 +11,34 @@ except ImportError:
     logger = logging.getLogger("hurricane.server.fast_404")
 
 DEFAULT_ANTI_DJANGO_PATTERNS: List[str] = [
-    # 1. Non-Python Executable / Script Extensions
-    r"\.php[0-9]?$",
-    r"\.asp[x]?$",
-    r"\.jsp[x]?$",
-    r"\.cgi$",
-    r"\.pl$",
-    r"\.action$",
-    r"\.do$",
+    # 1. Non-Python Script & Binary Extensions (PHP, ASP.NET, Java JSP/Servlets, Perl/CGI)
+    r"\.(?:php[0-9]?|asp[x]?|jsp[x]?|cgi|pl|action|do|ashx|asmx|axd|faces|dll|exe)$",
     # 2. Sensitive Config & Environment Files
-    r"^/\.env(\..*)?$",
-    r"^/\.git(/.*)?$",
-    r"^/\.svn(/.*)?$",
-    r"^/\.hg(/.*)?$",
-    r"^/\.DS_Store$",
-    r"^/\.aws(/.*)?$",
-    r"^/\.docker(/.*)?$",
-    r"^/web\.config$",
-    r"^/docker-compose\.ya?ml$",
-    # 3. Common PHP/CMS Scanner Probes
-    r"^/wp-",
-    r"^/wordpress",
-    r"^/xmlrpc\.php",
-    r"^/phpmyadmin",
-    r"^/pma",
-    r"^/myadmin",
-    r"^/admin\.php",
-    r"^/login\.php",
-    r"^/eval-stdin\.php",
-    # 4. Dangerous Tools & Remote Code Execution Probes
-    r"^/cgi-bin/",
-    r"^/actuator(/.*)?$",
-    r"^/solr(/.*)?$",
-    r"^/vendor/phpunit/",
-    r"^/autodiscover/",
-    r"^/geoserver/",
+    r"(?:^|/)\.(?:env(?:\..*)?|git(?:/.*)?|svn(?:/.*)?|hg(?:/.*)?|aws(?:/.*)?|docker(?:/.*)?|htaccess|DS_Store|bash_history)$",
+    r"(?:^|/)(?:web\.config|docker-compose\.ya?ml|database\.yml)$",
+    # 3. Database Dumps & SQL Backups
+    r"(?:^|/)(?:dump|backup|database|db|users|data)\.sql(?:\.(?:gz|tar|zip|bz2))?$",
+    # 4. Node.js & Ruby Artifacts
+    r"(?:^|/)(?:package\.json|package-lock\.json|yarn\.lock|npm-debug\.log)$",
+    r"(?:^|/)rails/(?:info|mailers)",
+    # 5. PHP / WordPress / CMS Specific Scanner Probes
+    r"(?:^|/)(?:wp-admin|wp-content|wp-includes|wp-json/wp|wp-config\.php|xmlrpc\.php)",
+    r"(?:^|/)(?:wordpress|phpmyadmin|pma|myadmin|adminer)(?:/.*)?$",
+    r"(?:^|/)(?:phpinfo|info|test|shell|c99|r57|wso|alfa|eval-stdin)\.php$",
+    # 6. PHP Framework Backdoors & Debuggers (Laravel, Drupal, Joomla, Magento)
+    r"(?:^|/)_ignition/(?:execute-solution|health-check)",
+    r"(?:^|/)(?:telescope|horizon)(?:/.*)?$",
+    r"(?:^|/)(?:core/install\.php|update\.php|cron\.php)$",
+    r"(?:^|/)administrator/(?:index\.php|manifests/)?$",
+    r"(?:^|/)vendor/phpunit/",
+    # 7. Java / Spring Boot / Enterprise App Servers & Cloud Probes
+    r"(?:^|/)actuator(?:/(?:env|heapdump|health|metrics|logfile|gateway|mappings|beans|configprops))?(?:/.*)?$",
+    r"(?:^|/)(?:jmx-console|web-console|invoker/JMXInvokerServlet)(?:/.*)?$",
+    r"(?:^|/)(?:manager|host-manager)/(?:html|status|text)(?:/.*)?$",
+    r"(?:^|/)solr/(?:admin/)?",
+    r"(?:^|/)geoserver/(?:web/)?",
+    r"(?:^|/)autodiscover/",
+    r"(?:^|/)cgi-bin/",
 ]
 
 

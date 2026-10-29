@@ -463,7 +463,8 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         start_response: Callable,
         path: str,
     ) -> Optional[Any]:
-        if self.fast_404 and self.fast_404.should_drop(path):
+        if self.fast_404 and (drop_info := self.fast_404.should_drop(path)):
+            drop_type, _ = drop_info
             cache_key = self.fast_404.compute_cache_key_wsgi(environ)
             if cached := self.fast_404.get_cached(cache_key):
                 status, headers, body = cached
@@ -471,6 +472,14 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
                     RequestCounterMetric.increment()
                 start_response(status, headers)
                 return [body]
+
+            if drop_type == "signature":
+                status, headers, body = self.fast_404.get_response()
+                if self.collect_metrics:
+                    RequestCounterMetric.increment()
+                start_response(status, headers)
+                return [body]
+
             environ["_hurricane_fast_404_cache_key"] = cache_key
             return None
 
@@ -801,28 +810,48 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         )
         return True
 
+    async def _send_fast_404_response(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        path: str,
+        start_time: float,
+        status_line: str,
+        headers: List[Tuple[str, str]],
+        body: bytes,
+    ) -> bool:
+        if self.collect_metrics:
+            RequestCounterMetric.increment()
+        try:
+            status_code = int(status_line.split()[0])
+        except (ValueError, IndexError):
+            status_code = 404
+
+        asgi_headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers]
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": asgi_headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
+
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_asgi_request(scope, scope.get("method", "GET"), path, status_code, elapsed_ms, is_probe=False)
+        return True
+
     async def _try_handle_fast_404(self, scope: Dict[str, Any], send: Callable, path: str, start_time: float) -> bool:
-        if not (self.fast_404 and self.fast_404.should_drop(path)):
+        if not self.fast_404:
             return False
 
+        drop_info = self.fast_404.should_drop(path)
+        if not drop_info:
+            return False
+
+        drop_type, _ = drop_info
         cache_key = self.fast_404.compute_cache_key_asgi(scope)
-        cached_resp = self.fast_404.get_cached(cache_key)
-        if cached_resp is not None:
+        if cached_resp := self.fast_404.get_cached(cache_key):
             status_line, headers, body = cached_resp
-            if self.collect_metrics:
-                RequestCounterMetric.increment()
-            try:
-                status_code = int(status_line.split()[0])
-            except (ValueError, IndexError):
-                status_code = 404
+            return await self._send_fast_404_response(scope, send, path, start_time, status_line, headers, body)
 
-            asgi_headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers]
-            await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": asgi_headers})
-            await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
-
-            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
-            self._log_asgi_request(scope, scope.get("method", "GET"), path, status_code, elapsed_ms, is_probe=False)
-            return True
+        if drop_type == "signature":
+            status_line, headers, body = self.fast_404.get_response()
+            return await self._send_fast_404_response(scope, send, path, start_time, status_line, headers, body)
 
         scope["_hurricane_fast_404_cache_key"] = cache_key
         return False
