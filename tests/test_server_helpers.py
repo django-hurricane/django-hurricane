@@ -132,7 +132,7 @@ class ServerHelpersTests(SimpleTestCase):
         self.assertFalse(has_catchall)
 
     def test_prerender_404(self):
-        status, headers, body = prerender_404(urlconf=None)
+        status, headers, body = prerender_404()
         self.assertEqual(status, "404 Not Found")
         self.assertIn(b"Not Found", body)
 

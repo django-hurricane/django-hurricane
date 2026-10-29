@@ -179,7 +179,7 @@ def _get_fallback_404_response() -> Tuple[str, List[Tuple[str, str]], bytes]:
     )
 
 
-def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
+def prerender_404() -> Tuple[str, List[Tuple[str, str]], bytes]:
     """
     Deprecated: Fast-404 uses on-demand caching from the real Django 404 handler on first hit.
     Returns the default fallback 404 response.
