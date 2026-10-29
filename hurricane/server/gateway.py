@@ -800,7 +800,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             status_code_int = 429
 
         # Convert header list to bytes tuples for ASGI
-        asgi_headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers]
+        asgi_headers = [(k.lower().encode("utf-8"), v.encode("utf-8")) for k, v in headers]
         await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code_int, "headers": asgi_headers})
         await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
 
@@ -827,7 +827,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         except (ValueError, IndexError):
             status_code = 404
 
-        asgi_headers = [(k.encode("utf-8"), v.encode("utf-8")) for k, v in headers]
+        asgi_headers = [(k.lower().encode("utf-8"), v.encode("utf-8")) for k, v in headers]
         await send({"type": ASGI_HTTP_RESPONSE_START, "status": status_code, "headers": asgi_headers})
         await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": body})
 
