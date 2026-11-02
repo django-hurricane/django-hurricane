@@ -33,6 +33,8 @@ STARTUP_NOT_FINISHED_MESSAGE: bytes = b"Startup is not finished yet"
 STATUS_200_OK: str = "200 OK"
 ASGI_HTTP_RESPONSE_START: str = "http.response.start"
 ASGI_HTTP_RESPONSE_BODY: str = "http.response.body"
+DEFAULT_STATIC_CACHE_CONTROL: str = "public, max-age=86400"
+DEFAULT_STATIC_CACHE_CONTROL_BYTES: bytes = b"public, max-age=86400"
 
 
 class WorkerBacklogTracker:
@@ -653,7 +655,7 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
             headers = [
                 ("ETag", etag),
                 ("Last-Modified", last_modified),
-                ("Cache-Control", "public, max-age=86400"),
+                ("Cache-Control", DEFAULT_STATIC_CACHE_CONTROL),
             ]
             start_response("304 Not Modified", headers)
             elapsed_ms = (time.perf_counter() - start_time) * 1000.0
@@ -669,7 +671,7 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
 
         content_type, _ = mimetypes.guess_type(file_path)
         content_type = content_type or "application/octet-stream"
-        cache_control = "no-cache" if getattr(settings, "DEBUG", False) else "public, max-age=86400"
+        cache_control = "no-cache" if getattr(settings, "DEBUG", False) else DEFAULT_STATIC_CACHE_CONTROL
 
         headers = [
             ("Content-Type", content_type),
@@ -981,7 +983,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
 
         content_type, _ = mimetypes.guess_type(file_path)
         content_type = content_type or "application/octet-stream"
-        cache_control = "no-cache" if getattr(settings, "DEBUG", False) else "public, max-age=86400"
+        cache_control = "no-cache" if getattr(settings, "DEBUG", False) else DEFAULT_STATIC_CACHE_CONTROL
 
         headers = [
             (b"content-type", content_type.encode("utf-8")),
@@ -1020,7 +1022,7 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         headers = [
             (b"etag", etag.encode("utf-8")),
             (b"last-modified", last_modified.encode("utf-8")),
-            (b"cache-control", b"public, max-age=86400"),
+            (b"cache-control", DEFAULT_STATIC_CACHE_CONTROL_BYTES),
         ]
         await send({"type": ASGI_HTTP_RESPONSE_START, "status": 304, "headers": headers})
         await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": b""})

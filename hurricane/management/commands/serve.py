@@ -500,7 +500,7 @@ class Command(BaseCommand):
             workers = options.get("workers") or min(32, container_cpus + 4)
             options["req_queue_len"] = workers * 2
 
-    def _run_collectstatic(self, options: dict) -> None:
+    def _run_collectstatic(self) -> None:
         from django.core.management import call_command
 
         if STRUCTLOG_ENABLED:
@@ -525,7 +525,7 @@ class Command(BaseCommand):
                 apply_migration=bool(options.get("check_migrations_apply")),
             )
         if options.get("collectstatic"):
-            self._run_collectstatic(options)
+            self._run_collectstatic()
 
     def _start_memory_monitor(self, options: dict) -> None:
         max_mem = options.get("max_memory")
@@ -618,61 +618,73 @@ class Command(BaseCommand):
                 f"port={port}"
             )
 
+    def _log_mount_status(self, kind: str, route: str, root_path: Path) -> None:
+        if STRUCTLOG_ENABLED:
+            logger.info(
+                f"Granian native {kind} serving active",
+                route=route,
+                root=str(root_path),
+            )
+        else:
+            logger.info(f"Granian native {kind} serving active under {route} from {root_path}")
+
+    def _resolve_static_mount(self, options: dict) -> Optional[Tuple[str, Path]]:
+        if not (options.get("static") and getattr(settings, "STATIC_ROOT", None)):
+            return None
+        is_debug = bool(options.get("debug") or getattr(settings, "DEBUG", False))
+        if is_debug:
+            return None
+        root_path = Path(settings.STATIC_ROOT).resolve()
+        if not (root_path.is_dir() and any(root_path.iterdir())):
+            return None
+        route = "/" + getattr(settings, "STATIC_URL", "/static/").strip("/")
+        self._log_mount_status("static", route, root_path)
+        return route, root_path
+
+    def _resolve_media_mount(self, options: dict) -> Optional[Tuple[str, Path]]:
+        if not (options.get("media") and getattr(settings, "MEDIA_ROOT", None)):
+            return None
+        root_path = Path(settings.MEDIA_ROOT).resolve()
+        if not root_path.is_dir():
+            return None
+        route = "/" + getattr(settings, "MEDIA_URL", "/media/").strip("/")
+        self._log_mount_status("media", route, root_path)
+        return route, root_path
+
     def _resolve_granian_static_mounts(self, options: dict) -> Tuple[Optional[List[str]], Optional[List[Path]]]:
         static_routes: List[str] = []
         static_mounts: List[Path] = []
 
-        is_debug = bool(options.get("debug") or getattr(settings, "DEBUG", False))
+        if static_mount := self._resolve_static_mount(options):
+            route, path = static_mount
+            static_routes.append(route)
+            static_mounts.append(path)
 
-        if options.get("static") and getattr(settings, "STATIC_ROOT", None):
-            static_root_path = Path(settings.STATIC_ROOT).resolve()
-            if static_root_path.is_dir() and any(static_root_path.iterdir()) and not is_debug:
-                static_url = "/" + getattr(settings, "STATIC_URL", "/static/").strip("/")
-                static_routes.append(static_url)
-                static_mounts.append(static_root_path)
-                if STRUCTLOG_ENABLED:
-                    logger.info(
-                        "Granian native static serving active",
-                        route=static_url,
-                        root=str(static_root_path),
-                    )
-                else:
-                    logger.info(f"Granian native static serving active under {static_url} from {static_root_path}")
-
-        if options.get("media") and getattr(settings, "MEDIA_ROOT", None):
-            media_root_path = Path(settings.MEDIA_ROOT).resolve()
-            if media_root_path.is_dir():
-                media_url = "/" + getattr(settings, "MEDIA_URL", "/media/").strip("/")
-                static_routes.append(media_url)
-                static_mounts.append(media_root_path)
-                if STRUCTLOG_ENABLED:
-                    logger.info(
-                        "Granian native media serving active",
-                        route=media_url,
-                        root=str(media_root_path),
-                    )
-                else:
-                    logger.info(f"Granian native media serving active under {media_url} from {media_root_path}")
+        if media_mount := self._resolve_media_mount(options):
+            route, path = media_mount
+            static_routes.append(route)
+            static_mounts.append(path)
 
         return (static_routes or None, static_mounts or None)
+
+    @staticmethod
+    def _append_unique_path(paths: List[Path], raw_path: Any) -> None:
+        raw = raw_path[1] if isinstance(raw_path, (tuple, list)) else raw_path
+        p_obj = Path(raw).resolve()
+        if p_obj.exists() and p_obj not in paths:
+            paths.append(p_obj)
 
     def _resolve_granian_reload_paths(self, options: dict) -> Optional[List[Path]]:
         if not options.get("autoreload"):
             return None
 
         paths: List[Path] = []
-        if options.get("static_watch"):
-            for p in options["static_watch"]:
-                p_obj = Path(p).resolve()
-                if p_obj.exists() and p_obj not in paths:
-                    paths.append(p_obj)
+        for p in options.get("static_watch") or []:
+            self._append_unique_path(paths, p)
 
-        if options.get("static") and getattr(settings, "STATICFILES_DIRS", None):
-            for d in settings.STATICFILES_DIRS:
-                raw_path = d[1] if isinstance(d, (tuple, list)) else d
-                d_path = Path(raw_path).resolve()
-                if d_path.exists() and d_path not in paths:
-                    paths.append(d_path)
+        if options.get("static"):
+            for d in getattr(settings, "STATICFILES_DIRS", []) or []:
+                self._append_unique_path(paths, d)
 
         return paths or None
 
