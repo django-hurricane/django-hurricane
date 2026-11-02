@@ -1,19 +1,19 @@
 # Django Hurricane
 
-> The Kubernetes-Native Application Server for Django, powered by a high-performance Rust engine ([Granian](https://github.com/emmett-framework/granian) / Hyper / Tokio).
+> The High-Performance, Django-Native Application Server for Docker, Cloud, and Kubernetes.
 
-Django Hurricane connects Django directly to Kubernetes container lifecycles, health probes, Prometheus metrics, and edge security shields (Fast-404 and Token-Bucket Rate Limiter) without extra reverse proxies or boilerplates.
+Django Hurricane is a production-ready application server built specifically for Django. Powered by Granian's high-performance Rust core (Hyper / Tokio), Hurricane replaces Gunicorn, Uvicorn, Nginx sidecars, and WhiteNoise with a unified, zero-configuration runtime.
 
 ## Core Features
 
-- **Rust-Powered HTTP Engine:** Built on [Granian](https://github.com/emmett-framework/granian) (Rust Hyper + Tokio), replacing Python event loops with zero-copy asynchronous I/O and native multi-core worker threads.
-- **Zero-Config WSGI & ASGI Auto-Detection:** Automatically executes WSGI (`WSGI_APPLICATION`) or ASGI (`ASGI_APPLICATION`) based on project settings.
-- **Native Kubernetes Probes:** Out-of-the-box `/startup`, `/alive`, and `/ready` probes synchronized via POSIX shared memory (`/dev/shm`).
-- **Traffic Shedding Under Congestion:** Saturated worker backlogs (WSGI) or event loop lag (ASGI) automatically trigger HTTP 400 on `/ready` to shed Ingress traffic before pods crash.
+- **Granian Core Engine:** High-performance HTTP 1.1/2 handling powered by Rust's Hyper and Tokio, delivering zero-copy asynchronous networking and 2x higher throughput than Gunicorn or Tornado.
+- **Zero-Config WSGI & ASGI Auto-Detection:** Automatically executes WSGI (`WSGI_APPLICATION`) or ASGI (`ASGI_APPLICATION`) from Django settings.
+- **Three-Tier Static & Media Asset Serving:** Nginx-grade static asset streaming via kernel sendfile and HTTP 304 caching, plus zero-setup live development finders fallback (`--static`, `--media`).
 - **First-Line Defense Shields:**
-  - **Fast-404:** Intercepts bot/scanner dictionary attacks (`.php`, `/.env`, `wp-admin`) at the gateway in <50µs with zero Django overhead and silent drop logging.
-  - **Rate Limiter:** Token-bucket rate limiter (default: 10 req/s, burst 30) with proxy header client IP extraction (`X-Forwarded-For`, `CF-Connecting-IP`, `X-Real-IP`).
-- **Built-in Prometheus Metrics:** Exposes `/metrics` endpoint with request counts, average latency, queue depth, and a framework for custom application metrics.
+  - **Fast-404:** Intercepts bot/scanner dictionary attacks (`.php`, `/.env`, `/wp-admin/`) at the gateway in &lt;0.35µs with zero Django overhead and silent drop logging.
+  - **Token-Bucket Rate Limiter:** Enforces traffic quotas (default: 10 req/s, burst 30) with proxy header client IP extraction (`X-Forwarded-For`, `CF-Connecting-IP`, `X-Real-IP`).
+- **Deep Health & Observability:** Out-of-the-box `/startup`, `/alive`, `/ready`, and `/metrics` (Prometheus) endpoints compatible with Docker healthchecks, AWS ALBs, and Kubernetes probes.
+- **Traffic Shedding Under Congestion:** Saturated worker backlogs automatically trigger HTTP 400 on `/ready` to shed Ingress traffic before containers crash.
 
 ## Quickstart
 
@@ -34,13 +34,16 @@ INSTALLED_APPS = [
 
 Run server:
 ```bash
-python manage.py serve --port=8000 --probe-port=8001
+python manage.py serve --port=8000 --static --media
 ```
 
 ## CLI Reference (`manage.py serve`)
 
 - `--port`: Application HTTP port (default: 8000).
-- `--probe-port`: Probe/metrics port (default: port + 1). Set equal to `--port` for integrated routing.
+- `--probe-port`: Probe/metrics port (default: port + 1, e.g. 8001). Set equal to `--port` for single-port integrated routing.
+- `--static`: Enable static files serving (auto-detects `STATIC_ROOT` and `STATIC_URL`).
+- `--media`: Enable user-uploaded media files serving (auto-detects `MEDIA_ROOT` and `MEDIA_URL`).
+- `--collectstatic`: Run `collectstatic --noinput` automatically on server startup.
 - `--workers`: Number of worker threads / max concurrency ceiling (default: container CPUs + 4).
 - `--runtime-threads`: Rust/Tokio runtime worker threads (default: detected container CPUs, capped at 4).
 - `--req-queue-len`: Saturated queue threshold for readiness failure (default: workers * 2).
@@ -48,24 +51,13 @@ python manage.py serve --port=8000 --probe-port=8001
 - `--rate-limit`: Rate limit frequency (e.g. `10/s`, `off`).
 - `--rate-limit-burst`: Token-bucket burst allowance (default: 30).
 - `--rate-limit-proxy-header`: Header for client IP extraction (`X-Forwarded-For`, `CF-Connecting-IP`, `X-Real-IP`).
-- `--max-memory`: Worker RSS memory limit in MB for graceful recycling (e.g. `400`).
-- `--check-migrations-apply`: Check and apply pending DB migrations before marking `/startup` successful.
 
-## Documentation Index
+## Key Documentation Links
 
-- [Getting Started Guide](https://django-hurricane.io/guides/getting-started): Quickstart and initial setup.
-- [Kubernetes Deployment Guide](https://django-hurricane.io/guides/kubernetes-deployment): Production Deployment, Service, and HPA manifests.
-- [Custom Prometheus Metrics Guide](https://django-hurricane.io/guides/custom-metrics): Developing custom Counter, Stored, Calculated, and Observed metrics.
-- [Reverse Proxies & Ingress Guide](https://django-hurricane.io/guides/reverse-proxies): Setting up Cloudflare, Nginx, and Ingress-Nginx.
-- [Configuration Reference](https://django-hurricane.io/configuration/settings): Complete list of all CLI flags and Django settings.
-- [Django on Kubernetes vs. Gunicorn](https://django-hurricane.io/concepts/django-kubernetes-vs-gunicorn): Architectural comparison of running Django in Kubernetes with Hurricane vs Gunicorn and uWSGI.
-- [ASGI vs. WSGI Architecture](https://django-hurricane.io/concepts/asgi-vs-wsgi): Concurrency models and event loop lag tracking.
-- [Rust Engine Architecture](https://django-hurricane.io/concepts/rust-engine): How Hurricane's Rust engine, Hyper, and Tokio operate.
-- [Kubernetes Probes](https://django-hurricane.io/concepts/kubernetes-probes): Deep dive into `/startup`, `/alive`, and `/ready`.
-- [Fast-404 Protection](https://django-hurricane.io/concepts/fast-404-protection): Gateway-level scanner mitigation.
-- [Rate Limiting](https://django-hurricane.io/concepts/rate-limiting): DoS and flood prevention.
-- [POSIX Shared Memory Metrics](https://django-hurricane.io/concepts/shared-memory-metrics): Cross-process atomic metrics architecture.
-- [Webhooks](https://django-hurricane.io/concepts/webhooks): Cluster notification lifecycle webhooks.
-- [Benchmark Suite Overview](https://django-hurricane.io/performance/benchmark-suite): Empirical benchmarks evaluating WSGI and ASGI deployments across 7 workload routes.
-- [Kubernetes Scaling & Pod Constraints](https://django-hurricane.io/performance/kubernetes-scaling-findings): Impact of small pod resource constraints (1-2 vCPUs), thread starvation, and probe flapping prevention.
-- [Conclusions & Architecture Recommendations](https://django-hurricane.io/performance/architecture-recommendations): Architectural decision tree, partial async trap, and production deployment checklists.
+- **Getting Started:** https://django-hurricane.io/guides/getting-started
+- **Standalone, Docker & Cloud Deployments:** https://django-hurricane.io/guides/standalone-and-cloud-deployments
+- **Static & Media Serving Architecture:** https://django-hurricane.io/guides/static-and-media-files
+- **Kubernetes Production Guide:** https://django-hurricane.io/guides/kubernetes-deployment
+- **Benchmark Suite & Results:** https://django-hurricane.io/performance/benchmark-suite
+- **Kubernetes Sizing & Architecture Recommendations:** https://django-hurricane.io/performance/architecture-recommendations
+- **Product Roadmap:** https://django-hurricane.io/roadmap/feature-roadmap

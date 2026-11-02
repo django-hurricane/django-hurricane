@@ -6,7 +6,6 @@ export default defineNuxtConfig({
         lang: 'en'
       },
       link: [
-        { rel: 'canonical', href: 'https://django-hurricane.io' },
         { rel: 'icon', type: 'image/x-icon', href: '/favicon.ico' }
       ],
       meta: [
@@ -24,18 +23,19 @@ export default defineNuxtConfig({
             '@type': 'SoftwareApplication',
             'name': 'Django Hurricane',
             'applicationCategory': 'DeveloperApplication',
-            'operatingSystem': 'Linux',
+            'operatingSystem': 'Linux, macOS, Windows',
             'programmingLanguage': 'Python, Rust',
-            'softwareVersion': '2.0.0',
+            'softwareVersion': '2.0.0rc6',
             'license': 'https://opensource.org/licenses/MIT',
-            'description': 'The Kubernetes-Native Application Server for Django powered by Granian (Rust Hyper/Tokio).'
+            'description': 'The high-performance, Django-native application server with built-in edge defense, native static asset serving, and deep health observability.'
           })
         }
       ]
     }
   },
   plugins: [
-    '~/plugins/simpleanalytics.client.js'
+    '~/plugins/simpleanalytics.client.js',
+    '~/plugins/canonical.ts'
   ],
   content: {
     highlight: {
