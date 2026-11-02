@@ -49,7 +49,7 @@ SITE_ID = 1
 MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "tests/testapp/test_media/")
 STATIC_URL = "/static/"
-STATIC_ROOT = os.path.join(BASE_DIR, "tests/testapp/test_media/")
+STATIC_ROOT = os.path.join(BASE_DIR, "tests/testapp/test_static/")
 
 ROOT_URLCONF = "tests.testapp.urls"
 

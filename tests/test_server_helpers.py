@@ -393,3 +393,72 @@ class ServerHelpersTests(SimpleTestCase):
 
         # Unregistering non-existent webhook should not raise
         reg.unregister(DummyWebhook)
+
+    def test_resolve_granian_static_mounts_production(self):
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        with tempfile.TemporaryDirectory() as tmp_static, tempfile.TemporaryDirectory() as tmp_media:
+            # Create a file in static so it's populated
+            test_file = Path(tmp_static) / "test.css"
+            test_file.write_text("body {}")
+
+            with (
+                patch("django.conf.settings.STATIC_ROOT", tmp_static),
+                patch("django.conf.settings.STATIC_URL", "/static/"),
+                patch("django.conf.settings.MEDIA_ROOT", tmp_media),
+                patch("django.conf.settings.MEDIA_URL", "/media/"),
+                patch("django.conf.settings.DEBUG", False),
+            ):
+                routes, mounts = cmd._resolve_granian_static_mounts({"static": True, "media": True, "debug": False})
+                self.assertIsNotNone(routes)
+                self.assertIsNotNone(mounts)
+                self.assertIn("/static", routes)
+                self.assertIn("/media", routes)
+                self.assertEqual(len(mounts), 2)
+
+    def test_resolve_granian_static_mounts_debug_fallback(self):
+        from unittest.mock import patch
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        with tempfile.TemporaryDirectory() as tmp_static:
+            with (
+                patch("django.conf.settings.STATIC_ROOT", tmp_static),
+                patch("django.conf.settings.STATIC_URL", "/static/"),
+                patch("django.conf.settings.DEBUG", True),
+            ):
+                # When debug is True, static is not mounted natively in Granian so dynamic finders handle it
+                routes, mounts = cmd._resolve_granian_static_mounts({"static": True, "debug": True})
+                self.assertIsNone(routes)
+                self.assertIsNone(mounts)
+
+    def test_resolve_granian_reload_paths(self):
+        from pathlib import Path
+        from unittest.mock import patch
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        with tempfile.TemporaryDirectory() as watch_dir, tempfile.TemporaryDirectory() as staticfiles_dir:
+            with patch("django.conf.settings.STATICFILES_DIRS", [staticfiles_dir]):
+                paths = cmd._resolve_granian_reload_paths(
+                    {"autoreload": True, "static": True, "static_watch": [watch_dir]}
+                )
+                self.assertIsNotNone(paths)
+                self.assertIn(Path(watch_dir).resolve(), paths)
+                self.assertIn(Path(staticfiles_dir).resolve(), paths)
+
+    def test_collectstatic_preflight_execution(self):
+        from unittest.mock import patch
+
+        from hurricane.management.commands.serve import Command
+
+        cmd = Command()
+        with patch("django.core.management.call_command") as mock_call:
+            cmd._run_preflight_tasks({"collectstatic": True})
+            mock_call.assert_called_with("collectstatic", interactive=False, clear=False)

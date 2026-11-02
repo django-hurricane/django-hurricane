@@ -392,6 +392,220 @@ class HurricaneASGIGatewayTests(unittest.IsolatedAsyncioTestCase):
             await gateway(scope_traversal, receive, send_traversal)
             self.assertEqual(messages_traversal[0]["status"], 404)
 
+    async def test_asgi_static_serving_etag_and_304(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            static_file = os.path.join(tmpdir, "style.css")
+            with open(static_file, "w") as f:
+                f.write("body { margin: 0; }")
+
+            gateway = HurricaneASGIGateway(
+                django_app=dummy_asgi_app,
+                options={"static": True},
+                include_probe=False,
+            )
+            gateway.static_enabled = True
+            gateway.static_root = tmpdir
+            gateway.static_url = "/static/"
+
+            msgs1: list = []
+
+            async def send1(m):
+                msgs1.append(m)
+
+            async def recv():
+                return {}
+
+            scope1 = {"type": "http", "path": "/static/style.css", "method": "GET"}
+            await gateway(scope1, recv, send1)
+            self.assertEqual(msgs1[0]["status"], 200)
+            headers1 = {k.lower(): v.decode() for k, v in msgs1[0]["headers"]}
+            self.assertIn(b"etag", headers1)
+            self.assertIn(b"last-modified", headers1)
+            etag = headers1[b"etag"]
+
+            msgs2: list = []
+
+            async def send2(m):
+                msgs2.append(m)
+
+            scope2 = {
+                "type": "http",
+                "path": "/static/style.css",
+                "method": "GET",
+                "headers": [(b"if-none-match", etag.encode())],
+            }
+            await gateway(scope2, recv, send2)
+            self.assertEqual(msgs2[0]["status"], 304)
+            self.assertEqual(msgs2[1]["body"], b"")
+
+    async def test_asgi_static_serving_finders_fallback(self):
+        import tempfile
+
+        from django.conf import settings
+        from django.test import override_settings
+
+        gateway = HurricaneASGIGateway(
+            django_app=dummy_asgi_app,
+            options={"static": True},
+            include_probe=False,
+        )
+        gateway.static_enabled = True
+        gateway.static_root = "/non/existent/static/root"
+        gateway.static_url = "/static/"
+
+        with override_settings(INSTALLED_APPS=list(settings.INSTALLED_APPS) + ["django.contrib.staticfiles"]):
+            with patch("django.contrib.staticfiles.finders.find") as mock_find:
+                with tempfile.NamedTemporaryFile(suffix=".css") as tmp:
+                    tmp.write(b"/* finder css */")
+                    tmp.flush()
+                    mock_find.return_value = tmp.name
+
+                    msgs: list = []
+
+                    async def send(m):
+                        msgs.append(m)
+
+                    async def recv():
+                        return {}
+
+                    scope = {"type": "http", "path": "/static/custom/app.css", "method": "GET"}
+                    await gateway(scope, recv, send)
+                    self.assertEqual(msgs[0]["status"], 200)
+                    self.assertEqual(msgs[1]["body"], b"/* finder css */")
+
+    def test_wsgi_static_serving_finders_and_304(self):
+        import os
+        import tempfile
+
+        from hurricane.server.gateway import HurricaneWSGIGateway
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            static_file = os.path.join(tmpdir, "style.css")
+            with open(static_file, "w") as f:
+                f.write("body { color: blue; }")
+
+            gateway = HurricaneWSGIGateway(
+                options={"static": True, "no_probe": True},
+            )
+            gateway.static_enabled = True
+            gateway.static_root = tmpdir
+            gateway.static_url = "/static/"
+
+            res_status = []
+            res_headers = []
+
+            def sr(s, h):
+                res_status.append(s)
+                res_headers.append(dict(h))
+
+            body = b"".join(
+                gateway(
+                    {
+                        "PATH_INFO": "/static/style.css",
+                        "REQUEST_METHOD": "GET",
+                        "SERVER_NAME": "localhost",
+                        "SERVER_PORT": "8000",
+                    },
+                    sr,
+                )
+            )
+            self.assertEqual(res_status[0], "200 OK")
+            self.assertEqual(body, b"body { color: blue; }")
+            etag = res_headers[0]["ETag"]
+
+            res_status304 = []
+
+            def sr304(s, h):
+                res_status304.append(s)
+
+            body304 = b"".join(
+                gateway(
+                    {
+                        "PATH_INFO": "/static/style.css",
+                        "REQUEST_METHOD": "GET",
+                        "SERVER_NAME": "localhost",
+                        "SERVER_PORT": "8000",
+                        "HTTP_IF_NONE_MATCH": etag,
+                    },
+                    sr304,
+                )
+            )
+            self.assertEqual(res_status304[0], "304 Not Modified")
+            self.assertEqual(body304, b"")
+
+    async def test_asgi_media_serving(self):
+        import os
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            media_file = os.path.join(tmpdir, "avatar.png")
+            with open(media_file, "wb") as f:
+                f.write(b"\x89PNG\r\n\x1a\nfake-image-bytes")
+
+            gateway = HurricaneASGIGateway(
+                django_app=dummy_asgi_app,
+                options={"media": True},
+                include_probe=False,
+            )
+            gateway.media_enabled = True
+            gateway.media_root = tmpdir
+            gateway.media_url = "/media/"
+
+            # 1. Valid media file returns 200 with image/png
+            msgs1: list = []
+
+            async def send1(m):
+                msgs1.append(m)
+
+            async def recv():
+                return {}
+
+            scope1 = {"type": "http", "path": "/media/avatar.png", "method": "GET"}
+            await gateway(scope1, recv, send1)
+            self.assertEqual(msgs1[0]["status"], 200)
+            headers1 = {k.lower(): v.decode() for k, v in msgs1[0]["headers"]}
+            self.assertEqual(headers1[b"content-type"], "image/png")
+            self.assertEqual(msgs1[1]["body"], b"\x89PNG\r\n\x1a\nfake-image-bytes")
+            etag = headers1[b"etag"]
+
+            # 2. Conditional request returns 304
+            msgs2: list = []
+
+            async def send2(m):
+                msgs2.append(m)
+
+            scope2 = {
+                "type": "http",
+                "path": "/media/avatar.png",
+                "method": "GET",
+                "headers": [(b"if-none-match", etag.encode())],
+            }
+            await gateway(scope2, recv, send2)
+            self.assertEqual(msgs2[0]["status"], 304)
+
+            # 3. Missing media file returns 404
+            msgs3: list = []
+
+            async def send3(m):
+                msgs3.append(m)
+
+            scope3 = {"type": "http", "path": "/media/missing.png", "method": "GET"}
+            await gateway(scope3, recv, send3)
+            self.assertEqual(msgs3[0]["status"], 404)
+
+            # 4. Directory traversal attempt returns 404
+            msgs4: list = []
+
+            async def send4(m):
+                msgs4.append(m)
+
+            scope4 = {"type": "http", "path": "/media/../../etc/passwd", "method": "GET"}
+            await gateway(scope4, recv, send4)
+            self.assertEqual(msgs4[0]["status"], 404)
+
     def test_run_custom_check_exceptions(self):
         from django.core.management.base import SystemCheckError
         from django.db.utils import OperationalError

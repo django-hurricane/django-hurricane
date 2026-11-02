@@ -1,4 +1,5 @@
 import asyncio
+import email.utils
 import mimetypes
 import os
 import time
@@ -32,6 +33,8 @@ STARTUP_NOT_FINISHED_MESSAGE: bytes = b"Startup is not finished yet"
 STATUS_200_OK: str = "200 OK"
 ASGI_HTTP_RESPONSE_START: str = "http.response.start"
 ASGI_HTTP_RESPONSE_BODY: str = "http.response.body"
+DEFAULT_STATIC_CACHE_CONTROL: str = "public, max-age=86400"
+DEFAULT_STATIC_CACHE_CONTROL_BYTES: bytes = b"public, max-age=86400"
 
 
 class WorkerBacklogTracker:
@@ -385,6 +388,46 @@ class BaseHurricaneGateway:
             return None
         return normalized_value
 
+    @staticmethod
+    def _resolve_file_on_disk(
+        relative_path: str,
+        root_dir: str,
+        is_static: bool,
+    ) -> Optional[str]:
+        if root_dir:
+            candidate = os.path.abspath(os.path.join(root_dir, relative_path))
+            if candidate.startswith(os.path.abspath(root_dir)) and os.path.isfile(candidate):
+                return candidate
+
+        if is_static and "django.contrib.staticfiles" in settings.INSTALLED_APPS:
+            try:
+                from django.contrib.staticfiles import finders
+
+                found = finders.find(relative_path)
+                if found and os.path.isfile(found):
+                    return found
+            except Exception:
+                pass
+        return None
+
+    @staticmethod
+    def _is_not_modified(
+        etag: str,
+        mtime: float,
+        if_none_match: Optional[str],
+        if_modified_since: Optional[str],
+    ) -> bool:
+        if if_none_match and if_none_match.strip() == etag:
+            return True
+        if if_modified_since:
+            try:
+                dt = email.utils.parsedate_to_datetime(if_modified_since)
+                if int(mtime) <= int(dt.timestamp()):
+                    return True
+            except Exception:
+                pass
+        return False
+
 
 class HurricaneWSGIGateway(BaseHurricaneGateway):
     """
@@ -451,10 +494,12 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
     ) -> Optional[Any]:
         if self.static_enabled and path.startswith(self.static_url):
             return self._handle_static_file(
-                environ, start_response, path, self.static_url, self.static_root, start_time
+                environ, start_response, path, self.static_url, self.static_root, is_static=True, start_time=start_time
             )
         if self.media_enabled and path.startswith(self.media_url):
-            return self._handle_static_file(environ, start_response, path, self.media_url, self.media_root, start_time)
+            return self._handle_static_file(
+                environ, start_response, path, self.media_url, self.media_root, is_static=False, start_time=start_time
+            )
         return None
 
     def _try_handle_security_shield(
@@ -589,24 +634,51 @@ class HurricaneWSGIGateway(BaseHurricaneGateway):
         request_path: str,
         url_prefix: str,
         root_dir: str,
+        is_static: bool,
         start_time: float,
     ) -> List[bytes]:
         relative_path = request_path[len(url_prefix) :].lstrip("/")
-        file_path = os.path.abspath(os.path.join(root_dir, relative_path))
+        file_path = self._resolve_file_on_disk(relative_path, root_dir, is_static)
 
-        # Directory traversal protection
-        if not file_path.startswith(os.path.abspath(root_dir)) or not os.path.isfile(file_path):
+        if not file_path:
             headers = [("Content-Type", "text/plain"), ("Content-Length", "9")]
             start_response("404 Not Found", headers)
             return [b"Not Found"]
 
+        stat_res = os.stat(file_path)
+        file_size = stat_res.st_size
+        mtime = stat_res.st_mtime
+        etag = f'"{int(mtime)}-{file_size}"'
+        last_modified = email.utils.formatdate(mtime, usegmt=True)
+
+        if self._is_not_modified(etag, mtime, environ.get("HTTP_IF_NONE_MATCH"), environ.get("HTTP_IF_MODIFIED_SINCE")):
+            headers = [
+                ("ETag", etag),
+                ("Last-Modified", last_modified),
+                ("Cache-Control", DEFAULT_STATIC_CACHE_CONTROL),
+            ]
+            start_response("304 Not Modified", headers)
+            elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+            self._log_request(
+                environ,
+                environ.get("REQUEST_METHOD", "GET"),
+                request_path,
+                304,
+                elapsed_ms,
+                is_probe=False,
+            )
+            return [b""]
+
         content_type, _ = mimetypes.guess_type(file_path)
         content_type = content_type or "application/octet-stream"
-        file_size = os.path.getsize(file_path)
+        cache_control = "no-cache" if getattr(settings, "DEBUG", False) else DEFAULT_STATIC_CACHE_CONTROL
 
         headers = [
             ("Content-Type", content_type),
             ("Content-Length", str(file_size)),
+            ("ETag", etag),
+            ("Last-Modified", last_modified),
+            ("Cache-Control", cache_control),
         ]
         start_response(STATUS_200_OK, headers)
 
@@ -864,10 +936,14 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         start_time: float,
     ) -> bool:
         if self.static_enabled and path.startswith(self.static_url):
-            await self._handle_static_file(scope, send, path, self.static_url, self.static_root, start_time)
+            await self._handle_static_file(
+                scope, send, path, self.static_url, self.static_root, is_static=True, start_time=start_time
+            )
             return True
         if self.media_enabled and path.startswith(self.media_url):
-            await self._handle_static_file(scope, send, path, self.media_url, self.media_root, start_time)
+            await self._handle_static_file(
+                scope, send, path, self.media_url, self.media_root, is_static=False, start_time=start_time
+            )
             return True
         return False
 
@@ -878,28 +954,43 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
         request_path: str,
         url_prefix: str,
         root_dir: str,
+        is_static: bool,
         start_time: float,
     ) -> None:
         from asgiref.sync import sync_to_async
 
         relative_path = request_path[len(url_prefix) :].lstrip("/")
-        file_path = os.path.abspath(os.path.join(root_dir, relative_path))
+        file_path = await sync_to_async(self._resolve_file_on_disk, thread_sensitive=False)(
+            relative_path, root_dir, is_static
+        )
 
-        # Directory traversal protection
-        is_safe = file_path.startswith(os.path.abspath(root_dir))
-        is_file = await sync_to_async(os.path.isfile, thread_sensitive=False)(file_path) if is_safe else False
-
-        if not is_safe or not is_file:
+        if not file_path:
             await self._send_response(scope, send, 404, b"Not Found", start_time, is_probe=False)
+            return
+
+        stat_res = await sync_to_async(os.stat, thread_sensitive=False)(file_path)
+        file_size = stat_res.st_size
+        mtime = stat_res.st_mtime
+        etag = f'"{int(mtime)}-{file_size}"'
+        last_modified = email.utils.formatdate(mtime, usegmt=True)
+
+        headers_dict = {k.lower(): v.decode("latin1", errors="replace") for k, v in scope.get("headers", [])}
+        if self._is_not_modified(
+            etag, mtime, headers_dict.get(b"if-none-match"), headers_dict.get(b"if-modified-since")
+        ):
+            await self._send_asgi_304(scope, send, etag, last_modified, start_time)
             return
 
         content_type, _ = mimetypes.guess_type(file_path)
         content_type = content_type or "application/octet-stream"
-        file_size = await sync_to_async(os.path.getsize, thread_sensitive=False)(file_path)
+        cache_control = "no-cache" if getattr(settings, "DEBUG", False) else DEFAULT_STATIC_CACHE_CONTROL
 
         headers = [
             (b"content-type", content_type.encode("utf-8")),
             (b"content-length", str(file_size).encode("utf-8")),
+            (b"etag", etag.encode("utf-8")),
+            (b"last-modified", last_modified.encode("utf-8")),
+            (b"cache-control", cache_control.encode("utf-8")),
         ]
         await send({"type": ASGI_HTTP_RESPONSE_START, "status": 200, "headers": headers})
 
@@ -916,6 +1007,31 @@ class HurricaneASGIGateway(BaseHurricaneGateway):
             scope.get("method", "GET"),
             request_path,
             200,
+            elapsed_ms,
+            is_probe=False,
+        )
+
+    async def _send_asgi_304(
+        self,
+        scope: Dict[str, Any],
+        send: Callable,
+        etag: str,
+        last_modified: str,
+        start_time: float,
+    ) -> None:
+        headers = [
+            (b"etag", etag.encode("utf-8")),
+            (b"last-modified", last_modified.encode("utf-8")),
+            (b"cache-control", DEFAULT_STATIC_CACHE_CONTROL_BYTES),
+        ]
+        await send({"type": ASGI_HTTP_RESPONSE_START, "status": 304, "headers": headers})
+        await send({"type": ASGI_HTTP_RESPONSE_BODY, "body": b""})
+        elapsed_ms = (time.perf_counter() - start_time) * 1000.0
+        self._log_asgi_request(
+            scope,
+            scope.get("method", "GET"),
+            scope.get("path", ""),
+            304,
             elapsed_ms,
             is_probe=False,
         )
