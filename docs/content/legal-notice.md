@@ -3,6 +3,7 @@ title: Legal Notice
 description: Provider identification and legal notices for Django Hurricane.
 layout: page
 navigation: false
+icon: lucide:scale
 ---
 
 # Legal Notice

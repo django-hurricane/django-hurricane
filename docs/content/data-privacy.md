@@ -3,6 +3,7 @@ title: Privacy Policy
 description: Information on how personal data is handled on django-hurricane.io and related documentation.
 layout: page
 navigation: false
+icon: lucide:lock
 ---
 
 # Privacy Policy

@@ -20,6 +20,7 @@
   <p align="center">
     <a href="https://django-hurricane.io/">Website & Documentation</a> ·
     <a href="https://django-hurricane.io/guides/getting-started">Getting Started</a> ·
+    <a href="https://django-hurricane.io/roadmap/feature-roadmap">Product Roadmap</a> ·
     <a href="https://django-hurricane.io/configuration/settings">Configuration Reference</a>
   </p>
 </div>
