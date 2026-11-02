@@ -181,7 +181,8 @@ services:
     environment:
       DATABASE_URL: postgres://user:password@db:5432/myapp
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/alive')"]
+      # Probes default to port 8001 (isolated from port 8000 application traffic)
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8001/alive')"]
       interval: 10s
       timeout: 2s
       retries: 3
