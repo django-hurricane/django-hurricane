@@ -252,9 +252,9 @@ uv run poe benchmark
 
 ## 🏢 Commercial Support & Community
 
-Hurricane is developed and maintained with ❤️ by [Blueshoe](https://www.blueshoe.de).
+Hurricane is developed and maintained with ❤️ by [Blueshoe](https://www.blueshoe.io).
 
 - 💬 **Discord:** Join the discussion on our [Blueshoe Discord Server](https://discord.gg/8NTPMVPaKy)
 - 💼 **LinkedIn:** Connect with [Blueshoe on LinkedIn](https://www.linkedin.com/company/blueshoe-gmbh/)
-- ✉️ **Contact:** Need help optimizing your cloud-native Django deployment or Kubernetes architecture? Reach out to us at [hurricane@blueshoe.de](mailto:hurricane@blueshoe.de).
+- ✉️ **Contact:** Need help optimizing your cloud-native Django deployment or Kubernetes architecture? Reach out to us at [hurricane@blueshoe.io](mailto:hurricane@blueshoe.io).
 
