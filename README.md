@@ -14,8 +14,8 @@
   <img src="https://raw.githubusercontent.com/Blueshoe/django-hurricane/master/docs/_static/img/logo.png" alt="Django Hurricane Logo" width="220" />
   <h1 align="center">Hurricane</h1>
   <p align="center">
-    <strong>The Kubernetes-Native Application Server for Django.</strong><br />
-    <em>Now powered by Granian (Hyper / Tokio / Rust 🦀) with zero-config WSGI & ASGI support.</em>
+    <strong>The High-Performance, Django-Native Application Server.</strong><br />
+    <em>Zero-config WSGI & ASGI, built-in edge defense, native static serving, and deep health observability.</em>
   </p>
   <p align="center">
     <a href="https://django-hurricane.io/">Website & Documentation</a> ·
@@ -162,7 +162,31 @@ Watch Hurricane spin up with Granian:
 
 ---
 
-## ☸️ Kubernetes Pod Example
+## 🚀 Deployment Examples
+
+### 🐳 Docker Compose (Zero Nginx Needed!)
+
+Hurricane replaces Gunicorn, Uvicorn, and Nginx in a single container with native static/media serving and health checks:
+
+```yaml
+version: "3.9"
+
+services:
+  web:
+    build: .
+    command: python manage.py serve --port=8000 --static --media --check-migrations-apply
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgres://user:password@db:5432/myapp
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/alive')"]
+      interval: 10s
+      timeout: 2s
+      retries: 3
+```
+
+### ☸️ Kubernetes Pod Example
 
 ```yaml
 apiVersion: v1
@@ -173,7 +197,7 @@ spec:
   containers:
   - name: web
     image: my-django-image:latest
-    command: ["python", "manage.py", "serve", "--port=8000", "--probe-port=8001", "--check-migrations-apply"]
+    command: ["python", "manage.py", "serve", "--port=8000", "--probe-port=8001", "--static", "--media", "--check-migrations-apply"]
     ports:
     - containerPort: 8000
       name: http
@@ -196,6 +220,8 @@ spec:
         port: 8001
       periodSeconds: 2
 ```
+
+> 📖 **More Deployment Guides:** Check out our guides for [Docker & Cloud Deployments](https://django-hurricane.io/guides/standalone-and-cloud-deployments), [Static & Media Files](https://django-hurricane.io/guides/static-and-media-files), and [Kubernetes Best Practices](https://django-hurricane.io/guides/kubernetes-deployment).
 
 ---
 
