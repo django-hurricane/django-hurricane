@@ -112,6 +112,13 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         else:
             self.assertIn("Serving media files under /media/", out)
 
+    def test_collectstatic_option(self):
+        self.server = HurricaneServerDriver()
+        self.server.start_server(params=["--static", "--collectstatic"])
+        out, _ = self.server.get_output(read_all=True)
+        self.server.stop_server()
+        self.assertIn("Collecting static files", out)
+
     def test_live_probe_read_from_env(self):
         self.server = HurricaneServerDriver()
         self.server._get_env()

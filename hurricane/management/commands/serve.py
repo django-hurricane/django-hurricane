@@ -7,7 +7,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
@@ -122,6 +122,11 @@ def _get_env_value(descriptor: str) -> Optional[Any]:
         val = os.environ.get(descriptor.removeprefix("HURRICANE_"))
     if val is None:
         return None
+    val_lower = val.lower()
+    if val_lower in ("true", "1", "yes", "on"):
+        return True
+    if val_lower in ("false", "0", "no", "off"):
+        return False
     try:
         return int(val)
     except (TypeError, ValueError):
@@ -141,6 +146,11 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--static", action="store_true", help="Serve collected static files")
+        parser.add_argument(
+            "--collectstatic",
+            action="store_true",
+            help="Run collectstatic before starting the server",
+        )
         parser.add_argument("--media", action="store_true", help="Serve media files")
         parser.add_argument("--autoreload", action="store_true", help="Reload code on change")
         parser.add_argument("--debug", action="store_true", help="Set Debug flag")
@@ -334,6 +344,7 @@ class Command(BaseCommand):
 
     def merge_options(self, options: dict):
         self.merge_option("static", "HURRICANE_STATIC", options, default=False)
+        self.merge_option("collectstatic", "HURRICANE_COLLECTSTATIC", options, default=False)
         self.merge_option("media", "HURRICANE_MEDIA", options, default=False)
         self.merge_option("autoreload", "HURRICANE_AUTORELOAD", options, default=False)
         self.merge_option("debug", "HURRICANE_DEBUG", options, default=False)
@@ -489,6 +500,19 @@ class Command(BaseCommand):
             workers = options.get("workers") or min(32, container_cpus + 4)
             options["req_queue_len"] = workers * 2
 
+    def _run_collectstatic(self, options: dict) -> None:
+        from django.core.management import call_command
+
+        if STRUCTLOG_ENABLED:
+            logger.info("Collecting static files", interactive=False)
+        else:
+            logger.info("Collecting static files (--collectstatic)")
+        try:
+            call_command("collectstatic", interactive=False, clear=False)
+        except Exception as e:
+            logger.error(f"Failed to execute collectstatic: {e}", exc_info=True)
+            raise
+
     def _run_preflight_tasks(self, options: dict) -> None:
         if options.get("command"):
             command_task(
@@ -500,6 +524,8 @@ class Command(BaseCommand):
                 webhook_url=options.get("webhook_url") or None,
                 apply_migration=bool(options.get("check_migrations_apply")),
             )
+        if options.get("collectstatic"):
+            self._run_collectstatic(options)
 
     def _start_memory_monitor(self, options: dict) -> None:
         max_mem = options.get("max_memory")
@@ -592,6 +618,64 @@ class Command(BaseCommand):
                 f"port={port}"
             )
 
+    def _resolve_granian_static_mounts(self, options: dict) -> Tuple[Optional[List[str]], Optional[List[Path]]]:
+        static_routes: List[str] = []
+        static_mounts: List[Path] = []
+
+        is_debug = bool(options.get("debug") or getattr(settings, "DEBUG", False))
+
+        if options.get("static") and getattr(settings, "STATIC_ROOT", None):
+            static_root_path = Path(settings.STATIC_ROOT).resolve()
+            if static_root_path.is_dir() and any(static_root_path.iterdir()) and not is_debug:
+                static_url = "/" + getattr(settings, "STATIC_URL", "/static/").strip("/")
+                static_routes.append(static_url)
+                static_mounts.append(static_root_path)
+                if STRUCTLOG_ENABLED:
+                    logger.info(
+                        "Granian native static serving active",
+                        route=static_url,
+                        root=str(static_root_path),
+                    )
+                else:
+                    logger.info(f"Granian native static serving active under {static_url} from {static_root_path}")
+
+        if options.get("media") and getattr(settings, "MEDIA_ROOT", None):
+            media_root_path = Path(settings.MEDIA_ROOT).resolve()
+            if media_root_path.is_dir():
+                media_url = "/" + getattr(settings, "MEDIA_URL", "/media/").strip("/")
+                static_routes.append(media_url)
+                static_mounts.append(media_root_path)
+                if STRUCTLOG_ENABLED:
+                    logger.info(
+                        "Granian native media serving active",
+                        route=media_url,
+                        root=str(media_root_path),
+                    )
+                else:
+                    logger.info(f"Granian native media serving active under {media_url} from {media_root_path}")
+
+        return (static_routes or None, static_mounts or None)
+
+    def _resolve_granian_reload_paths(self, options: dict) -> Optional[List[Path]]:
+        if not options.get("autoreload"):
+            return None
+
+        paths: List[Path] = []
+        if options.get("static_watch"):
+            for p in options["static_watch"]:
+                p_obj = Path(p).resolve()
+                if p_obj.exists() and p_obj not in paths:
+                    paths.append(p_obj)
+
+        if options.get("static") and getattr(settings, "STATICFILES_DIRS", None):
+            for d in settings.STATICFILES_DIRS:
+                raw_path = d[1] if isinstance(d, (tuple, list)) else d
+                d_path = Path(raw_path).resolve()
+                if d_path.exists() and d_path not in paths:
+                    paths.append(d_path)
+
+        return paths or None
+
     def _build_granian_server(self, options: dict) -> Any:
         container_cpus = _get_container_cpu_count()
 
@@ -603,28 +687,36 @@ class Command(BaseCommand):
 
         self._log_runtime_config(runtime_mode, runtime_threads, blocking_threads, container_cpus, options["port"])
 
-        reload_paths = None
-        if options.get("autoreload") and options.get("static_watch"):
-            reload_paths = [p for p in options["static_watch"] if os.path.exists(p)]
+        static_routes, static_mounts = self._resolve_granian_static_mounts(options)
+        reload_paths = self._resolve_granian_reload_paths(options)
 
-        return Granian(
-            target=_get_granian_target(),
-            factory=True,
-            address="0.0.0.0",
-            port=options["port"],
-            interface=Interfaces.ASGI,
-            workers=1,
-            blocking_threads=blocking_threads,
-            runtime_threads=runtime_threads,
-            runtime_mode=RuntimeModes(runtime_mode),
-            working_dir=Path(os.getcwd()),
-            backlog=1024,
-            log_access=False,
-            log_enabled=False,
-            reload=bool(options.get("autoreload")),
-            reload_paths=reload_paths,
-            workers_max_rss=options.get("max_memory"),
-        )
+        granian_kwargs: Dict[str, Any] = {
+            "target": _get_granian_target(),
+            "factory": True,
+            "address": "0.0.0.0",
+            "port": options["port"],
+            "interface": Interfaces.ASGI,
+            "workers": 1,
+            "blocking_threads": blocking_threads,
+            "runtime_threads": runtime_threads,
+            "runtime_mode": RuntimeModes(runtime_mode),
+            "working_dir": Path(os.getcwd()),
+            "backlog": 1024,
+            "log_access": False,
+            "log_enabled": False,
+            "reload": bool(options.get("autoreload")),
+            "reload_paths": reload_paths,
+            "workers_max_rss": options.get("max_memory"),
+        }
+
+        if static_routes and static_mounts:
+            granian_kwargs["static_path_route"] = static_routes
+            granian_kwargs["static_path_mount"] = static_mounts
+            granian_kwargs["static_path_expires"] = int(
+                getattr(settings, "HURRICANE_STATIC_CACHE_EXPIRES", getattr(settings, "STATIC_CACHE_EXPIRES", 86400))
+            )
+
+        return Granian(**granian_kwargs)
 
     def handle(self, *args, **options):
         self.merge_options(options)
