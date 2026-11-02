@@ -85,17 +85,22 @@ def get_application():
     include_probe = _CONFIG.get("include_probe", True)
 
     if is_asgi_configured():
-        _GATEWAY_INSTANCE = HurricaneASGIGateway(
-            options=options,
-            check_func=check_func,
-            include_probe=include_probe,
-        )
+        from django.core.asgi import get_asgi_application
+
+        django_app = get_asgi_application()
     else:
-        _GATEWAY_INSTANCE = HurricaneWSGIGateway(
-            options=options,
-            check_func=check_func,
-            include_probe=include_probe,
-        )
+        from django.core.wsgi import get_wsgi_application
+
+        from hurricane.server.gateway import FastWsgiToAsgi
+
+        django_app = FastWsgiToAsgi(get_wsgi_application())
+
+    _GATEWAY_INSTANCE = HurricaneASGIGateway(
+        django_app=django_app,
+        options=options,
+        check_func=check_func,
+        include_probe=include_probe,
+    )
     return _GATEWAY_INSTANCE
 
 

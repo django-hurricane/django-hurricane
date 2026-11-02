@@ -153,7 +153,7 @@ python manage.py serve
 Watch Hurricane spin up with Granian:
 
 ```text
-2026-10-20 12:00:00,102 INFO     hurricane.server.general Granian-powered Django web server. Version: 2.0.0rc2
+2026-10-20 12:00:00,102 INFO     hurricane.server.general Granian-powered Django web server. Version: 2.0.0rc5
 2026-10-20 12:00:00,103 INFO     hurricane.server.general Starting probe application running on port 8001 with route liveness-probe: /alive, readiness-probe: /ready, startup-probe: /startup
 2026-10-20 12:00:00,103 INFO     hurricane.server.general Starting Prometheus metrics exporter on port 8001 with route /metrics
 2026-10-20 12:00:00,215 INFO     hurricane.server.general Starting HTTP Server on port 8000

@@ -113,6 +113,7 @@ class WebhookTestHandler(http.server.BaseHTTPRequestHandler, LoggingServer):
         self.wfile.write(b"Received webhook")
 
     def log_message(self, format, *args):
+        # Suppress default BaseHTTPRequestHandler logging to keep test output clean
         pass
 
 

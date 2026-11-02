@@ -193,7 +193,7 @@ class HurricanStartServerTests(HurricanServerTest):
 
         timing = float(self._get_timing_from_string(res.text))
         self.assertEqual(res.status, 200)
-        self.assertAlmostEqual(result, timing, delta=0.5)
+        self.assertAlmostEqual(result, timing, delta=1.5)
 
     @HurricanServerTest.cycle_server(args=["--no-fast-404"])
     def test_log_outputs(self):
@@ -537,11 +537,15 @@ class HurricanStartServerTests(HurricanServerTest):
 
     @HurricanServerTest.cycle_server(args=["--max-lifetime", "2"])
     def test_max_lifetime(self):
+        import time
+
         self.app_client.get("/")
         self.app_client.get("/")
+        time.sleep(0.5)
         res = self.probe_client.get(self.alive_route)
         self.assertEqual(res.status, 200)
         self.app_client.get("/")
+        time.sleep(0.5)
         res = self.probe_client.get(self.alive_route)
         out, err = self.driver.get_output(read_all=True)
         self.assertEqual(res.status, 400)

@@ -41,10 +41,9 @@ python manage.py serve --port=8000 --probe-port=8001
 
 - `--port`: Application HTTP port (default: 8000).
 - `--probe-port`: Probe/metrics port (default: port + 1). Set equal to `--port` for integrated routing.
-- `--mode`: Execution mode (`auto`, `wsgi`, `asgi`).
-- `--workers`: Number of worker threads (default: CPU count + 4).
-- `--runtime-threads`: Rust/Tokio runtime worker threads (default: CPU count for ASGI, 1 for WSGI).
-- `--req-queue-len`: Saturated queue threshold for WSGI readiness failure (default: 10).
+- `--workers`: Number of worker threads / max concurrency ceiling (default: container CPUs + 4).
+- `--runtime-threads`: Rust/Tokio runtime worker threads (default: detected container CPUs, capped at 4).
+- `--req-queue-len`: Saturated queue threshold for readiness failure (default: workers * 2).
 - `--fast-404`: Fast-404 mode (`auto`, `prefix`, `signature`, `off`).
 - `--rate-limit`: Rate limit frequency (e.g. `10/s`, `off`).
 - `--rate-limit-burst`: Token-bucket burst allowance (default: 30).

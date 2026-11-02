@@ -1,5 +1,6 @@
 import logging
 import re
+import threading
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 try:
@@ -10,42 +11,117 @@ except ImportError:
     logger = logging.getLogger("hurricane.server.fast_404")
 
 DEFAULT_ANTI_DJANGO_PATTERNS: List[str] = [
-    # 1. Non-Python Executable / Script Extensions
-    r"\.php[0-9]?$",
-    r"\.asp[x]?$",
-    r"\.jsp[x]?$",
-    r"\.cgi$",
-    r"\.pl$",
-    r"\.action$",
-    r"\.do$",
+    # 1. Non-Python Script & Binary Extensions (PHP, ASP.NET, Java JSP/Servlets, Perl/CGI)
+    r"\.(?:php[0-9]?|asp[x]?|jsp[x]?|cgi|pl|action|do|ashx|asmx|axd|faces|dll|exe)$",
     # 2. Sensitive Config & Environment Files
-    r"^/\.env(\..*)?$",
-    r"^/\.git(/.*)?$",
-    r"^/\.svn(/.*)?$",
-    r"^/\.hg(/.*)?$",
-    r"^/\.DS_Store$",
-    r"^/\.aws(/.*)?$",
-    r"^/\.docker(/.*)?$",
-    r"^/web\.config$",
-    r"^/docker-compose\.ya?ml$",
-    # 3. Common PHP/CMS Scanner Probes
-    r"^/wp-",
-    r"^/wordpress",
-    r"^/xmlrpc\.php",
-    r"^/phpmyadmin",
-    r"^/pma",
-    r"^/myadmin",
-    r"^/admin\.php",
-    r"^/login\.php",
-    r"^/eval-stdin\.php",
-    # 4. Dangerous Tools & Remote Code Execution Probes
-    r"^/cgi-bin/",
-    r"^/actuator(/.*)?$",
-    r"^/solr(/.*)?$",
-    r"^/vendor/phpunit/",
-    r"^/autodiscover/",
-    r"^/geoserver/",
+    r"(?:^|/)\.(?:env(?:\..*)?|git(?:/.*)?|svn(?:/.*)?|hg(?:/.*)?|aws(?:/.*)?|docker(?:/.*)?|htaccess|DS_Store|bash_history)$",
+    r"(?:^|/)(?:web\.config|docker-compose\.ya?ml|database\.yml)$",
+    # 3. Database Dumps & SQL Backups
+    r"(?:^|/)(?:dump|backup|database|db|users|data)\.sql(?:\.(?:gz|tar|zip|bz2))?$",
+    # 4. Node.js & Ruby Artifacts
+    r"(?:^|/)(?:package\.json|package-lock\.json|yarn\.lock|npm-debug\.log)$",
+    r"(?:^|/)rails/(?:info|mailers)",
+    # 5. PHP / WordPress / CMS Specific Scanner Probes
+    r"(?:^|/)(?:wp-admin|wp-content|wp-includes|wp-json/wp|wp-config\.php|xmlrpc\.php)",
+    r"(?:^|/)(?:wordpress|phpmyadmin|pma|myadmin|adminer)(?:/.*)?$",
+    r"(?:^|/)(?:phpinfo|info|test|shell|c99|r57|wso|alfa|eval-stdin)\.php$",
+    # 6. PHP Framework Backdoors & Debuggers (Laravel, Drupal, Joomla, Magento)
+    r"(?:^|/)_ignition/(?:execute-solution|health-check)",
+    r"(?:^|/)(?:telescope|horizon)(?:/.*)?$",
+    r"(?:^|/)(?:core/install\.php|update\.php|cron\.php)$",
+    r"(?:^|/)administrator/(?:index\.php|manifests/)?$",
+    r"(?:^|/)vendor/phpunit/",
+    # 7. Java / Spring Boot / Enterprise App Servers & Cloud Probes
+    r"(?:^|/)actuator(?:/(?:env|heapdump|health|metrics|logfile|gateway|mappings|beans|configprops))?(?:/.*)?$",
+    r"(?:^|/)(?:jmx-console|web-console|invoker/JMXInvokerServlet)(?:/.*)?$",
+    r"(?:^|/)(?:manager|host-manager)/(?:html|status|text)(?:/.*)?$",
+    r"(?:^|/)solr/(?:admin/)?",
+    r"(?:^|/)geoserver/(?:web/)?",
+    r"(?:^|/)autodiscover/",
+    r"(?:^|/)cgi-bin/",
 ]
+
+
+def _extract_first_segment(pat: Any) -> str:
+    pat_str = str(pat).strip("^").lstrip("/")
+    segment = pat_str.split("/")[0] if pat_str else ""
+    if segment in ("$", "?$", "\\Z"):
+        return ""
+    return segment
+
+
+def _matches_root(pat: Any) -> bool:
+    return bool(hasattr(pat, "regex") and (pat.regex.match("") or pat.regex.match("/")))
+
+
+def _is_root_catchall(pat: Any, pat_str: str) -> bool:
+    regex_str = pat.regex.pattern if hasattr(pat, "regex") else ""
+    return bool(
+        pat_str.startswith(("<path:", "<slug:", "<str:"))
+        or regex_str.startswith(("^.*", "^.+", "^(?P<"))
+        or regex_str in ("^", "^/", "^/?")
+    )
+
+
+def _is_i18n_pattern(pat: Any) -> bool:
+    try:
+        from django.urls.resolvers import LocalePrefixPattern
+
+        if isinstance(pat, LocalePrefixPattern):
+            return True
+    except ImportError:
+        pass
+    cls = getattr(pat, "__class__", None)
+    return bool(cls is not None and getattr(cls, "__name__", "") == "LocalePrefixPattern")
+
+
+def _add_i18n_prefixes(prefixes: Set[str]) -> None:
+    from django.conf import settings
+
+    prefixes.add("")
+    try:
+        for lang_code, _ in getattr(settings, "LANGUAGES", []):
+            prefixes.add(lang_code.lower())
+            prefixes.add(lang_code.split("-")[0].lower())
+    except Exception:
+        pass
+
+
+def _process_resolver(p: Any, first_segment: str, is_i18n: bool, is_root: bool, prefixes: Set[str]) -> bool:
+    sub_catchall = False
+    if first_segment == "" or is_i18n:
+        sub_prefixes, sub_catchall = extract_prefixes(p.url_patterns, is_root=is_root)
+        prefixes.update(sub_prefixes)
+    if first_segment:
+        prefixes.add(first_segment)
+    return sub_catchall
+
+
+def _process_pattern(p: Any, is_root: bool, prefixes: Set[str]) -> bool:
+    from django.urls.resolvers import URLPattern, URLResolver
+
+    pat = getattr(p, "pattern", None)
+    if not pat:
+        return False
+
+    first_segment = _extract_first_segment(pat)
+    if _matches_root(pat):
+        prefixes.add("")
+
+    is_i18n = _is_i18n_pattern(pat)
+    if is_i18n:
+        _add_i18n_prefixes(prefixes)
+
+    pat_str = str(pat).strip("^").lstrip("/")
+    has_catchall = is_root and _is_root_catchall(pat, pat_str)
+
+    if isinstance(p, URLResolver):
+        sub_catchall = _process_resolver(p, first_segment, is_i18n, is_root, prefixes)
+        return has_catchall or sub_catchall
+    if isinstance(p, URLPattern):
+        prefixes.add(first_segment)
+
+    return has_catchall
 
 
 def extract_prefixes(patterns: Any, is_root: bool = True) -> Tuple[Set[str], bool]:
@@ -54,152 +130,40 @@ def extract_prefixes(patterns: Any, is_root: bool = True) -> Tuple[Set[str], boo
     1. Valid top-level path segments (e.g. {'', 'admin', 'api', 'media'}).
     2. has_root_catchall: True if any root pattern can match arbitrary paths.
     """
-    from django.urls.resolvers import URLPattern, URLResolver
-
     prefixes: Set[str] = set()
     has_root_catchall = False
 
     for p in patterns:
-        pat = getattr(p, "pattern", None)
-        if not pat:
-            continue
-
-        pat_str = str(pat).strip("^").lstrip("/")
-        first_segment = pat_str.split("/")[0] if pat_str else ""
-
-        if is_root:
-            regex_str = pat.regex.pattern if hasattr(pat, "regex") else ""
-            if pat_str.startswith(("<path:", "<slug:", "<str:")) or regex_str.startswith(("^.*", "^.+", "^(?P<")):
-                has_root_catchall = True
-
-        if isinstance(p, URLResolver):
-            if first_segment == "":
-                sub_prefixes, sub_catchall = extract_prefixes(p.url_patterns, is_root=is_root)
-                prefixes.update(sub_prefixes)
-                if sub_catchall:
-                    has_root_catchall = True
-            else:
-                prefixes.add(first_segment)
-        elif isinstance(p, URLPattern):
-            prefixes.add(first_segment)
+        if _process_pattern(p, is_root, prefixes):
+            has_root_catchall = True
 
     return prefixes, has_root_catchall
 
 
-def _resolve_404_handler(urlconf: Any = None) -> Callable[..., Any]:
-    from django.urls import get_resolver
-    from django.utils.module_loading import import_string
-    from django.views.defaults import page_not_found
-
-    resolver = get_resolver(urlconf)
-    handler = getattr(resolver.urlconf_module, "handler404", page_not_found)
-    if isinstance(handler, str):
-        handler = import_string(handler)
-    return handler
-
-
-def _invoke_404_handler(handler: Callable[..., Any], request: Any) -> Any:
-    try:
-        response = handler(request, exception=Exception("Page not found"))
-    except TypeError:
-        response = handler(request)
-
-    if hasattr(response, "render") and callable(response.render):
-        response = response.render()
-    return response
-
-
-def _wrap_middleware(chain: Callable, mw_path: str) -> Callable:
-    from django.core.exceptions import MiddlewareNotUsed
-    from django.core.handlers.exception import convert_exception_to_response
-    from django.utils.module_loading import import_string
-
-    try:
-        mw_class = import_string(mw_path)
-    except Exception as err:
-        logger.debug(f"Fast-404: Cannot import middleware {mw_path}: {err}")
-        return chain
-
-    try:
-        mw_instance = mw_class(chain)
-    except MiddlewareNotUsed:
-        return chain
-    except TypeError:
-        mw_instance = mw_class()
-        if not hasattr(mw_instance, "process_request"):
-            return chain
-
-        def _wrapped(req: Any) -> Any:
-            res = mw_instance.process_request(req)
-            if res:
-                return res
-            res = chain(req)
-            if hasattr(mw_instance, "process_response"):
-                res = mw_instance.process_response(req, res)
-            return res
-
-        return convert_exception_to_response(_wrapped)
-    except Exception as err:
-        logger.debug(f"Fast-404: Skipping middleware {mw_path} during prerender: {err}")
-        return chain
-
-    return convert_exception_to_response(mw_instance) if mw_instance else chain
-
-
-def _build_prerender_chain(handler: Callable[..., Any]) -> Callable:
-    from django.conf import settings
-    from django.core.handlers.exception import convert_exception_to_response
-
-    chain = convert_exception_to_response(lambda req: _invoke_404_handler(handler, req))
-    middleware_list = getattr(settings, "MIDDLEWARE", None)
-    if middleware_list is None:
-        middleware_list = getattr(settings, "MIDDLEWARE_CLASSES", [])
-
-    for mw_path in reversed(middleware_list):
-        chain = _wrap_middleware(chain, mw_path)
-    return chain
-
-
-def _build_prerender_request() -> Any:
-    from django.test import RequestFactory
-
-    rf = RequestFactory()
-    req = rf.get("/__hurricane_fast_404_bootstrap__")
-
-    if not hasattr(req, "user"):
-        try:
-            from django.contrib.auth.models import AnonymousUser
-
-            req.user = AnonymousUser()
-        except Exception:
-            pass
-
-    if not hasattr(req, "session"):
-        try:
-            from django.contrib.sessions.backends.base import SessionBase
-
-            req.session = SessionBase()
-        except Exception:
-            pass
-
-    return req
-
-
-def _format_prerender_response(resp: Any) -> Tuple[str, List[Tuple[str, str]], bytes]:
-    if hasattr(resp, "render") and callable(resp.render):
-        resp = resp.render()
-
-    status_code = getattr(resp, "status_code", 404)
-    status_line = f"{status_code} Not Found" if status_code == 404 else f"{status_code} OK"
-    headers = [(k, v) for k, v in resp.items()] if hasattr(resp, "items") else []
-    body = getattr(resp, "content", b"")
-    return status_line, headers, body
-
-
 def _get_fallback_404_response() -> Tuple[str, List[Tuple[str, str]], bytes]:
     fallback_body = (
-        b'<!doctype html>\n<html lang="en">\n<head><title>Not Found</title></head>\n'
-        b"<body><h1>Not Found</h1><p>The requested resource was not found on this server.</p></body>\n</html>"
+        b"<!doctype html>\n"
+        b'<html lang="en">\n'
+        b"<head>\n"
+        b'  <meta charset="utf-8">\n'
+        b"  <title>Page Not Found</title>\n"
+        b"  <style>\n"
+        b"    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; margin: 0; padding: 3rem; background: #f8fafc; color: #1e293b; }\n"
+        b"    .container { max-width: 600px; margin: 0 auto; background: #ffffff; padding: 2.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }\n"
+        b"    h1 { margin-top: 0; color: #0f172a; font-size: 1.75rem; }\n"
+        b"    p { line-height: 1.6; color: #475569; }\n"
+        b"    a { color: #2563eb; text-decoration: none; font-weight: 500; }\n"
+        b"    a:hover { text-decoration: underline; }\n"
+        b"  </style>\n"
+        b"</head>\n"
+        b"<body>\n"
+        b'  <div class="container">\n'
+        b"    <h1>404 &mdash; Page Not Found</h1>\n"
+        b"    <p>The requested resource was not found on this server.</p>\n"
+        b'    <p><a href="/">&larr; Return to homepage</a></p>\n'
+        b"  </div>\n"
+        b"</body>\n"
+        b"</html>"
     )
     return (
         "404 Not Found",
@@ -208,28 +172,54 @@ def _get_fallback_404_response() -> Tuple[str, List[Tuple[str, str]], bytes]:
     )
 
 
-def prerender_404(urlconf: Any = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
+def prerender_404() -> Tuple[str, List[Tuple[str, str]], bytes]:
     """
-    Pre-renders Django's configured 404 handler with a synthetic request traversing
-    the configured middleware stack so that request attributes (e.g. request.user,
-    request.session, and custom middleware attributes) are properly populated.
-    Falls back gracefully to standard HTML if rendering fails.
+    Deprecated: Fast-404 uses on-demand caching from the real Django 404 handler on first hit.
+    Returns the default fallback 404 response.
     """
-    try:
-        handler = _resolve_404_handler(urlconf)
-        chain = _build_prerender_chain(handler)
-        req = _build_prerender_request()
-        resp = chain(req)
-        return _format_prerender_response(resp)
-    except Exception as e:
-        logger.warning(f"Fast-404 pre-render fallback used ({e})")
-        return _get_fallback_404_response()
+    return _get_fallback_404_response()
+
+
+def _verify_root_route(valid_prefixes: Set[str], urlconf: Any = None) -> None:
+    from django.urls import Resolver404, resolve
+
+    for root_cand in ["/", ""]:
+        try:
+            resolve(root_cand, urlconf=urlconf)
+            valid_prefixes.add("")
+            break
+        except Resolver404:
+            pass
+        except Exception:
+            valid_prefixes.add("")
+            break
+
+
+def _determine_effective_mode(mode: str, has_root_catchall: bool, valid_prefixes_len: int, patterns_len: int) -> str:
+    if mode == "auto":
+        if has_root_catchall:
+            logger.info(
+                "Root catch-all pattern detected in urls.py (CMS/dynamic routing). Fast-404 operating in signature-only mode"
+            )
+            return "signature"
+        logger.info(f"Fast-404 active in prefix mode ({valid_prefixes_len} prefixes, {patterns_len} signatures)")
+        return "prefix"
+    if mode == "signature":
+        logger.info(f"Fast-404 active in signature-only mode ({patterns_len} signatures)")
+        return "signature"
+    if mode == "prefix":
+        logger.info(f"Fast-404 forced in prefix mode ({valid_prefixes_len} prefixes)")
+        return "prefix"
+    logger.info("Fast-404 protection disabled")
+    return "off"
 
 
 class Fast404Engine:
     """
     High-performance early 404 protection engine for Hurricane Gateway.
     Filters malicious scanner probes and invalid path prefixes in microseconds.
+    Uses on-demand response caching: on cache miss, requests fall through to Django
+    to naturally generate and cache the custom rendered 404 page.
     """
 
     def __init__(
@@ -260,30 +250,51 @@ class Fast404Engine:
         if extra_prefixes:
             self.valid_prefixes.update(extra_prefixes)
 
-        # Determine effective operating mode
-        if self.mode == "auto":
-            if self.has_root_catchall:
-                self.effective_mode = "signature"
-                logger.info(
-                    "Root catch-all pattern detected in urls.py (CMS/dynamic routing). Fast-404 operating in signature-only mode"
-                )
-            else:
-                self.effective_mode = "prefix"
-                logger.info(
-                    f"Fast-404 active in prefix mode ({len(self.valid_prefixes)} prefixes, {len(patterns)} signatures)"
-                )
-        elif self.mode == "signature":
-            self.effective_mode = "signature"
-            logger.info(f"Fast-404 active in signature-only mode ({len(patterns)} signatures)")
-        elif self.mode == "prefix":
-            self.effective_mode = "prefix"
-            logger.info(f"Fast-404 forced in prefix mode ({len(self.valid_prefixes)} prefixes)")
-        else:
-            self.effective_mode = "off"
-            logger.info("Fast-404 protection disabled")
+        # Verify root route resolution using Django's resolver
+        _verify_root_route(self.valid_prefixes, urlconf=urlconf)
 
-        # Pre-render 404 error response
-        self.status, self.headers, self.body = prerender_404(urlconf)
+        # Determine effective operating mode
+        self.effective_mode = _determine_effective_mode(
+            self.mode, self.has_root_catchall, len(self.valid_prefixes), len(patterns)
+        )
+
+        # On-demand response cache: key -> (status, headers, body)
+        self._cache: Dict[str, Tuple[str, List[Tuple[str, str]], bytes]] = {}
+        self._cache_lock = threading.Lock()
+        self._fallback_response = _get_fallback_404_response()
+        self.status, self.headers, self.body = self._fallback_response
+
+    def compute_cache_key_asgi(self, scope: Dict[str, Any]) -> str:
+        headers = dict(scope.get("headers", []))
+        host = headers.get(b"host", b"localhost").decode("utf-8", errors="replace").split(":")[0].lower()
+        path = scope.get("path", "")
+        parts = path.strip("/").split("/")
+        lang = (
+            parts[0].lower() if parts and len(parts[0]) <= 5 and ("-" in parts[0] or len(parts[0]) == 2) else "default"
+        )
+        scheme = scope.get("scheme", "http")
+        return f"{host}:{lang}:{scheme}"
+
+    def compute_cache_key_wsgi(self, environ: Dict[str, Any]) -> str:
+        host = str(environ.get("HTTP_HOST", "localhost")).split(":")[0].lower()
+        path = str(environ.get("PATH_INFO", ""))
+        parts = path.strip("/").split("/")
+        lang = (
+            parts[0].lower() if parts and len(parts[0]) <= 5 and ("-" in parts[0] or len(parts[0]) == 2) else "default"
+        )
+        scheme = str(environ.get("wsgi.url_scheme", "http"))
+        return f"{host}:{lang}:{scheme}"
+
+    def get_cached(self, key: str) -> Optional[Tuple[str, List[Tuple[str, str]], bytes]]:
+        with self._cache_lock:
+            return self._cache.get(key)
+
+    def store_response(self, key: str, status: str, headers: List[Tuple[str, str]], body: bytes) -> None:
+        with self._cache_lock:
+            if len(self._cache) >= 128:
+                self._cache.pop(next(iter(self._cache)))
+            self._cache[key] = (status, headers, body)
+            self.status, self.headers, self.body = status, headers, body
 
     @classmethod
     def from_options(cls, options: Dict[str, Any]) -> Optional["Fast404Engine"]:
@@ -352,6 +363,10 @@ class Fast404Engine:
         method = environ.get("REQUEST_METHOD", "GET")
         logger.warning(f"Fast-404: Dropped {remote_addr} {method} {path} ({reason_type} match: {detail})")
 
-    def get_response(self) -> Tuple[str, List[Tuple[str, str]], bytes]:
-        """Return pre-rendered 404 response tuple (status_line, headers, body_bytes)."""
+    def get_response(self, key: Optional[str] = None) -> Tuple[str, List[Tuple[str, str]], bytes]:
+        """Return cached 404 response if available, or fallback HTML response."""
+        if key:
+            cached = self.get_cached(key)
+            if cached is not None:
+                return cached
         return self.status, self.headers, self.body

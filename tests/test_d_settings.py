@@ -188,75 +188,6 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         else:
             self.assertIn("Starting HTTP Server on port 6591", out)
 
-    def test_req_queue_len_warning_in_asgi_mode(self):
-        self.server = HurricaneServerDriver()
-        self.server.start_server(
-            params=["--mode", "asgi", "--req-queue-len", "5", "--port", "8999", "--probe-port", "8999"]
-        )
-        out, _ = self.server.get_output(read_all=True)
-        self.server.stop_server()
-
-        self.assertIn("The '--req-queue-len' option", out)
-        self.assertIn("ignored when running in ASGI mode", out)
-
-    def test_mode_cli_argument(self):
-        import argparse
-
-        from hurricane.management.commands.serve import Command
-
-        cmd = Command()
-        parser = argparse.ArgumentParser()
-        cmd.add_arguments(parser)
-
-        args = parser.parse_args(["--mode", "asgi"])
-        self.assertEqual(args.mode, "asgi")
-
-        # Legacy --interface flag alias
-        legacy_args = parser.parse_args(["--interface", "wsgi"])
-        self.assertEqual(legacy_args.mode, "wsgi")
-
-    @override_settings(MODE="asgi")
-    def test_mode_from_unprefixed_settings(self):
-        import argparse
-
-        from hurricane.management.commands.serve import Command
-
-        cmd = Command()
-        parser = argparse.ArgumentParser()
-        cmd.add_arguments(parser)
-        options = vars(parser.parse_args([]))
-        cmd.merge_options(options)
-        self.assertEqual(options["mode"], "asgi")
-        self.assertEqual(options["interface"], "asgi")
-
-    @override_settings(HURRICANE_MODE="wsgi")
-    def test_mode_from_prefixed_settings(self):
-        import argparse
-
-        from hurricane.management.commands.serve import Command
-
-        cmd = Command()
-        parser = argparse.ArgumentParser()
-        cmd.add_arguments(parser)
-        options = vars(parser.parse_args([]))
-        cmd.merge_options(options)
-        self.assertEqual(options["mode"], "wsgi")
-        self.assertEqual(options["interface"], "wsgi")
-
-    @override_settings(INTERFACE="asgi")
-    def test_mode_legacy_interface_setting_fallback(self):
-        import argparse
-
-        from hurricane.management.commands.serve import Command
-
-        cmd = Command()
-        parser = argparse.ArgumentParser()
-        cmd.add_arguments(parser)
-        options = vars(parser.parse_args([]))
-        cmd.merge_options(options)
-        self.assertEqual(options["mode"], "asgi")
-        self.assertEqual(options["interface"], "asgi")
-
     def test_runtime_threads_cli_argument(self):
         import argparse
 
@@ -360,9 +291,9 @@ class HurricaneSettingsServerTest(SimpleTestCase):
             with patch("builtins.open", side_effect=fake_open):
                 self.assertEqual(_get_container_cpu_count(), 1)
 
-    def test_serve_in_asgi_mode_starts_cleanly(self):
+    def test_server_starts_cleanly(self):
         self.server = HurricaneServerDriver()
-        self.server.start_server(params=["--mode", "asgi", "--no-probe", "--port", "8125"])
+        self.server.start_server(params=["--no-probe", "--port", "8125"])
         out, _ = self.server.get_output(read_all=True)
         self.server.stop_server()
 
@@ -371,6 +302,5 @@ class HurricaneSettingsServerTest(SimpleTestCase):
         else:
             self.assertIn("Starting HTTP Server on port 8125", out)
         self.assertIn("Runtime configuration", out)
-        self.assertIn("mode=asgi", out)
         self.assertNotIn("ConfigurationError", out)
         self.assertNotIn("Traceback", out)
