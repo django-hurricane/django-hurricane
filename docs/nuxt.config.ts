@@ -25,7 +25,7 @@ export default defineNuxtConfig({
             'applicationCategory': 'DeveloperApplication',
             'operatingSystem': 'Linux, macOS, Windows',
             'programmingLanguage': 'Python, Rust',
-            'softwareVersion': '2.0.0rc6',
+            'softwareVersion': '2.0.0',
             'license': 'https://opensource.org/licenses/MIT',
             'description': 'The high-performance, Django-native application server with built-in edge defense, native static asset serving, and deep health observability.'
           })

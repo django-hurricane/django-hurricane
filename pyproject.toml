@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-hurricane"
-version = "2.0.0rc6"
+version = "2.0.0"
 description = "The high-performance, Django-native application server"
 readme = "README.md"
 license = { text = "MIT" }
@@ -21,7 +21,7 @@ dependencies = [
     "granian[reload]>=2.0.0",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Web Environment",
     "Framework :: AsyncIO",
     "Framework :: Django",
