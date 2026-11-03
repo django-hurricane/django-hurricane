@@ -1,9 +1,10 @@
-# This workflow will upload a Python Package to PyPI when a release is created
+# This workflow will upload a Python Package to PyPI when a release is published
 name: Upload Python Package
 
 on:
   release:
-    types: [created]
+    types: [published]
+  workflow_dispatch:
 
 jobs:
   build:
@@ -11,18 +12,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-    - name: Set up Python
-      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+    - name: Checkout repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+    - name: Install uv
+      uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
       with:
-        python-version: '3.11'
-    - name: Install Poetry
-      uses: snok/install-poetry@a783c322200f0519c7926aa6faa857c4e23e9263 # v1.4.2
-    - name: Install project
-      run: poetry install --no-interaction
+        enable-cache: true
+    - name: Set up Python
+      run: uv python install 3.12
     - name: Build Python Package
-      run: |
-        poetry build
+      run: uv build
     - name: Store the distribution packages
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
@@ -79,5 +78,6 @@ jobs:
       # sigstore-produced signatures and certificates.
       run: >-
         gh release upload
-        '${{ github.ref_name }}' dist/**
+        '${{ github.event.release.tag_name || github.ref_name }}' dist/*
         --repo '${{ github.repository }}'
+        --clobber
