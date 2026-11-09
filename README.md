@@ -5,7 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](https://opensource.org/licenses/MIT)
 [![Powered by Rust](https://img.shields.io/badge/Rewritten%20in-Rust%20🦀-orange.svg)](https://github.com/emmett-framework/granian)
 [![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/8NTPMVPaKy)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-Follow-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/blueshoe-gmbh/)
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-Follow-0A66C2?logo=linkedin&logoColor=white)](https://www.linkedin.com/company/blueshoe/)
 
 
 <br />
@@ -255,6 +255,6 @@ uv run poe benchmark
 Hurricane is developed and maintained with ❤️ by [Blueshoe](https://www.blueshoe.io).
 
 - 💬 **Discord:** Join the discussion on our [Blueshoe Discord Server](https://discord.gg/8NTPMVPaKy)
-- 💼 **LinkedIn:** Connect with [Blueshoe on LinkedIn](https://www.linkedin.com/company/blueshoe-gmbh/)
+- 💼 **LinkedIn:** Connect with [Blueshoe on LinkedIn](https://www.linkedin.com/company/blueshoe/)
 - ✉️ **Contact:** Need help optimizing your cloud-native Django deployment or Kubernetes architecture? Reach out to us at [hurricane@blueshoe.io](mailto:hurricane@blueshoe.io).
 
