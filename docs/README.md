@@ -116,7 +116,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages
   cancel-in-progress: false
 
 jobs:
@@ -133,8 +133,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
-          cache-dependency-path: 'docs/package-lock.json'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
 
       - name: Install dependencies
         run: |
@@ -149,7 +149,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: 'docs/.output/public'
+          path: docs/.output/public
 
       - name: Deploy to GitHub Pages
         id: deployment

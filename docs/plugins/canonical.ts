@@ -3,14 +3,16 @@ export default defineNuxtPlugin(() => {
   const siteUrl = 'https://django-hurricane.io'
 
   useHead(() => {
-    const cleanPath = route.path === '/' ? '' : route.path.replace(/\/$/, '')
+    const cleanPath = route.path === '/'
+      ? ''
+      : route.path.replace(/\/$/, '')
     return {
       link: [
         {
           rel: 'canonical',
-          href: `${siteUrl}${cleanPath}`
-        }
-      ]
+          href: `${siteUrl}${cleanPath}`,
+        },
+      ],
     }
   })
 })

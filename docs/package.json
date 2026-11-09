@@ -1,20 +1,27 @@
 {
   "name": "django-hurricane-docs",
+  "type": "module",
   "version": "2.0.0-rc.4",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "nuxi dev",
     "build": "nuxi build",
     "generate": "nuxi generate",
-    "preview": "nuxi preview"
-  },
-  "devDependencies": {
-    "@nuxt-themes/docus": "^1.15.1",
-    "mermaid": "^12.2.0",
-    "nuxt": "^3.21.11"
+    "preview": "nuxi preview",
+    "lint": "eslint",
+    "lint:fix": "eslint --fix"
   },
   "dependencies": {
     "simple-analytics-vue": "^3.1.0"
+  },
+  "devDependencies": {
+    "@antfu/eslint-config": "^10.0.0",
+    "@nuxt-themes/docus": "^1.15.1",
+    "@nuxt/eslint": "^1.17.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-better-tailwindcss": "^4.10.0",
+    "eslint-plugin-format": "^2.0.1",
+    "mermaid": "^12.2.0",
+    "nuxt": "^3.21.11"
   }
 }
