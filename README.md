@@ -15,7 +15,7 @@
   <h1 align="center">Hurricane</h1>
   <p align="center">
     <strong>The High-Performance, Django-Native Application Server.</strong><br />
-    <em>Zero-config WSGI & ASGI, built-in edge defense, native static serving, and deep health observability.</em>
+    <em>Zero-config WSGI & ASGI, built-in edge defense, and deep health observability.</em>
   </p>
   <p align="center">
     <a href="https://django-hurricane.io/">Website & Documentation</a> ·
