@@ -1,41 +1,60 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import MermaidBlock from './MermaidBlock.client.vue'
 
 const props = defineProps({
   code: {
     type: String,
-    default: ''
+    default: '',
   },
   language: {
     type: String,
-    default: null
+    default: null,
   },
   filename: {
     type: String,
-    default: null
+    default: null,
   },
   highlights: {
     type: Array as () => number[],
-    default: () => []
-  }
+    default: () => [],
+  },
 })
 
 const hovered = ref(false)
-const isMermaid = computed(() => props.language?.trim().toLowerCase() === 'mermaid')
+const languageKey = computed(() => props.language?.trim().toLowerCase() || '')
+const isMermaid = computed(() => languageKey.value === 'mermaid')
 </script>
 
 <template>
   <ClientOnly v-if="isMermaid">
     <MermaidBlock :code="code" />
     <template #fallback>
-      <div class="my-6 p-4 rounded-xl border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/70 text-center text-sm text-gray-400 font-mono">
+      <div
+        class="
+          my-6 rounded-xl border border-gray-200 bg-white/70 p-4 text-center
+          font-mono text-sm text-gray-400
+          dark:border-gray-800 dark:bg-gray-900/70
+        "
+      >
         Rendering diagram...
       </div>
     </template>
   </ClientOnly>
 
-  <div v-else :class="[`highlight-${language}`]" class="prose-code" @mouseenter="hovered = true" @mouseleave="hovered = false">
+  <div
+    v-else
+    class="prose-code"
+    :class="{
+      'highlight-zsh': languageKey === 'zsh',
+      'highlight-sh': languageKey === 'sh',
+      'highlight-bash': languageKey === 'bash',
+      'highlight-shell': languageKey === 'shell',
+      'highlight-shellscript': languageKey === 'shellscript',
+    }"
+    @mouseenter="hovered = true"
+    @mouseleave="hovered = false"
+  >
     <span v-if="filename" class="filename">
       {{ filename }}
     </span>
@@ -48,53 +67,53 @@ const isMermaid = computed(() => props.language?.trim().toLowerCase() === 'merma
 
 <style lang="ts" scoped>
 css({
-  ".prose-code": {
-    position: "relative",
-    overflow: "hidden",
-    width: "100%",
-    fontSize: '{prose.code.block.fontSize}',
-    margin: '{prose.code.block.margin}',
-    borderRadius: '{radii.md}',
-    borderWidth: '{prose.code.block.border.width}',
-    borderStyle: '{prose.code.block.border.style}',
-    borderColor: '{prose.code.block.border.color}',
-    color: '{prose.code.block.color}',
-    backgroundColor: '{prose.code.block.backgroundColor}',
-    backdropFilter: '{prose.code.block.backdropFilter}',
+  '.prose-code': {
+    'position': 'relative',
+    'overflow': 'hidden',
+    'width': '100%',
+    'fontSize': '{prose.code.block.fontSize}',
+    'margin': '{prose.code.block.margin}',
+    'borderRadius': '{radii.md}',
+    'borderWidth': '{prose.code.block.border.width}',
+    'borderStyle': '{prose.code.block.border.style}',
+    'borderColor': '{prose.code.block.border.color}',
+    'color': '{prose.code.block.color}',
+    'backgroundColor': '{prose.code.block.backgroundColor}',
+    'backdropFilter': '{prose.code.block.backdropFilter}',
 
-    "&.highlight-zsh, &.highlight-sh, &.highlight-bash, &.highlight-shell, &.highlight-shellscript": {
-      ":deep(code)": {
-        ".line": {
-          position: "relative",
-          paddingInlineStart: "1rem"
+    '&.highlight-zsh, &.highlight-sh, &.highlight-bash, &.highlight-shell, &.highlight-shellscript': {
+      ':deep(code)': {
+        '.line': {
+          position: 'relative',
+          paddingInlineStart: '1rem',
         },
-        ".line::before": {
-          content: "'>'",
-          position: "absolute",
-          top: "0",
-          insetInlineStart: "-0.1rem",
-          display: "block",
-          userSelect: "none",
+        '.line::before': {
+          content: '\'>\'',
+          position: 'absolute',
+          top: '0',
+          insetInlineStart: '-0.1rem',
+          display: 'block',
+          userSelect: 'none',
           fontWeight: 700,
           color: '{typography.color.primary.500}',
-          fontFamily: '{font.mono}'
-        }
-      }
-    }
+          fontFamily: '{font.mono}',
+        },
+      },
+    },
   },
 
   '.copy-button': {
-    position: "absolute",
+    position: 'absolute',
     insetInlineEnd: 0,
     bottom: 0,
   },
 
-  ":deep(code)": { display: "flex", flexDirection: "column" },
+  ':deep(code)': { display: 'flex', flexDirection: 'column' },
 
-  ":deep(.line)": { display: "inline-table", minHeight: "1rem" },
+  ':deep(.line)': { display: 'inline-table', minHeight: '1rem' },
 
-  ".filename": {
-    position: "absolute",
+  '.filename': {
+    position: 'absolute',
     top: 0,
     insetInlineEnd: 0,
     padding: '0.5rem 0.75rem',
@@ -108,25 +127,25 @@ css({
   },
 
   '.prose-code:hover .filename': {
-    opacity: 0
+    opacity: 0,
   },
   '.prose-code:hover .filename:hover': {
-    opacity: 1
+    opacity: 1,
   },
-  ":deep(pre)": {
-    display: "flex",
+  ':deep(pre)': {
+    display: 'flex',
     flex: 1,
-    overflowX: "auto",
-    margin: "0",
+    overflowX: 'auto',
+    margin: '0',
     padding: '{prose.code.block.pre.padding}',
     lineHeight: '{lead.relaxed}',
   },
-  ":deep(pre code)": {
+  ':deep(pre code)': {
     paddingInlineEnd: '30px',
   },
 
-  ":deep(.line.highlight)": {
+  ':deep(.line.highlight)': {
     backgroundColor: '{prose.code.block.border.color}',
-  }
+  },
 })
 </style>

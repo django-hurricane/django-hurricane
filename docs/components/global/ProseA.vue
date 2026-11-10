@@ -4,13 +4,13 @@ import { computed } from 'vue'
 const props = defineProps({
   href: {
     type: String,
-    default: ''
+    default: '',
   },
   target: {
     type: String,
     default: undefined,
-    required: false
-  }
+    required: false,
+  },
 })
 
 const isExternal = computed(() => {
@@ -18,7 +18,8 @@ const isExternal = computed(() => {
 })
 
 const linkTarget = computed(() => {
-  if (props.target) return props.target
+  if (props.target)
+    return props.target
   return isExternal.value ? '_blank' : undefined
 })
 
@@ -36,24 +37,24 @@ const linkRel = computed(() => {
 <style lang="ts" scoped>
 css({
   a: {
-    fontFamily: '{typography.font.body}',
-    fontWeight: '{prose.a.fontWeight}',
-    textDecoration: '{prose.a.textDecoration}',
-    borderBottomWidth: '{prose.a.border.width}',
-    borderBottomStyle: '{prose.a.border.style.static}',
-    borderBottomColor: '{prose.a.border.color.static}',
-    paddingBottom: '{prose.a.border.distance}',
-    color: '{prose.a.color.static}',
+    'fontFamily': '{typography.font.body}',
+    'fontWeight': '{prose.a.fontWeight}',
+    'textDecoration': '{prose.a.textDecoration}',
+    'borderBottomWidth': '{prose.a.border.width}',
+    'borderBottomStyle': '{prose.a.border.style.static}',
+    'borderBottomColor': '{prose.a.border.color.static}',
+    'paddingBottom': '{prose.a.border.distance}',
+    'color': '{prose.a.color.static}',
     '&:hover': {
       color: '{prose.a.color.hover}',
       borderColor: '{prose.a.border.color.hover}',
       borderStyle: '{prose.a.border.style.hover}',
     },
     '&:has(img)': {
-      borderWidth: '0'
+      borderWidth: '0',
     },
     '&:has(code)': {
-      borderBottom: '{prose.a.hasCode.borderBottom}',
+      'borderBottom': '{prose.a.hasCode.borderBottom}',
       ':deep(code)': {
         color: '{prose.a.code.color.static}',
         borderWidth: '{prose.a.code.border.width}',
@@ -61,7 +62,7 @@ css({
         borderColor: '{prose.a.code.border.color.static}',
       },
       '&:hover': {
-        borderBottom: '{prose.a.hasCode.borderBottom}',
+        'borderBottom': '{prose.a.hasCode.borderBottom}',
         ':deep(code)': {
           color: '{prose.a.code.color.hover}',
           borderColor: '{prose.a.code.border.color.hover}',
