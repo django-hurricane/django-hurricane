@@ -199,13 +199,6 @@ onMounted(() => {
     >
       {{ chip.label }}
     </span>
-
-    <div
-      class="stage-caption"
-      :style="{ opacity: 0.45 + progress * 0.55 }"
-    >
-      Scroll — Fast-404 sweeps scanners away
-    </div>
   </div>
 </template>
 
@@ -310,25 +303,6 @@ html:not(.dark) .request-chip {
   border-color: rgba(185, 28, 28, 0.35);
 }
 
-.stage-caption {
-  position: absolute;
-  left: 50%;
-  bottom: 1.15rem;
-  z-index: 5;
-  transform: translateX(-50%);
-  font-size: 0.72rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: #89e7c3;
-  text-shadow: 0 1px 10px rgba(0, 0, 0, 0.45);
-  white-space: nowrap;
-}
-html:not(.dark) .stage-caption {
-  color: #0c4b33;
-  text-shadow: none;
-}
-
 @keyframes head-spin {
   to {
     transform: rotate(360deg);
@@ -380,9 +354,6 @@ html:not(.dark) .stage-caption {
   .request-chip {
     font-size: 0.65rem;
     opacity: 0.55;
-  }
-  .stage-caption {
-    bottom: 0.75rem;
   }
 }
 </style>
