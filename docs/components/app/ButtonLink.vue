@@ -11,7 +11,6 @@ defineProps({
   color: computedStyle<keyof PinceauTheme['color']>('primary'),
   href: {
     type: String,
-    required: true,
     default: '',
   },
   icon: {
@@ -23,7 +22,12 @@ defineProps({
 </script>
 
 <template>
-  <NuxtLink class="button-link" :to="href" :target="blank ? '_blank' : undefined">
+  <NuxtLink
+    class="button-link"
+    :to="href"
+    :target="blank ? '_blank' : undefined"
+    :style="{ marginInlineEnd: '1rem', marginBlockEnd: '0.75rem' }"
+  >
     <Icon v-if="icon" :name="icon" />
     <ContentSlot :use="$slots.default" unwrap="p ul li" />
   </NuxtLink>
@@ -81,7 +85,13 @@ css({
     },
     transparent: {
       true: {
-        backgroundColor: `transparent`,
+        'backgroundColor': 'transparent',
+        'border': '1px solid var(--button-primary)',
+        'color': 'var(--button-primary)',
+        '&:hover': {
+          backgroundColor: 'var(--button-primary)',
+          color: '{color.white}',
+        },
       },
     },
   },
