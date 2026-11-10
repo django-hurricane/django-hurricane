@@ -174,6 +174,11 @@ html.dark .hurricane-footer {
   gap: 0.75rem;
   width: 100%;
 }
+@media (min-width: 640px) {
+  .footer-container {
+    justify-items: stretch;
+  }
+}
 
 .brand {
   grid-column: span 12;

@@ -3,7 +3,28 @@ import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
   extends: '@nuxt-themes/docus',
-  modules: ['@nuxt/eslint', '~/modules/pinceau-type-imports'],
+  modules: [
+    '@nuxt/eslint',
+    '~/modules/pinceau-type-imports',
+    // After layers register dirs: prefer local Prose*/ButtonLink (silences duplicate WARNs).
+    (_options, nuxt) => {
+      nuxt.hook('modules:done', () => {
+        nuxt.hook('components:dirs', (dirs) => {
+          for (const dir of dirs) {
+            if (typeof dir === 'string' || !dir.path)
+              continue
+            const path = dir.path.replace(/\\/g, '/')
+            if (!path.includes('node_modules') && path.includes('/components/global'))
+              dir.priority = 100
+            else if (path.includes('@nuxt-themes/typography') && path.includes('/global'))
+              dir.priority = 0
+            else if (path.includes('@nuxt-themes/elements') && path.includes('/globals'))
+              dir.priority = 0
+          }
+        })
+      })
+    },
+  ],
   compatibilityDate: '2026-11-06',
 
   // Avoid noisy first-run Vite resolve errors for the experimental app manifest
