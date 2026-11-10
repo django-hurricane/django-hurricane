@@ -14,7 +14,7 @@ export default defineAppConfig({
       linkedin: {
         label: 'LinkedIn',
         icon: 'fa-brands:linkedin',
-        href: 'https://www.linkedin.com/company/blueshoe-gmbh/',
+        href: 'https://www.linkedin.com/company/blueshoe/',
       },
     },
     github: {
@@ -57,7 +57,6 @@ export default defineAppConfig({
         {
           text: 'LinkedIn',
           href: 'https://www.linkedin.com/company/blueshoe-gmbh/',
-          target: '_blank',
         },
         {
           text: 'Legal Notice',
