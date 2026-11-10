@@ -11,27 +11,65 @@ const props = defineProps<{
 }>()
 
 const settingName = computed(() => props.setting || props.name || '')
+
+const alias = computed(() => {
+  const value = props.alsoSupports?.trim()
+  if (!value)
+    return ''
+  // Hide only when it duplicates the Env row (setting name already shown as title)
+  if (value === props.env)
+    return ''
+  if (value === settingName.value)
+    return ''
+  return value
+})
+
+const anchor = computed(() =>
+  settingName.value
+    ? settingName.value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+    : '',
+)
+
+const metaRows = computed(() => {
+  const rows: Array<{ label: string, value: string, kind: string }> = []
+  if (props.cli)
+    rows.push({ label: 'CLI', value: props.cli, kind: 'cli' })
+  if (props.env)
+    rows.push({ label: 'Env', value: props.env, kind: 'env' })
+  if (props.default)
+    rows.push({ label: 'Default', value: props.default, kind: 'default' })
+  if (alias.value)
+    rows.push({ label: 'Also', value: alias.value, kind: 'alias' })
+  return rows
+})
 </script>
 
 <template>
-  <div class="config-param-block">
+  <div
+    :id="anchor || undefined"
+    class="config-param-block"
+  >
     <div v-if="settingName" class="config-param-header">
-      <div class="config-param-title-group">
-        <code class="config-param-name">{{ settingName }}</code>
-        <span v-if="alsoSupports" class="also-supports-tag">or <code>{{ alsoSupports }}</code></span>
-      </div>
-      <div class="config-param-meta">
-        <span v-if="cli" class="meta-tag meta-cli">CLI: <code>{{ cli }}</code></span>
-        <span v-if="env" class="meta-tag meta-env">Env: <code>{{ env }}</code></span>
-        <span v-if="default" class="meta-tag meta-default">Default: <code>{{ default }}</code></span>
-      </div>
+      <code class="config-param-name">{{ settingName }}</code>
     </div>
-    <div v-else class="config-param-meta standalone-meta">
-      <span v-if="cli" class="meta-tag meta-cli">CLI: <code>{{ cli }}</code></span>
-      <span v-if="env" class="meta-tag meta-env">Env: <code>{{ env }}</code></span>
-      <span v-if="default" class="meta-tag meta-default">Default: <code>{{ default }}</code></span>
-      <span v-if="alsoSupports" class="meta-tag meta-supports">Also accepts: <code>{{ alsoSupports }}</code></span>
-    </div>
+
+    <dl v-if="metaRows.length" class="config-param-meta">
+      <div
+        v-for="row in metaRows"
+        :key="row.label"
+        class="meta-cell"
+        :class="{
+          'meta-cli': row.kind === 'cli',
+          'meta-env': row.kind === 'env',
+          'meta-default': row.kind === 'default',
+          'meta-alias': row.kind === 'alias',
+        }"
+      >
+        <dt>{{ row.label }}</dt>
+        <dd><code>{{ row.value }}</code></dd>
+      </div>
+    </dl>
+
     <div class="config-param-body">
       <slot />
     </div>
@@ -40,120 +78,115 @@ const settingName = computed(() => props.setting || props.name || '')
 
 <style scoped>
 .config-param-block {
-  margin: 0.75rem 0 1.75rem 0;
-  padding: 1.25rem 1.5rem;
+  margin: 0.85rem 0 1.5rem;
+  padding: 1.1rem 1.25rem 1.2rem;
   border-radius: 0.75rem;
-  border: 1px solid rgba(156, 163, 175, 0.25);
-  background-color: rgba(255, 255, 255, 0.65);
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
+  border: 1px solid rgba(12, 75, 51, 0.14);
+  background-color: rgba(255, 255, 255, 0.72);
+  scroll-margin-top: 5.5rem;
 }
 html.dark .config-param-block {
-  border-color: rgba(75, 85, 99, 0.35);
+  border-color: rgba(68, 183, 139, 0.22);
   background-color: rgba(17, 24, 39, 0.55);
-  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.2);
 }
 
 .config-param-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  margin-bottom: 0.75rem;
-}
-
-.standalone-meta {
-  margin-bottom: 0.75rem;
-}
-
-.config-param-title-group {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  margin-bottom: 0.85rem;
 }
 
 .config-param-name {
-  font-size: 1.05rem;
+  display: inline-block;
+  font-size: 1rem;
   font-weight: 700;
   padding: 0.2rem 0.55rem;
   border-radius: 0.375rem;
-  color: #0f766e;
-  background-color: rgba(204, 251, 241, 0.5);
-  border: 1px solid rgba(153, 246, 228, 0.8);
+  color: #0c4b33;
+  background-color: rgba(147, 215, 183, 0.28);
+  border: 1px solid rgba(32, 170, 118, 0.35);
 }
 html.dark .config-param-name {
-  color: #5eead4;
-  background-color: rgba(19, 78, 74, 0.4);
-  border-color: rgba(15, 118, 110, 0.6);
-}
-
-.also-supports-tag {
-  font-size: 0.75rem;
-  color: #6b7280;
-}
-html.dark .also-supports-tag {
-  color: #9ca3af;
-}
-.also-supports-tag code {
-  color: inherit;
-  font-weight: 600;
+  color: #89e7c3;
+  background-color: rgba(9, 46, 32, 0.55);
+  border-color: rgba(68, 183, 139, 0.4);
 }
 
 .config-param-meta {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: 0.5rem;
+  margin: 0 0 0.9rem;
+}
+@media (min-width: 640px) {
+  .config-param-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
-.meta-tag {
-  font-size: 0.75rem;
-  padding: 0.15rem 0.5rem;
-  border-radius: 0.25rem;
-  font-weight: 500;
+.meta-cell {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.5rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.4rem;
+  background: rgba(243, 244, 246, 0.75);
+  border: 1px solid rgba(229, 231, 235, 0.9);
+}
+html.dark .meta-cell {
+  background: rgba(31, 41, 55, 0.65);
+  border-color: rgba(55, 65, 81, 0.85);
 }
 
-.meta-cli, .meta-env {
-  background-color: rgba(243, 244, 246, 0.8);
-  color: #4b5563;
-  border: 1px solid rgba(229, 231, 235, 0.8);
+.meta-cell dt {
+  margin: 0;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+  padding-top: 0.15rem;
 }
-html.dark .meta-cli, html.dark .meta-env {
-  background-color: rgba(31, 41, 55, 0.8);
-  color: #d1d5db;
-  border-color: rgba(55, 65, 81, 0.8);
-}
-
-.meta-default {
-  background-color: rgba(238, 242, 255, 0.8);
-  color: #4338ca;
-  border: 1px solid rgba(224, 231, 255, 0.8);
-}
-html.dark .meta-default {
-  background-color: rgba(30, 27, 75, 0.5);
-  color: #a5b4fc;
-  border-color: rgba(67, 56, 202, 0.6);
+html.dark .meta-cell dt {
+  color: #9ca3af;
 }
 
-.meta-supports {
-  background-color: rgba(240, 253, 250, 0.8);
-  color: #0f766e;
-  border: 1px solid rgba(153, 246, 228, 0.8);
-}
-html.dark .meta-supports {
-  background-color: rgba(19, 78, 74, 0.4);
-  color: #5eead4;
-  border-color: rgba(15, 118, 110, 0.6);
+.meta-cell dd {
+  margin: 0;
+  min-width: 0;
 }
 
-.meta-tag code {
+.meta-cell code {
+  display: block;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  word-break: break-word;
   background: transparent !important;
   border: none !important;
   padding: 0 !important;
-  color: inherit !important;
+  color: #111827;
+}
+html.dark .meta-cell code {
+  color: #e5e7eb;
+}
+
+.meta-default {
+  background: rgba(238, 242, 255, 0.7);
+  border-color: rgba(199, 210, 254, 0.9);
+}
+html.dark .meta-default {
+  background: rgba(30, 27, 75, 0.4);
+  border-color: rgba(67, 56, 202, 0.45);
+}
+
+.meta-alias {
+  background: rgba(240, 253, 244, 0.75);
+  border-color: rgba(167, 243, 208, 0.9);
+}
+html.dark .meta-alias {
+  background: rgba(6, 78, 59, 0.35);
+  border-color: rgba(16, 185, 129, 0.35);
 }
 
 .config-param-body {

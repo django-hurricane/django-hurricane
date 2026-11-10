@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import type { PinceauTheme } from 'pinceau/types'
-import { computedStyle } from 'pinceau/runtime'
+import type { PropType } from 'vue'
 
-defineProps({
+const props = defineProps({
   blank: {
     type: Boolean,
     required: false,
     default: false,
   },
-  color: computedStyle<keyof PinceauTheme['color']>('primary'),
+  color: {
+    type: String as PropType<keyof PinceauTheme['color']>,
+    default: 'primary',
+  },
   href: {
     type: String,
     default: '',
@@ -17,18 +20,25 @@ defineProps({
     type: String,
     default: '',
   },
-  ...variants,
+  size: {
+    type: String as PropType<'small' | 'medium' | 'large' | 'giant'>,
+    default: 'medium',
+  },
+  transparent: {
+    type: Boolean,
+    default: false,
+  },
 })
 </script>
 
 <template>
   <NuxtLink
     class="button-link"
-    :to="href"
-    :target="blank ? '_blank' : undefined"
+    :to="props.href"
+    :target="props.blank ? '_blank' : undefined"
     :style="{ marginInlineEnd: '1rem', marginBlockEnd: '0.75rem' }"
   >
-    <Icon v-if="icon" :name="icon" />
+    <Icon v-if="props.icon" :name="props.icon" />
     <ContentSlot :use="$slots.default" unwrap="p ul li" />
   </NuxtLink>
 </template>
