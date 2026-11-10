@@ -3,7 +3,7 @@ import { defineNuxtConfig } from 'nuxt/config'
 
 export default defineNuxtConfig({
   extends: '@nuxt-themes/docus',
-  modules: ['@nuxt/eslint', '~/modules/pinceau-type-imports', '~/modules/prefer-local-content'],
+  modules: ['@nuxt/eslint', '~/modules/pinceau-type-imports'],
   compatibilityDate: '2026-11-06',
 
   // Avoid noisy first-run Vite resolve errors for the experimental app manifest
@@ -16,22 +16,6 @@ export default defineNuxtConfig({
       standalone: false,
     },
   },
-
-  // Same registration shape as Docus so local overrides win over theme layers
-  components: [
-    {
-      path: '~/components/app',
-      pathPrefix: false,
-      global: true,
-      priority: 10,
-    },
-    {
-      path: '~/components/global',
-      pathPrefix: false,
-      global: true,
-      priority: 10,
-    },
-  ],
 
   vite: {
     optimizeDeps: {
