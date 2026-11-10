@@ -7,8 +7,12 @@ defineProps<{
 
 <template>
   <div class="feature-box">
-    <div class="feature-box-tag" v-if="tag">{{ tag }}</div>
-    <h3 class="feature-box-title">{{ title }}</h3>
+    <div v-if="tag" class="feature-box-tag">
+      {{ tag }}
+    </div>
+    <h3 class="feature-box-title">
+      {{ title }}
+    </h3>
     <div class="feature-box-content">
       <slot />
     </div>
@@ -32,17 +36,20 @@ html.dark .feature-box {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
 }
 .feature-box:hover {
-  border-color: rgba(13, 148, 136, 0.6);
+  border-color: rgba(12, 75, 51, 0.55);
   transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(13, 148, 136, 0.1);
+  box-shadow: 0 10px 15px -3px rgba(12, 75, 51, 0.12);
 }
 .feature-box-tag {
   font-size: 0.75rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: #0d9488;
+  color: #0c4b33;
   margin-bottom: 0.5rem;
+}
+html.dark .feature-box-tag {
+  color: #44b78b;
 }
 .feature-box-title {
   font-size: 1.125rem;
