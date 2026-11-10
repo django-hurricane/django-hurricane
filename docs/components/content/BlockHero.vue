@@ -97,7 +97,6 @@ defineProps({
             </a>
           </template>
         </div>
-
       </div>
 
       <div class="support">
