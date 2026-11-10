@@ -256,6 +256,9 @@ html.dark .dark-only {
 html.dark .announce {
   color: #44b78b;
 }
+.announce :deep(a) {
+  margin-inline-start: 0.35em;
+}
 
 .title {
   font-size: 2.25rem;
@@ -284,10 +287,17 @@ html.dark .announce {
   align-items: center;
   gap: 1.25rem;
 }
+.actions :deep(.button-link) {
+  margin-inline-end: 0 !important;
+  margin-block-end: 0 !important;
+}
 
 .secondary {
+  display: inline-flex;
+  align-items: center;
   font-size: 0.95rem;
   font-weight: 600;
+  line-height: 1;
   color: var(--elements-text-secondary-color-static, #4b5563);
   text-decoration: none;
   transition: color 0.15s ease-in-out;

@@ -67,6 +67,18 @@ export default defineNuxtConfig({
             code, kbd, pre, .font-mono {
               font-family: var(--font-mono);
             }
+            .docs-aside-tree .icon {
+              width: 1rem !important;
+              height: 1rem !important;
+              min-width: 1rem !important;
+              min-height: 1rem !important;
+              flex-shrink: 0 !important;
+              margin-right: 0.625rem !important;
+            }
+            .docs-aside-tree .link .content,
+            .docs-aside-tree .title-collapsible-button .content {
+              min-width: 0;
+            }
           `,
         },
       ],

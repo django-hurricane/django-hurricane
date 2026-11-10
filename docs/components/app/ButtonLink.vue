@@ -36,7 +36,6 @@ const props = defineProps({
     class="button-link"
     :to="props.href"
     :target="props.blank ? '_blank' : undefined"
-    :style="{ marginInlineEnd: '1rem', marginBlockEnd: '0.75rem' }"
   >
     <Icon v-if="props.icon" :name="props.icon" />
     <ContentSlot :use="$slots.default" unwrap="p ul li" />
@@ -51,6 +50,8 @@ css({
     'display': 'inline-flex',
     'flex': 'none',
     'alignItems': 'center',
+    'marginInlineEnd': '1rem',
+    'marginBlockEnd': '0.75rem',
     'borderRadius': '{radii.md}',
     'transition': 'color 100ms ease-in-out',
     'fontWeight': '{fontWeight.bold}',
