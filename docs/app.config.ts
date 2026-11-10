@@ -56,7 +56,8 @@ export default defineAppConfig({
         },
         {
           text: 'LinkedIn',
-          href: 'https://www.linkedin.com/company/blueshoe-gmbh/',
+          href: 'https://www.linkedin.com/company/blueshoe/',
+          target: '_blank',
         },
         {
           text: 'Legal Notice',
