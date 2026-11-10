@@ -17,10 +17,16 @@ export default defineNuxtConfig({
     },
   },
 
-  // Same registration shape as Docus so AppFooter / Logo overrides win cleanly
+  // Same registration shape as Docus so local overrides win over theme layers
   components: [
     {
       path: '~/components/app',
+      pathPrefix: false,
+      global: true,
+      priority: 10,
+    },
+    {
+      path: '~/components/global',
       pathPrefix: false,
       global: true,
       priority: 10,

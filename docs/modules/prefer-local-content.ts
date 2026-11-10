@@ -1,12 +1,10 @@
 import { defineNuxtModule } from '@nuxt/kit'
 
 /**
- * @nuxt/content registers `components/content` at default priority 1, same as
- * `@nuxt-themes/elements` landing components. Equal priorities trigger Nuxt's
- * "Two component files resolving to the same name BlockHero" warning.
+ * Theme layers register Prose and content components at default priority.
+ * Equal or lower local priority means Mermaid-aware ProseCode never wins.
  *
- * Register the priority bump after other modules so we run last on
- * `components:dirs` and can raise Content's unshifted local dir.
+ * Bump local content + global dirs after other modules so overrides stick.
  */
 export default defineNuxtModule({
   meta: {
@@ -18,8 +16,12 @@ export default defineNuxtModule({
         for (const dir of dirs) {
           if (typeof dir === 'string')
             continue
-          if (dir.path?.includes('/components/content'))
+          if (
+            dir.path?.includes('/components/content')
+            || dir.path?.includes('/components/global')
+          ) {
             dir.priority = 10
+          }
         }
       })
     })
