@@ -9,53 +9,65 @@ export default defineAppConfig({
       discord: {
         label: 'Discord',
         icon: 'fa-brands:discord',
-        href: 'https://discord.gg/8NTPMVPaKy'
+        href: 'https://discord.gg/8NTPMVPaKy',
       },
       linkedin: {
         label: 'LinkedIn',
         icon: 'fa-brands:linkedin',
-        href: 'https://www.linkedin.com/company/blueshoe/'
-      }
+        href: 'https://www.linkedin.com/company/blueshoe/',
+      },
     },
     github: {
       dir: 'docs/content',
       branch: 'main',
       repo: 'django-hurricane',
       owner: 'django-hurricane',
-      edit: true
+      edit: true,
     },
     aside: {
-      level: 0,
-      exclude: []
+      // Level 1 enables top-level header nav (Guides, Configuration, …)
+      level: 1,
+      exclude: [],
     },
     header: {
       logo: true,
       showLinkIcon: true,
-      exclude: []
+      exclude: [],
     },
     footer: {
       credits: {
-        text: 'The Django Hurricane Community & Blueshoe',
-        href: 'https://www.blueshoe.io'
+        text: 'Maintained by Blueshoe',
+        href: 'https://www.blueshoe.io',
       },
       textLinks: [
         {
+          text: 'GitHub Issues',
+          href: 'https://github.com/django-hurricane/django-hurricane/issues',
+          target: '_blank',
+        },
+        {
+          text: 'hello@blueshoe.io',
+          href: 'mailto:hello@blueshoe.io',
+        },
+        {
           text: 'Discord',
-          href: 'https://discord.gg/8NTPMVPaKy'
+          href: 'https://discord.gg/8NTPMVPaKy',
+          target: '_blank',
         },
         {
           text: 'LinkedIn',
-          href: 'https://www.linkedin.com/company/blueshoe/'
+          href: 'https://www.linkedin.com/company/blueshoe/',
+          target: '_blank',
         },
         {
           text: 'Legal Notice',
-          href: '/legal-notice'
+          href: '/legal-notice',
         },
         {
           text: 'Privacy Policy',
-          href: '/data-privacy'
-        }
-      ]
-    }
-  }
+          href: '/data-privacy',
+        },
+      ],
+    },
+  },
 })

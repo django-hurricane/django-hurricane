@@ -9,14 +9,16 @@ withDefaults(
   }>(),
   {
     linkText: 'Learn More →',
-  }
+  },
 )
 </script>
 
 <template>
-  <a :href="url" target="_blank" rel="noopener noreferrer" class="ecosystem-card">
+  <a
+    :href="url" target="_blank" rel="noopener noreferrer" class="ecosystem-card"
+  >
     <div class="ecosystem-card-header">
-      <img :src="logo" :alt="title" class="ecosystem-logo" />
+      <img :src="logo" :alt="title" class="ecosystem-logo">
       <span v-if="tag" class="ecosystem-tag">{{ tag }}</span>
     </div>
     <h3 class="ecosystem-title">{{ title }}</h3>
