@@ -32,10 +32,20 @@ const props = defineProps({
 </script>
 
 <template>
+  <a
+    v-if="props.blank"
+    class="button-link"
+    :href="props.href"
+    target="_blank"
+    rel="noopener noreferrer"
+  >
+    <Icon v-if="props.icon" :name="props.icon" />
+    <ContentSlot :use="$slots.default" unwrap="p ul li" />
+  </a>
   <NuxtLink
+    v-else
     class="button-link"
     :to="props.href"
-    :target="props.blank ? '_blank' : undefined"
   >
     <Icon v-if="props.icon" :name="props.icon" />
     <ContentSlot :use="$slots.default" unwrap="p ul li" />
