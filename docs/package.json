@@ -21,7 +21,7 @@
     "eslint": "^10.14.0",
     "eslint-plugin-better-tailwindcss": "^4.10.0",
     "eslint-plugin-format": "^2.0.1",
-    "mermaid": "^12.2.0",
+    "mermaid": "^12.3.0",
     "nuxt": "^3.21.11"
   }
 }
