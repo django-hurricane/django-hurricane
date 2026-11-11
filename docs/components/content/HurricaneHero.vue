@@ -83,7 +83,7 @@ defineProps({
         <div class="actions">
           <ContentSlot v-if="$slots.actions" :use="$slots.actions" unwrap="p" />
           <template v-else>
-            <ButtonLink v-if="cta && cta.length" class="cta" bold size="medium" :href="(cta[1] as any)">
+            <ButtonLink v-if="cta && cta.length" class="cta" size="medium" :href="(cta[1] as any)">
               {{ cta[0] }}
             </ButtonLink>
             <a
