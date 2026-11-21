@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 const reducedMotion = ref(false)
 
@@ -98,8 +98,20 @@ function chipStyle(chip: typeof chips[number]) {
   }
 }
 
+let motionMedia: MediaQueryList | null = null
+function syncReducedMotion() {
+  if (motionMedia)
+    reducedMotion.value = motionMedia.matches
+}
+
 onMounted(() => {
-  reducedMotion.value = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  motionMedia = window.matchMedia('(prefers-reduced-motion: reduce)')
+  syncReducedMotion()
+  motionMedia.addEventListener('change', syncReducedMotion)
+})
+
+onUnmounted(() => {
+  motionMedia?.removeEventListener('change', syncReducedMotion)
 })
 </script>
 

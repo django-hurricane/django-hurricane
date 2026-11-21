@@ -23,21 +23,47 @@ const props = withDefaults(
 const activeTab = ref<'uv' | 'pip'>('uv')
 const copied = ref(false)
 
+function markCopied() {
+  copied.value = true
+  setTimeout(() => {
+    copied.value = false
+  }, 2000)
+}
+
+function copyWithTextarea(text: string) {
+  const textarea = document.createElement('textarea')
+  textarea.value = text
+  textarea.setAttribute('readonly', '')
+  textarea.style.position = 'fixed'
+  textarea.style.opacity = '0'
+  document.body.appendChild(textarea)
+  textarea.select()
+  const ok = document.execCommand('copy')
+  document.body.removeChild(textarea)
+  return ok
+}
+
 async function copyCommand() {
   const text = activeTab.value === 'uv'
     ? props.snippetUv
     : props.snippetPip
   try {
-    if (typeof navigator !== 'undefined' && navigator.clipboard) {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text)
-      copied.value = true
-      setTimeout(() => {
-        copied.value = false
-      }, 2000)
+      markCopied()
+      return
     }
   }
   catch {
-    // Fallback or ignore
+    // Fall through to textarea fallback
+  }
+
+  try {
+    if (typeof document !== 'undefined' && copyWithTextarea(text))
+      markCopied()
+  }
+  catch {
+    // Ignore copy failures
   }
 }
 </script>

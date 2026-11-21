@@ -25,8 +25,7 @@ export default withNuxt(
     },
     settings: {
       'better-tailwindcss': {
-        tailwindConfig: 'tailwind.config.ts',
-        cwd: './blueshoe-core',
+        cwd: '.',
       },
     },
   },

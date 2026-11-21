@@ -90,6 +90,11 @@ export default defineNuxtConfig({
             .docs-aside-tree .title-collapsible-button .content {
               min-width: 0;
             }
+            .docs-aside-tree .link .content > span,
+            .docs-aside-tree .title-collapsible-button .content > span {
+              overflow-wrap: anywhere;
+              white-space: normal;
+            }
           `,
         },
       ],
